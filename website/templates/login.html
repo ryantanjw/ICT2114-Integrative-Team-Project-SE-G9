@@ -1,0 +1,17 @@
+{%extends "base_layout_auth.html" %}
+{%block title%}Home - IRat{% endblock %}
+{%block content%}
+<div class="interaction_area">
+    <div class="row d-flex w-100 h-100">
+        <div class="d-flex col-12 col-lg-4 flex-column justify-content-center align-items-center">
+            <h1 class="">Welcome to IRat!</h1>
+            <p class="lead">Your intelligent risk assessment platform.</p>
+            <a href="/get-started" class="btn btn-primary">Get Started</a>
+        </div>
+        <div class="d-none d-lg-flex col-lg-8 flex-column justify-content-center align-items-center p-5">
+            <img src="{{url_for('static', filename='img/sit_placeholder.jpg')}}" alt="SIT Scenery" class="placeholder-img w-100 h-100 rounded">
+        </div>
+
+    </div>
+</div>
+{%endblock%}

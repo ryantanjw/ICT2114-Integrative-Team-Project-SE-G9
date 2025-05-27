@@ -1,0 +1,56 @@
+<nav class="navbar navbar-expand justify-content-between navbar-light">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/">
+      <img src="{{url_for('static',filename="img/logo.png")}}" alt="Logo" width="50%" class="d-inline-block align-text-top logo-img">
+    </a>
+    <ul class="navbar-nav d-flex justify-content-end text-dark">
+      <!--<li class="nav-item">
+        <a class="nav-link active" aria-current="page" href="/">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/about">About</a>
+      </li>-->
+      <li class="nav-item">
+          <span class="material-symbols-outlined" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasLeft" aria-controls="offcanvasRight">Menu</span>
+        <!--<button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasLeft" aria-controls="offcanvasRight">Toggle right offcanvas</button>-->
+      </li>
+    </ul>
+  </div>
+</nav>
+
+
+<div class="offcanvas offcanvas-start sidebar-mini" tabindex="-1" id="offcanvasLeft" aria-labelledby="offcanvasLeftLabel">
+  <div class="offcanvas-header d-flex justify-content-center">
+    <!--<h5 id="offcanvasRightLabel">Offcanvas right</h5>-->
+    <span class="material-symbols-outlined"  type="button" data-bs-dismiss="offcanvas" aria-label="Close">close</span>
+    <!--<button type="button" class="btn-close text-reset m-0" data-bs-dismiss="offcanvas" aria-label="Close"></button>-->
+  </div>
+  <div class="offcanvas-body">
+   <ul class="nav flex-column">
+    <li class="nav-item">
+      <a class="nav-link" href="#">
+        <div class="cta_btn d-flex flex-column align-items-center">
+          <span class="material-symbols-outlined">home</span>
+          <p class="nav_title">Home</p>
+        </div>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="#">
+        <div class="cta_btn d-flex flex-column align-items-center">
+          <span class="material-symbols-outlined">check_circle</span>
+          <p class="nav_title">Completed</p>
+        </div>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="#">
+        <div class="cta_btn d-flex flex-column align-items-center">
+          <span class="material-symbols-outlined">settings</span>
+          <p class="nav_title">Settings</p>
+        </div>
+      </a>
+    </li>
+  </ul>
+  </div>
+</div>
