@@ -331,3 +331,21 @@ p,h1,h2,h3,h4,h5,a,::placeholder{
 .placeholder-img{
  object-fit: cover;
 }
+
+.paragraph_text{
+  font-weight: 300;
+  color:#1E1E1E;
+}
+
+
+
+.form-control:focus {
+  box-shadow: none !important;
+  outline: none !important;
+  border-color: #E8E8E8; /* Optional: matches default border color */
+}
+
+.form-control {
+  padding: 0.75rem 0.75rem !important;
+}
+

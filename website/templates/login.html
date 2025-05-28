@@ -3,11 +3,27 @@
 {%block content%}
 <div class="interaction_area">
     <div class="row d-flex w-100 h-100 m-0 p-0">
-        <div class="d-flex col-12 col-lg-4 flex-column justify-content-center align-items-center">
-            <h1 class="">Welcome to IRat!</h1>
-            <p>Your intelligent risk assessment platform.</p>
-            <a href="/get-started" class="btn btn-primary">Get Started</a>
+        <!-- Login Form -->
+        <div class="d-flex col-12 col-lg-4 flex-column justify-content-start align-items-start px-5" style="background-color: white;">
+            <a class="navbar-brand mx-auto my-5" href="#">
+                <img src="{{url_for('static', filename='img/logo.png')}}" alt="SIT Logo" height="120vh" style="display: block;">
+            </a>
+            <h3 class="pb-4">Login</h3>
+            <p class="paragraph_text">Log in using your registered SIT email address and associated password to access the system.</p>
+            <form method="POST" class="w-100">
+                <div class="form-group">
+                    <label for="email" class="mb-2">SIT Email</label>
+                    <input type="email" class="form-control w-100" id="email" name="email" placeholder="Enter your SIT email" required>
+                    <label for="password" class="my-2 pt-2">Password</label>
+                    <input type="password" class="form-control w-100" id="password" name="password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn btn-dark mt-5 w-100 form-control">Login</button>
+
+            </form>
+            
         </div>
+
+        <!-- Image Placeholder-->
         <div class="d-none d-lg-flex col-lg-8 flex-column justify-content-center align-items-center p-5">
             <img src="{{url_for('static', filename='img/sit_placeholder.jpg')}}" alt="SIT Scenery" class="placeholder-img w-100 h-100 rounded">
         </div>
