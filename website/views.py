@@ -1,4 +1,4 @@
-from flask import Blueprint,render_template,request
+from flask import Blueprint, render_template, request, jsonify
 
 views = Blueprint('views',__name__,static_folder='static')
 
@@ -10,6 +10,10 @@ review_sentiment_per=0.0
 @views.route('/')
 def home():
     return render_template("home.html")
+
+@views.route('/api/hello')
+def hello():
+    return jsonify({"message": "Hello from Banana 🍌!? Nononono????"})
 
 
 @views.route('/banana')
