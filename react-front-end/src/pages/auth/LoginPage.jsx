@@ -6,7 +6,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   return (
-    <div className="bg-white dark:bg-gray-900 w-screen">
+    <div className="bg-white  w-screen">
       <div className="flex justify-center h-screen">
          {/* Left form panel */}
         <div className="flex flex-col items-center justify-start w-full px-2 mx-auto xl:w-1/3">
@@ -20,10 +20,10 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="text-start mt-20">
-                  <h2 className="text-4xl font-bold text-gray-700 dark:text-white">
+                  <h2 className="text-4xl font-bold text-gray-700">
                     Login
                   </h2>
-                  <p className="mt-5 text-gray-500 dark:text-gray-300">
+                  <p className="mt-5 text-gray-500">
                     Log in using your registered SIT email address and associated password to access the system.
                   </p>
                 </div>
