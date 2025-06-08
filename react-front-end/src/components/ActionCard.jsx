@@ -15,7 +15,7 @@ export default function ActionCard({
       <div className="flex justify-between items-start">
         <div>
           <h5 className="text-lg  xl:text-xl  font-semibold">{header}</h5>
-          <p className="mt-2 text-sm xl:text-base text-gray-600">{subtext}</p>
+          <p className="mt-2 text-base text-gray-600">{subtext}</p>
         </div>
         <div className="text-3xl">
           {icon}

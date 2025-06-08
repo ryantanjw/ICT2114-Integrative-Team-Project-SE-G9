@@ -4,11 +4,11 @@ import { FaBars } from "react-icons/fa";
 
 export default function Header({ activePage = "" }) {
     const [collapsed, setCollapsed] = useState(
-      () => window.matchMedia("(max-width: 1026px)").matches
+      () => window.matchMedia("(max-width: 1535px)").matches
     );
     // auto-collapse under lg breakpoint (1024px)
     useEffect(() => {
-      const mq = window.matchMedia("(max-width: 1023px)");
+      const mq = window.matchMedia("(max-width: 1535px)");
       const onChange = (e) => setCollapsed(e.matches);
       mq.addEventListener("change", onChange);
       return () => mq.removeEventListener("change", onChange);
