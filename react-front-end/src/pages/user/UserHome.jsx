@@ -18,7 +18,7 @@ export default function UserHome() {
             <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
                 <ActionCard
                     header="Account Enrolment"
-                    subtext="Grant new personnel access to hazard reporting and risk assessments"
+                    subtext="Grant new personnel access to risk assessments"
                     onStart={() => alert("Account Enrolment clicked!")}
                     icon={<MdPeople className="text-3xl" />}
                 />
