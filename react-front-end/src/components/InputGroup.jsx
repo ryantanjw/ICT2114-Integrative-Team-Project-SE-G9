@@ -17,7 +17,7 @@ export default function InputGroup({
         <div className="flex justify-between items-center mb-2">
           <label
             htmlFor={id}
-            className="text-sm text-gray-600 dark:text-gray-200"
+            className="text-sm text-gray-600"
           >
             {label}
           </label>
@@ -28,7 +28,7 @@ export default function InputGroup({
       ) : (
         <label
           htmlFor={id}
-          className="block mb-2 text-sm text-gray-600 dark:text-gray-200"
+          className="block mb-2 text-sm text-gray-600"
         >
           {label}
         </label>
