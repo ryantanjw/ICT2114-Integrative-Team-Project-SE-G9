@@ -31,3 +31,21 @@ Follow these steps to set up this project:
 ### 4. Install Project Requirements
 
     pip install -r requirements.txt
+
+### 5. Frontend and Backend Setup
+
+> [!IMPORTANT]
+> The frontend has shifted to be React-based, with a Flask backend.
+
+To start the Flask server (interim example providing responses to the React frontend):
+
+    cd flask-backend
+    flask run
+
+To start the React project:
+
+    cd react-front-end
+    npm install
+    npm run dev
+
+This will start the Vite server (typically at http://localhost:5173) so you can access the frontend.
