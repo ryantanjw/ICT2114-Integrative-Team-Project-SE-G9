@@ -5,7 +5,19 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import About from "./pages/About.jsx";
 import Login from "./pages/auth/LoginPage.jsx";
-import UserHome from "./pages/user/UserHome.jsx";
+
+// User pages
+import UserHome from "./pages/user/UserHomePage.jsx";
+import UserForm from "./pages/user/UserFormPage.jsx";
+import UserSetting from "./pages/user/UserSettingsPage.jsx";
+import UserNewForm from "./pages/user/UserNewFormPage.jsx";
+
+// Admin pages
+import AdminHome from "./pages/admin/AdminHomePage.jsx";
+import AdminUser from "./pages/admin/AdminUserPage.jsx";
+import AdminDB from "./pages/admin/AdminDBPage.jsx";
+import AdminForm from "./pages/admin/AdminFormPage.jsx";
+import AdminSetting from "./pages/admin/AdminSettingsPage.jsx";
 // import Logout from "./pages/auth/LogoutPage.jsx";
 
 function AppRoutes() {
@@ -27,7 +39,18 @@ function AppRoutes() {
         {/* If no route matches, redirect to "/" */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
+        {/* User-specific routes */}
         <Route path="/home" element={<UserHome />} />
+        <Route path="/user/form" element={<UserForm />} />
+         <Route path="/user/new" element={<UserNewForm />} />
+        <Route path="/user/setting" element={<UserSetting />} />
+
+        {/* Admin-specific routes */}
+        <Route path="/admin" element={<AdminHome />} />       
+        <Route path="/user" element={<AdminUser />} />
+        <Route path="/form" element={<AdminForm />} />
+        <Route path="/setting" element={<AdminSetting />} />
+        <Route path="/db" element={<AdminDB />} />
       </Routes>
   );
 }
