@@ -33,6 +33,7 @@ export default function Home() {
       <h1 className="text-4xl font-bold mb-4">🏠 Home Page</h1>
       <p className="text-lg text-gray-700 mb-6">
         This is a temporary “Home” page.
+        If you are seeing this, then you are lost.
         Click below to go to the About page:
       </p>
       <Link to="/about">
