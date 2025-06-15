@@ -14,12 +14,13 @@ export default function AdminUser() {
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
-        <div className="flex items-center justify-between mt-5 mb-5">
-          <h3 className="text-3xl font-semibold">User Management</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-2">
+          <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">User Management</h3>
           <CTAButton
             icon={<FaPlus />}
             text="Add User"
             onClick={() => console.log("Add User clicked")}
+            className="w-full sm:w-auto"
           />
         </div>
         <SearchBar></SearchBar>

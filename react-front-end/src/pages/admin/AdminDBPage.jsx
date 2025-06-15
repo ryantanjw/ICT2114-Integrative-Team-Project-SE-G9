@@ -12,7 +12,7 @@ export default function AdminDB() {
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
         <div className="flex flex-col justify-start mb-5">
-            <h3 className="text-3xl font-semibold">
+            <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
                 Database Management
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">

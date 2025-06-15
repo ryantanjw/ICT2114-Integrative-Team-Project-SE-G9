@@ -12,7 +12,7 @@ export default function UserNewForm() {
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <Header activePage={location.pathname} />
       <div className="flex flex-col justify-start mb-5">
-        <h3 className="text-3xl font-semibold">
+        <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
           RA Form Submission
         </h3>
         <div className="mt-5"><FormTabs onTabChange={setCurrentTab} />
