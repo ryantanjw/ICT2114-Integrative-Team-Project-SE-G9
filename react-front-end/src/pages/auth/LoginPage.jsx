@@ -1,10 +1,38 @@
 import React, { useState } from "react";
 import Button from "../../components/ButtonGroup";
 import InputGroup from "../../components/InputGroup";
+import axios from 'axios';
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");  // State for handling errors
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Make a POST request to the Flask backend
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/login_test", {
+        email,
+        password,
+      },
+          { headers: { "Content-Type": "application/json" } }  // Make sure Content-Type is set to application/json
+);
+
+      if (response.data.success) {
+        // Redirect to home or other page after successful login
+        window.location.href = "/home"; // or use react-router for SPA
+      } else {
+        setErrorMessage("Invalid credentials");
+      }
+    } catch (error) {
+      console.error("Error logging in:", error);
+      setErrorMessage("An error occurred. Please try again.");
+    }
+  };
+
   return (
     <div className="bg-white  w-screen">
       <div className="flex justify-center h-screen">
@@ -30,7 +58,7 @@ export default function LoginPage() {
               </div>
 
             <div className="mt-10">
-              <form>
+              <form onSubmit={handleSubmit}>
                 <InputGroup
                 label="Email Address"
                 id="email"
