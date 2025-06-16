@@ -1,23 +1,28 @@
 import React from "react";
-import { FaHome, FaUsers, FaBook, FaCog } from "react-icons/fa"; // FaHome and FaUsers are imported but not used in this NavBar
+import { FaUsers, FaBook, FaCog } from "react-icons/fa";
 import { TbLayoutSidebarLeftCollapseFilled } from "react-icons/tb";
 import { NavLink } from "react-router-dom";
 import { MdHomeFilled } from "react-icons/md";
+import { FaDatabase } from "react-icons/fa6";
 
 
-export default function NavBar({ activePage = "", collapsed, setCollapsed }) {
+
+
+export default function NavBarAdmin({ activePage = "", collapsed, setCollapsed }) {
 
   const navItems = [
-    { label: "Home", icon: <MdHomeFilled />, to: "/home" },
-    { label: "Forms", icon: <FaBook />, to: "/user/form" },
-    { label: "Settings", icon: <FaCog />, to: "/user/setting" },
+    { label: "Home", icon: <MdHomeFilled />, to: "/admin" },
+    { label: "Users", icon: <FaUsers />, to: "/user" },
+    { label: "Forms", icon: <FaBook />, to: "/form" },
+    { label: "Settings", icon: <FaCog />, to: "/setting" },
+    { label: "Database", icon: <FaDatabase />, to: "/db" }
   ];
 
   return (
     <>
       <div
         className={`fixed top-0 h-full w-24 sm:w-30 bg-white shadow-md flex flex-col transition-all duration-300 z-40 ${
-          collapsed ? "-left-24 sm:-left-30" : "left-0" // <-- THIS IS THE CRUCIAL CHANGE
+          collapsed ? "-left-24 sm:-left-30" : "left-0"
         }`}
       >
         {/* Collapse toggle */}
@@ -28,6 +33,7 @@ export default function NavBar({ activePage = "", collapsed, setCollapsed }) {
         >
           <TbLayoutSidebarLeftCollapseFilled className="text-2xl sm:text-3xl mt-5" />
         </button>
+
         {/* Navigation links */}
         <nav className="mt-4 flex-1">
           {navItems.map(({ label, icon, to }) => (
@@ -48,6 +54,7 @@ export default function NavBar({ activePage = "", collapsed, setCollapsed }) {
                     <div className={`text-xl sm:text-2xl mb-2 ${isActive ? "text-red-500" : ""}`}>
                       {icon}
                     </div>
+                    {/* The label is conditionally rendered to hide when collapsed */}
                     {!collapsed && (
                       <span className={`${isActive ? "text-red-500" : "text-gray-800"} text-sm sm:text-base`}>
                         {label}
