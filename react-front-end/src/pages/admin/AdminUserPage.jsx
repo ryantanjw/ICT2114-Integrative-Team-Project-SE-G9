@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import HeaderAdmin from "../../components/HeaderAdmin.jsx";
 import { useLocation } from "react-router-dom";
 import ActionCard from "../../components/ActionCard.jsx";
@@ -8,9 +9,11 @@ import CTAButton from "../../components/CTAButton.jsx";
 import { FaPlus } from "react-icons/fa";
 import SearchBar from "../../components/SearchBar.jsx";
 import UserTable from "./components/TableLayout.jsx";
+import RegisterForm from "./components/RegisterForm.jsx";
 
 export default function AdminUser() {
   const location = useLocation();
+  const [modalOpen, setModalOpen] = useState(false);
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
@@ -19,7 +22,7 @@ export default function AdminUser() {
           <CTAButton
             icon={<FaPlus />}
             text="Add User"
-            onClick={() => console.log("Add User clicked")}
+            onClick={() => setModalOpen(true)}
             className="w-full sm:w-auto"
           />
         </div>
@@ -36,6 +39,10 @@ export default function AdminUser() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
         </div>
+        <RegisterForm
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+        />
     </div>
   );
 }
