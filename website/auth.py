@@ -1,10 +1,10 @@
-from flask import Blueprint,render_template,request,redirect,url_for,jsonify
+from flask import Blueprint,render_template,request,redirect,url_for,jsonify, session
 from models import db, User
 from flask_cors import CORS
 
 
 auth = Blueprint('auth',__name__,static_folder='static')
-CORS(auth)  # This will allow all domains to access the API
+CORS(auth, supports_credentials=True)  # Enable credentials support for cookies
 
 
 # This file is a blueprint that has lots of urls, routes!
@@ -41,7 +41,7 @@ def login():
 @auth.route('/login_test', methods=['POST'])
 def login_test():
     data = request.get_json()  # Get data from the POST request
-    print("data:",data)
+    print("data:", data)
     
     # Validate that we have both email and password
     if not data or 'email' not in data or 'password' not in data:
@@ -53,9 +53,38 @@ def login_test():
     # If user exists and password is correct:
     user = User.query.filter_by(user_email=email).first()
     if user and user.password == password:
-        return jsonify({"success": True}), 200
+        # Create session for the user
+        # Use the correct primary key attribute (likely user_id instead of id)
+        session['user_id'] = user.user_id  # Changed from user.id to user.user_id
+        session['user_email'] = user.user_email
+        session['user_role'] = user.user_role
+        
+        # Return user role for frontend to handle redirection
+        return jsonify({
+            "success": True, 
+            "user_role": user.user_role,
+            "user_name": user.user_name
+        }), 200
     else:
-        return jsonify({"error": "Invalid credentials"}), 400
+        return jsonify({"success": False, "error": "Invalid credentials"}), 401
+
+# Also update the check_session route
+@auth.route('/check_session', methods=['GET'])
+def check_session():
+    if 'user_id' in session:
+        return jsonify({
+            "logged_in": True,
+            "user_id": session['user_id'],
+            "user_email": session['user_email'],
+            "user_role": session['user_role']
+        })
+    return jsonify({"logged_in": False})
+
+# Add a logout route
+@auth.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({"success": True})
 
 # Example of connecting to the DB --> this example works [TO BE REMOVED AFTER TESTING]
 # @views.route('/')

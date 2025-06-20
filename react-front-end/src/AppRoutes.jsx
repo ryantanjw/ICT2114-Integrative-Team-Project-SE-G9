@@ -24,7 +24,7 @@ function AppRoutes() {
   return (
       <Routes>
         {/* Root → Home */}
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<UserHome />} />
 
         {/* About page */}
         <Route path="/about" element={<About />} />

@@ -3,33 +3,60 @@ import Button from "../../components/ButtonGroup";
 import InputGroup from "../../components/InputGroup";
 import axios from 'axios';
 
+// Configure axios to include credentials
+axios.defaults.withCredentials = true;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");  // State for handling errors
+  const [isLoading, setIsLoading] = useState(false);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage("");
 
     // Make a POST request to the Flask backend
     try {
+      console.log("Attempting login with:", { email });
+      
       const response = await axios.post("http://127.0.0.1:8000/login_test", {
         email,
         password,
-      },
-          { headers: { "Content-Type": "application/json" } }  // Make sure Content-Type is set to application/json
-);
+      }, 
+      { 
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true  // Enable sending cookies
+      });
+
+      console.log("Login response:", response.data);
 
       if (response.data.success) {
-        // Redirect to home or other page after successful login
-        window.location.href = "/home"; // or use react-router for SPA
+        // Check user role and redirect accordingly
+        const userRole = response.data.user_role;
+        
+        if (userRole === 0) {
+          console.log("Admin user detected, redirecting to admin page");
+          window.location.href = "/admin";
+        } else {
+          console.log("Regular user, redirecting to home");
+          window.location.href = "/home";
+        }
       } else {
-        setErrorMessage("Invalid credentials");
+        setErrorMessage(response.data.error || "Invalid credentials");
       }
     } catch (error) {
       console.error("Error logging in:", error);
-      setErrorMessage("An error occurred. Please try again.");
+      if (error.response) {
+        console.log("Error response data:", error.response.data);
+        setErrorMessage(error.response.data.error || "Server error. Please try again.");
+      } else {
+        setErrorMessage("Network error. Please check your connection.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -81,7 +108,17 @@ export default function LoginPage() {
                 />
 
                 <div className="mt-6 font-light">
-                    <Button type="submit">Sign in</Button>
+                  {errorMessage && (
+                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+                      {errorMessage}
+                    </div>
+                  )}
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Signing in..." : "Sign in"}
+                  </Button>
                 </div>
               </form>
             </div>

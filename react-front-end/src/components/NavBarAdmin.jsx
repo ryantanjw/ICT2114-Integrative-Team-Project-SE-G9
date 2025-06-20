@@ -1,14 +1,13 @@
 import React from "react";
-import { FaUsers, FaBook, FaCog } from "react-icons/fa";
+import { FaUsers, FaBook, FaCog, FaSignOutAlt } from "react-icons/fa";
 import { TbLayoutSidebarLeftCollapseFilled } from "react-icons/tb";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { MdHomeFilled } from "react-icons/md";
 import { FaDatabase } from "react-icons/fa6";
-
-
-
+import axios from 'axios';
 
 export default function NavBarAdmin({ activePage = "", collapsed, setCollapsed }) {
+  const navigate = useNavigate();
 
   const navItems = [
     { label: "Home", icon: <MdHomeFilled />, to: "/admin" },
@@ -17,6 +16,21 @@ export default function NavBarAdmin({ activePage = "", collapsed, setCollapsed }
     { label: "Settings", icon: <FaCog />, to: "/setting" },
     { label: "Database", icon: <FaDatabase />, to: "/db" }
   ];
+
+  const handleLogout = async () => {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/logout', {}, {
+        withCredentials: true
+      });
+      
+      if (response.data.success) {
+        console.log('Logged out successfully');
+        navigate('/auth/login'); // Redirect to login page
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   return (
     <>
@@ -66,6 +80,22 @@ export default function NavBarAdmin({ activePage = "", collapsed, setCollapsed }
             </NavLink>
           ))}
         </nav>
+
+        <div className="mb-8">
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center py-4 mx-4 rounded-lg hover:bg-gray-100 w-[calc(100%-2rem)]"
+          >
+            <div className="text-xl sm:text-2xl mb-2">
+              <FaSignOutAlt />
+            </div>
+            {!collapsed && (
+              <span className="text-gray-800 text-sm sm:text-base">
+                Logout
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     </>
   );
