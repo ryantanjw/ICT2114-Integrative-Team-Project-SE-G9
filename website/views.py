@@ -10,7 +10,7 @@ review_sentiment_per=0.0
 
 @views.route('/')
 def base():
-    return redirect(url_for('auth.login'))
+    return redirect(url_for('auth.login_test'))
 
 # Example of connecting to the DB --> this example works [TO BE REMOVED AFTER TESTING]
 # @views.route('/')
