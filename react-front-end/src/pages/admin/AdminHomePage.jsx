@@ -76,20 +76,20 @@ return (
         <ActionCard
             header="Account Enrolment"
             subtext="Grant new personnel access to risk assessments"
-            onStart={() => navigate("/user")}
+            onStart={() => navigate("/admin/user")}
             icon={<MdPeople className="text-3xl" />}
         />
         <ActionCard
             header="User Management"
             subtext="Manage personnel account information"
-            onStart={() => navigate("/user")}
+            onStart={() => navigate("/admin/user")}
             icon={<BiSolidUserAccount className="text-3xl" />}
             startText="Manage"
         />
         <ActionCard
             header="View Forms"
             subtext="Manage risk assessment forms"
-            onStart={() => navigate("/form")}
+            onStart={() => navigate("/admin/form")}
             icon={<IoMdDocument className="text-3xl" />}
             startText="View"
         />
