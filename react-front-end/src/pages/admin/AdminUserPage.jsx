@@ -108,6 +108,32 @@ export default function AdminUser() {
           text="Add User"
           onClick={handleAddUser}
           className="w-full sm:w-auto"
+import RegisterForm from "./components/RegisterForm.jsx";
+
+export default function AdminUser() {
+  const location = useLocation();
+  const [modalOpen, setModalOpen] = useState(false);
+  return (
+    <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
+      <HeaderAdmin activePage={location.pathname} />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-2">
+          <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">User Management</h3>
+          <CTAButton
+            icon={<FaPlus />}
+            text="Add User"
+            onClick={() => setModalOpen(true)}
+            className="w-full sm:w-auto"
+          />
+        </div>
+        <SearchBar></SearchBar>
+        <UserTable
+          users={[
+            { name: "Dave Timothy Johnson", email: "davejohnson@sit.singaporetech.edu.sg" },
+            { name: "Andrew Jones Johnson", email: "JoneJohnson@sit.singaporetech.edu.sg" },
+            { name: "Charlie David James", email: "Charliedavid@sit.singaporetech.edu.sg" }
+          ]}
+          onRemove={(user) => console.log("Remove", user)}
+          onReset={(user) => console.log("Reset", user)}
         />
       </div>
       
@@ -122,9 +148,12 @@ export default function AdminUser() {
         onReset={handleResetUser}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
-        {/* Additional admin user management features could go here */}
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
+        </div>
+        <RegisterForm
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+        />
     </div>
   );
 }
