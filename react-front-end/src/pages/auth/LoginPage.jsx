@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Button from "../../components/ButtonGroup";
 import InputGroup from "../../components/InputGroup";
 import axios from 'axios';
@@ -9,59 +9,129 @@ axios.defaults.withCredentials = true;
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");  // State for handling errors
+  const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Check if user is already logged in when component loads
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      try {
+        console.log("Checking for existing session...");
+        const response = await axios.get("/api/check_session", {
+          withCredentials: true
+        });
+        console.log("Session check on login page:", response.data);
+        
+        // If already logged in, redirect based on role
+        if (response.data.logged_in) {
+          console.log("User already logged in, redirecting...");
+          if (response.data.user_role === 0) {
+            window.location.href = "/admin";
+          } else {
+            window.location.href = "/home";
+          }
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      }
+    };
+    
+    checkExistingSession();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage("");
 
+    // Validate form fields
+    if (!email || !password) {
+      setErrorMessage("Please enter both email and password");
+      setIsLoading(false);
+      return;
+    }
+
     // Make a POST request to the Flask backend
     try {
       console.log("Attempting login with:", { email });
       
-      const response = await axios.post("http://127.0.0.1:8000/login_test", {
-        email,
-        password,
-      }, 
-      { 
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true  // Enable sending cookies
+            // In your axios calls, use the proxy URLs:
+      const response = await axios.post("/api/login_test", 
+        { email, password },
+        { 
+          headers: { "Content-Type": "application/json" },
+          withCredentials: true
+        }
+      );
+      
+      // And for check_session:
+      const sessionResponse = await axios.get("/api/check_session", { 
+        withCredentials: true 
       });
 
       console.log("Login response:", response.data);
+      console.log("Login response cookies:", document.cookie);
 
       if (response.data.success) {
-        // Check user role and redirect accordingly
-        const userRole = response.data.user_role;
-        
-        if (userRole === 0) {
-          console.log("Admin user detected, redirecting to admin page");
-          window.location.href = "/admin";
-        } else {
-          console.log("Regular user, redirecting to home");
-          window.location.href = "/home";
-        }
+        // Wait a moment to ensure cookie is set
+        setTimeout(() => {
+          // Double-check session is established
+          axios.get("/api/check_session", { withCredentials: true })
+            .then(sessionResponse => {
+              console.log("Session check after login:", sessionResponse.data);
+              if (sessionResponse.data.logged_in) {
+                // Redirect based on role
+                if (response.data.user_role === 0) {
+                  console.log("Admin user confirmed, redirecting to admin page");
+                  window.location.href = "/admin";
+                } else {
+                  console.log("Regular user confirmed, redirecting to home");
+                  window.location.href = "/home";
+                }
+              } else {
+                console.error("Login succeeded but session verification failed");
+                setErrorMessage("Session could not be established. Please try again.");
+                setIsLoading(false);
+              }
+            })
+            .catch(err => {
+              console.error("Session check error:", err);
+              setErrorMessage("Session verification failed. Please try again.");
+              setIsLoading(false);
+            });
+        }, 500);
       } else {
         setErrorMessage(response.data.error || "Invalid credentials");
+        setIsLoading(false);
       }
     } catch (error) {
       console.error("Error logging in:", error);
       if (error.response) {
-        console.log("Error response data:", error.response.data);
-        setErrorMessage(error.response.data.error || "Server error. Please try again.");
+        console.log("Error status:", error.response.status);
+        console.log("Error data:", error.response.data);
+        
+        // Display specific error message based on status code
+        if (error.response.status === 401) {
+          setErrorMessage("Invalid email or password. Please try again.");
+        } else if (error.response.status === 400) {
+          setErrorMessage(error.response.data.error || "Please check your input.");
+        } else if (error.response.status === 500) {
+          setErrorMessage("Server error. Please try again later.");
+        } else {
+          setErrorMessage(error.response.data.error || "Login failed. Please try again.");
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        setErrorMessage("Cannot connect to server. Please check your internet connection.");
       } else {
-        setErrorMessage("Network error. Please check your connection.");
+        setErrorMessage("An unexpected error occurred. Please try again.");
       }
-    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-white  w-screen">
+    <div className="bg-white w-screen">
       <div className="flex justify-center h-screen">
          {/* Left form panel */}
         <div className="flex flex-col items-center justify-start w-full px-2 mx-auto xl:w-1/3">
@@ -109,8 +179,9 @@ export default function LoginPage() {
 
                 <div className="mt-6 font-light">
                   {errorMessage && (
-                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-                      {errorMessage}
+                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md border border-red-300">
+                      <p className="font-medium">Login Error</p>
+                      <p>{errorMessage}</p>
                     </div>
                   )}
                   <Button 

@@ -19,7 +19,7 @@ export default function NavBarAdmin({ activePage = "", collapsed, setCollapsed }
 
   const handleLogout = async () => {
     try {
-      const response = await axios.post('http://127.0.0.1:8000/logout', {}, {
+      const response = await axios.post('/api/logout', {}, {
         withCredentials: true
       });
       
