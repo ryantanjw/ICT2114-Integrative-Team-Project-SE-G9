@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, session
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
@@ -10,9 +10,9 @@ db = SQLAlchemy()
 def create_app():
     app = Flask(__name__)
     app.jinja_env.cache = {}
-    
+        
     # Use a strong secret key
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', os.urandom(24).hex())
+    app.config['SECRET_KEY'] = "Hello"
     
     # Configure session
     app.config['SESSION_TYPE'] = 'filesystem'
@@ -20,9 +20,9 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
     
     # Cross-domain session settings - CRITICAL for your issue
-    app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+    app.config['SESSION_COOKIE_SECURE'] = False  # Set to≈ True in production with HTTPS
     app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = None  # IMPORTANT: Must be None (not 'None') for cross-domain
+    app.config['SESSION_COOKIE_SAMESITE'] = None  
     
     load_dotenv()
     
@@ -42,8 +42,10 @@ def create_app():
     
     from .views import views
     from .auth import auth
+    from .admin_routes import admin
     
     app.register_blueprint(views, url_prefix='/')
     app.register_blueprint(auth, url_prefix='/')
+    app.register_blueprint(admin, url_prefix='/admin')  
     
     return app
