@@ -70,13 +70,7 @@ export default function UserHome() {
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <Header activePage={location.pathname} />
       <div className="flex flex-col justify-start mb-5">
-        {userData && (
-          <div className="my-4 p-4 bg-white rounded-lg shadow-sm">
-            <p className="text-gray-700">
-              Welcome, <span className="font-semibold">{userData.user_email}</span>
-            </p>
-          </div>
-        )}
+       
         
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
           Available Actions
