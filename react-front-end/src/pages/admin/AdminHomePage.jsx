@@ -6,12 +6,18 @@ import { MdPeople } from "react-icons/md";
 import { BiSolidUserAccount } from "react-icons/bi";
 import { IoMdDocument } from "react-icons/io";
 import axios from "axios";
+import RegisterForm from "./components/RegisterForm.jsx";
+import CTAButton from "../../components/CTAButton.jsx";
+import { FaPlus } from "react-icons/fa";
+
 
 export default function AdminHome() {
 const location = useLocation();
 const navigate = useNavigate();
 const [isLoading, setIsLoading] = useState(true);
 const[adminData, setAdminData] = useState(null);
+const [modalOpen, setModalOpen] = useState(false);
+
 
   // Check session when component mounts
 useEffect(() => {
@@ -76,8 +82,13 @@ return (
         <ActionCard
             header="Account Enrolment"
             subtext="Grant new personnel access to risk assessments"
-            onStart={() => navigate("/admin/user")}
+            onStart={() => {
+                console.log("ActionCard clicked!"); // Debug line
+                setModalOpen(true);
+                console.log("Modal Opened");
+            }}            
             icon={<MdPeople className="text-3xl" />}
+            startText="Add User"
         />
         <ActionCard
             header="User Management"
@@ -98,6 +109,10 @@ return (
         Recent Forms
         </h3>
     </div>
+    <RegisterForm
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+    />
     </div>
 );
 }
