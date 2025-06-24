@@ -1,5 +1,6 @@
 # Fix the import statements
 from flask import Blueprint, jsonify, request, session
+from werkzeug.security import generate_password_hash
 from models import User
 from . import db
 import random
@@ -126,40 +127,44 @@ def reset_password():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     
     if session.get('user_role') != 0:  # 0 = admin
-        print(f"Non-admin user attempted to reset password. Role: {session.get('user_role')}")
+        print(f"Non-admin user attempted to reset a password. Role: {session.get('user_role')}")
         return jsonify({"success": False, "error": "Not authorized"}), 403
     
     data = request.get_json()
     
-    if not data or 'user_id' not in data:
-        return jsonify({"success": False, "error": "No user ID provided"}), 400
-    
-    user_id = data['user_id']
+    if not data or 'user_id' not in data or 'new_password' not in data:
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
     
     try:
-        # Find the user to reset password
-        user = User.query.get(user_id)
+        # Find the user to update
+        user = User.query.get(data['user_id'])
         
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
         
-        # Generate a new random password (8 characters)
-        new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        print(f"Resetting password for user: {user.user_name} (ID: {user.user_id})")
         
-        print(f"Resetting password for: {user.user_name} (ID: {user.user_id})")
+        # Hash the new password
+        # hashed_password = generate_password_hash(data['new_password'])
+        # user.user_password = hashed_password
         
-        # Update the user's password - adjust this according to your User model
-        user.password = new_password  # Make sure to hash this in production!
+        user.password = data['new_password']  # Make sure to hash this in production!
+        
+        # Save changes
         db.session.commit()
         
-        print(f"Password reset for user {user.user_name} (ID: {user.user_id})")
-        return jsonify({"success": True, "new_password": new_password})
+        print(f"Password reset successful for user: {user.user_name} (ID: {user.user_id})")
+        return jsonify({
+            "success": True,
+            "message": "Password reset successful"
+        })
         
     except Exception as e:
         print(f"Error resetting password: {str(e)}")
         db.session.rollback()
-        return jsonify({"success": False, "error": "Failed to reset password"}), 500
-
+        return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500
+    
+    
 # Add user (admin only)
 @admin.route('/add_user', methods=['POST'])
 def add_user():

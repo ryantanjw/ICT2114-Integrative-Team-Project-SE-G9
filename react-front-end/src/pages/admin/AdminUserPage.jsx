@@ -7,6 +7,7 @@ import SearchBar from "../../components/SearchBar.jsx";
 import UserTable from "./components/AdminUserTable.jsx";
 import RegisterForm from "./components/RegisterForm.jsx";
 import EditUserForm from "./components/EditUserForm.jsx";
+import ResetUserPasswordForm from "./components/ResetUserPassForm.jsx";
 import axios from "axios";
 
 // Configure axios with explicit base URL to ensure correct paths
@@ -25,6 +26,8 @@ export default function AdminUser() {
   const [error, setError] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+
 
 
   // Check session and fetch users when component mounts
@@ -195,23 +198,10 @@ export default function AdminUser() {
   };
 
   // Handle password reset
-  const handleResetUser = async (user) => {
-    if (window.confirm(`Are you sure you want to reset password for ${user.name}?`)) {
-      try {
-        console.log("Resetting password for user:", user);
-        const response = await axios.post("/api/admin/reset_password", { user_id: user.id });
-        
-        if (response.data.success) {
-          alert(`Password has been reset for ${user.name}. New password: ${response.data.new_password}`);
-        } else {
-          console.error("Failed to reset password:", response.data.error);
-          alert(response.data.error || "Failed to reset password. Please try again.");
-        }
-      } catch (error) {
-        console.error("Error resetting user password:", error);
-        alert("Failed to reset password. Please try again.");
-      }
-    }
+  const handleResetUser = (user) => {
+    console.log("Resetting password for user:", user);
+    setSelectedUser(user);
+    setResetPasswordModalOpen(true);
   };
 
   // Show loading indicator
@@ -300,6 +290,21 @@ export default function AdminUser() {
             setSelectedUser(null);
           }}
         />
+
+    {/* Reset password form modal */}
+    <ResetUserPasswordForm 
+      isOpen={resetPasswordModalOpen}
+      user={selectedUser}
+      onClose={() => {
+        setResetPasswordModalOpen(false);
+        setSelectedUser(null);
+      }}
+      onPasswordReset={() => {
+        // Show success notification if needed
+        setResetPasswordModalOpen(false);
+        setSelectedUser(null);
+      }}
+    />
 
     </div>
   );
