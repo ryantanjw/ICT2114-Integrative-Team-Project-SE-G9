@@ -10,11 +10,51 @@ export default function RegisterForm({ isOpen, onClose }) {
   const [accountType, setAccountType] = useState("");
   const [programmeCluster, setProgrammeCluster] = useState("");
   const [success, setSuccess] = useState(false);
+  const [errors, setErrors] = useState({}); // Add missing errors state
+  const [submitting, setSubmitting] = useState(false); // Add loading state
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     // TODO: call your enrolment API here
-    setSuccess(true);
+    setSubmitting(true);
+    setErrors({});
+
+    const formData = {
+      email,
+      password,
+      fullName,
+      accountType,
+      programmeCluster
+    };
+
+      // TODO: call your enrolment API here
+    try {
+      const response = await fetch('http://127.0.0.1:8000/admin/add_user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Registration successful:', result);
+
+        setSuccess(true); // Only set success on successful response
+
+      } else {
+              const errorData = await response.json();
+              setErrors(errorData.errors || { general: 'Registration failed' });
+      }
+    } catch (error) {
+      console.error('Network Error:', error);
+      setErrors({ general: 'Network error occurred' });
+
+    } finally {
+      setSubmitting(false);
+    }
+
   };
 
   if (!isOpen) return null;
@@ -58,9 +98,17 @@ export default function RegisterForm({ isOpen, onClose }) {
           <InputGroup
             label="Programme Cluster"
             id="programmeCluster"
-            type="text"
+            type="select"
             value={programmeCluster}
             onChange={e => setProgrammeCluster(e.target.value)}
+            options={[
+              { value: "", label: "Select Programme Cluster" },
+              { value: "ENG", label: "Engineering (ENG)" },
+              { value: "FCB", label: "Food, Chemical and Biotechnology (FCB)" },
+              { value: "ICT", label: "Infocomm Technology (ICT)" },
+              { value: "HSS", label: "Health and Social Sciences (HSS)" },
+              { value: "BCD", label: "Business, Communication and Design (BCD)" }
+            ]}
           />
           <StatusCard
             title={success ? "Enrolment Successful" : "Enrolment Pending"}

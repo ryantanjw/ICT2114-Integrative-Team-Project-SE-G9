@@ -4,9 +4,13 @@ from models import User
 from . import db
 import random
 import string
+from flask_cors import CORS, cross_origin
+
 
 # Create a new blueprint for admin routes
 admin = Blueprint('admin', __name__)
+CORS(admin, supports_credentials=True)  # Enable credentials support for cookies
+
 
 # Get all users (admin only)
 @admin.route('/get_users', methods=['GET'])
@@ -162,35 +166,39 @@ def reset_password():
 def add_user():
     print("\n=== ADD USER CALLED ===")
     
-    # Check if user is logged in and is an admin
-    if 'user_id' not in session:
-        print("No active session found")
-        return jsonify({"success": False, "error": "Not authenticated"}), 401
-    
-    if session.get('user_role') != 0:  # 0 = admin
-        print(f"Non-admin user attempted to add a user. Role: {session.get('user_role')}")
-        return jsonify({"success": False, "error": "Not authorized"}), 403
-    
     data = request.get_json()
-    
-    if not data or 'user_name' not in data or 'user_email' not in data or 'password' not in data:
+    print(f"Received data: {data}")  # Debug what you're getting
+
+    if data:
+        print(f"Keys in data: {list(data.keys())}")
+        print(f"Has user_name: {'fullName' in data}")
+        print(f"Has user_email: {'email' in data}")
+        print(f"Has password: {'password' in data}")
+        print(f"Has account type: {'accountType' in data}")
+        print(f"Has programme cluster: {'programmeCluster' in data}")
+        print(f"cluster:",data['programmeCluster'])
+    else:
+        print("No data received or data is None")
+
+    if not data or 'fullName' not in data or 'email' not in data or 'password' not in data:
         return jsonify({"success": False, "error": "Missing required fields"}), 400
     
     # Check if email already exists
-    existing_user = User.query.filter_by(user_email=data['user_email']).first()
+    existing_user = User.query.filter_by(user_email=data['email']).first()
     if existing_user:
         return jsonify({"success": False, "error": "Email already in use"}), 400
     
     try:
-        print(f"Creating new user: {data['user_name']} ({data['user_email']})")
+        print(f"Creating new user: {data['fullName']} ({data['email']})")
         
         # Create new user - adjust this according to your User model
         new_user = User(
-            user_name=data['user_name'],
-            user_email=data['user_email'],
+            user_name=data['fullName'],
+            user_email=data['email'],
             password=data['password'],  # Make sure to hash this in production!
-            user_designation=data.get('user_designation', ''),
-            user_role=data.get('user_role', 1)  # Default to regular user (1)
+            user_designation='student',
+            user_role=data.get('user_role', 1),  # Default to regular user (1)
+            user_cluster=data['programmeCluster']
         )
         
         db.session.add(new_user)
