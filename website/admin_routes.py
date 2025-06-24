@@ -43,7 +43,9 @@ def get_users():
                 "user_name": user.user_name,
                 "user_email": user.user_email,
                 "user_designation": user.user_designation,
-                "user_role": user.user_role
+                "user_role": user.user_role,
+                "user_cluster": user.user_cluster
+
             })
             
             # Print user details in a formatted table
@@ -53,7 +55,8 @@ def get_users():
                 user.user_name[:23] + "..." if len(user.user_name) > 23 else user.user_name,
                 user.user_email[:33] + "..." if len(user.user_email) > 33 else user.user_email,
                 user.user_designation[:13] + "..." if len(user.user_designation) > 13 else (user.user_designation or "N/A"),
-                role_text
+                role_text,
+                user.user_cluster if user.user_cluster else "N/A"
             ))
         
         print("\n=== END OF USERS LIST ===")
@@ -196,7 +199,7 @@ def add_user():
         db.session.add(new_user)
         db.session.commit()
         
-        print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")
+        print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")        
         return jsonify({
             "success": True,
             "user": {
@@ -204,7 +207,8 @@ def add_user():
                 "user_name": new_user.user_name,
                 "user_email": new_user.user_email,
                 "user_designation": new_user.user_designation,
-                "user_role": new_user.user_role
+                "user_role": new_user.user_role,
+                "user_cluster": new_user.user_cluster
             }
         })
         

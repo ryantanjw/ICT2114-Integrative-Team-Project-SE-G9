@@ -8,7 +8,6 @@ export default function UserTable({ users, onRemove, onReset }) {
     // Check if users is undefined or empty
     if (!users || users.length === 0) {
         return (
-            
             <div className="p-8 text-center bg-white rounded-lg shadow-sm">
                 <p className="text-gray-600">No users found.</p>
             </div>
@@ -34,6 +33,9 @@ export default function UserTable({ users, onRemove, onReset }) {
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Designation
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Cluster
                         </th>
                         <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
@@ -67,6 +69,13 @@ export default function UserTable({ users, onRemove, onReset }) {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {user.designation || "Not specified"}
                                 </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                        getClusterColor(user.cluster)
+                                    }`}>
+                                        {user.cluster != null ? user.cluster : "Not assigned"}
+                                    </span>
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button
                                         onClick={() => onReset(user)}
@@ -90,4 +99,23 @@ export default function UserTable({ users, onRemove, onReset }) {
             </table>
         </div>
     );
+}
+
+// Helper function to determine color based on cluster
+function getClusterColor(cluster) {
+    if (cluster == null) return "bg-gray-100 text-gray-800";
+    
+    // Map cluster numbers to different colors
+    switch(cluster) {
+        case 0:
+            return "bg-green-100 text-green-800";
+        case 1:
+            return "bg-yellow-100 text-yellow-800";
+        case 2:
+            return "bg-purple-100 text-purple-800";
+        case 3:
+            return "bg-pink-100 text-pink-800";
+        default:
+            return "bg-blue-100 text-blue-800";
+    }
 }

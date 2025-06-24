@@ -79,7 +79,8 @@ export default function AdminUser() {
                 name: user.user_name,
                 email: user.user_email,
                 role: user.user_role === 0 ? "Admin" : "User",
-                designation: user.user_designation || "Not specified"
+                designation: user.user_designation || "Not specified",
+                cluster: user.user_cluster // Add this line to include the cluster
               }));
               
               console.log("Formatted users:", formattedUsers);
@@ -141,7 +142,7 @@ export default function AdminUser() {
      
     fetchData();
   }, [navigate]);
-
+  
   // Handle search
   useEffect(() => {
     if (searchTerm.trim() === "") {
@@ -151,12 +152,13 @@ export default function AdminUser() {
       const filtered = users.filter(
         user =>
           user.name.toLowerCase().includes(lowercasedTerm) ||
-          user.email.toLowerCase().includes(lowercasedTerm)
+          user.email.toLowerCase().includes(lowercasedTerm) ||
+          // Add cluster search - convert cluster to string first
+          (user.cluster != null && user.cluster.toString().includes(lowercasedTerm))
       );
       setFilteredUsers(filtered);
     }
   }, [searchTerm, users]);
-
   // Handle user removal
   const handleRemoveUser = async (user) => {
     if (window.confirm(`Are you sure you want to remove ${user.name}?`)) {
@@ -258,7 +260,8 @@ export default function AdminUser() {
             name: newUser.user_name,
             email: newUser.user_email,
             role: newUser.user_role === 0 ? "Admin" : "User",
-            designation: newUser.user_designation || "Not specified"
+            designation: newUser.user_designation || "Not specified",
+            cluster: newUser.user_cluster
           }]);
           setModalOpen(false);
         }}

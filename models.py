@@ -12,3 +12,4 @@ class User(db.Model):
     user_designation = db.Column(db.String(255), nullable=False)
     user_role = db.Column(db.Integer, nullable=False)  # 0 for admin, 1 for user
     password = db.Column(db.String(255), nullable=False)
+    user_cluster = db.Column(db.String(124), nullable=False)
