@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import InputGroup from "../../../components/InputGroup.jsx";
 import StatusCard from "../../../components/StatusCard";
@@ -9,6 +9,16 @@ export default function ResetUserPasswordForm({ isOpen, user, onClose, onPasswor
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
+
+    // Clear form when modal opens or closes
+    useEffect(() => {
+        if (isOpen) {
+            // Reset form state when the modal opens
+            setPassword("");
+            setError("");
+            setSuccess(false);
+        }
+    }, [isOpen]);
 
     const generateRandomPassword = () => {
         // Generate a random password with letters, numbers, and special characters
@@ -51,9 +61,13 @@ export default function ResetUserPasswordForm({ isOpen, user, onClose, onPasswor
                 console.log("Password reset successfully");
                 setSuccess(true);
                 
+                // Clear form on success
+                setPassword("");
+                
                 // Wait a moment for the success message to be seen
                 setTimeout(() => {
                     onPasswordReset && onPasswordReset(user);
+                    // No need to clear again here as the modal will close
                 }, 1000);
             } else {
                 console.error("Failed to reset password:", response.data.error);
@@ -65,6 +79,15 @@ export default function ResetUserPasswordForm({ isOpen, user, onClose, onPasswor
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    // Handle cancel button click
+    const handleCancel = () => {
+        // Clear form and close
+        setPassword("");
+        setError("");
+        setSuccess(false);
+        onClose();
     };
 
     if (!isOpen) return null;
@@ -119,7 +142,7 @@ export default function ResetUserPasswordForm({ isOpen, user, onClose, onPasswor
                     <div className="flex justify-end space-x-2">
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleCancel}
                             className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
                         >
                             Cancel
