@@ -216,3 +216,92 @@ def add_user():
         print(f"Error creating user: {str(e)}")
         db.session.rollback()
         return jsonify({"success": False, "error": "Failed to create user"}), 500
+    
+@admin.route('/update_user', methods=['POST'])
+def update_user():
+    print("\n=== UPDATE USER CALLED ===")
+    
+    # Check if user is logged in and is an admin
+    if 'user_id' not in session:
+        print("No active session found")
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    
+    if session.get('user_role') != 0:  # 0 = admin
+        print(f"Non-admin user attempted to update a user. Role: {session.get('user_role')}")
+        return jsonify({"success": False, "error": "Not authorized"}), 403
+    
+    data = request.get_json()
+    
+    if not data or 'user_id' not in data:
+        return jsonify({"success": False, "error": "No user ID provided"}), 400
+    
+    try:
+        # Find the user to update
+        user = User.query.get(data['user_id'])
+        
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        print(f"Updating user: {user.user_name} (ID: {user.user_id})")
+        
+        # Update user details
+        if 'user_name' in data:
+            user.user_name = data['user_name']
+        
+        if 'user_email' in data:
+            # Check if email already exists for another user
+            existing_user = User.query.filter(User.user_email == data['user_email'], User.user_id != user.user_id).first()
+            if existing_user:
+                return jsonify({"success": False, "error": "Email already in use by another user"}), 400
+            
+            user.user_email = data['user_email']
+        
+        if 'user_designation' in data:
+            user.user_designation = data['user_designation']
+        
+        if 'user_role' in data:
+            # Prevent removing the last admin
+            if user.user_role == 0 and data['user_role'] != 0:
+                # Count how many admins we have
+                admin_count = User.query.filter_by(user_role=0).count()
+                if admin_count <= 1:
+                    return jsonify({"success": False, "error": "Cannot change the last admin to a regular user"}), 400
+            
+            user.user_role = data['user_role']
+                
+        if 'user_cluster' in data:
+            print(f"Updating cluster for user {user.user_id}:")
+            print(f"  - Current cluster: {user.user_cluster} (type: {type(user.user_cluster)})")
+            print(f"  - New cluster: {data['user_cluster']} (type: {type(data['user_cluster'])})")
+            
+            # Handle various formats
+            if data['user_cluster'] == "":
+                print("  - Setting cluster to None (empty string received)")
+                user.user_cluster = None
+            else:
+                print(f"  - Setting cluster to: {data['user_cluster']}")
+                user.user_cluster = data['user_cluster']
+            
+            print(f"  - Updated cluster value: {user.user_cluster} (type: {type(user.user_cluster)})")
+        else:
+            print("No cluster update requested (user_cluster not in data)")        
+        # Save changes
+        db.session.commit()
+        
+        print(f"User {user.user_name} (ID: {user.user_id}) updated successfully")
+        return jsonify({
+            "success": True,
+            "user": {
+                "user_id": user.user_id,
+                "user_name": user.user_name,
+                "user_email": user.user_email,
+                "user_designation": user.user_designation,
+                "user_role": user.user_role,
+                "user_cluster": user.user_cluster
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error updating user: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "error": "Failed to update user"}), 500

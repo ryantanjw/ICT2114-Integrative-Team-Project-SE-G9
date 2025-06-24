@@ -9,7 +9,7 @@ class User(db.Model):
     user_id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(124), nullable=False)
     user_email = db.Column(db.String(255), unique=True, nullable=False)
-    user_designation = db.Column(db.String(255), nullable=False)
+    user_designation = db.Column(db.String(255), nullable=True)
     user_role = db.Column(db.Integer, nullable=False)  # 0 for admin, 1 for user
     password = db.Column(db.String(255), nullable=False)
-    user_cluster = db.Column(db.String(124), nullable=False)
+    user_cluster = db.Column(db.String(124), nullable=True)

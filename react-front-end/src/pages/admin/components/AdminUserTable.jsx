@@ -1,7 +1,7 @@
 import React from "react";
-import { FaTrash, FaKey } from "react-icons/fa";
+import { FaTrash, FaKey, FaEdit } from "react-icons/fa";
 
-export default function UserTable({ users, onRemove, onReset }) {
+export default function UserTable({ users, onRemove, onReset, onEdit }) {
     // Enhanced debugging to see exactly what data is being received
     console.log("UserTable rendering with users:", JSON.stringify(users, null, 2));
     
@@ -73,13 +73,22 @@ export default function UserTable({ users, onRemove, onReset }) {
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                         getClusterColor(user.cluster)
                                     }`}>
-                                        {user.cluster != null ? user.cluster : "Not assigned"}
+                                        {getClusterDisplayName(user.cluster)}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button
+                                        onClick={() => onEdit(user)}
+                                        className="text-green-600 hover:text-green-900 mr-3"
+                                        title="Edit user details"
+                                    >
+                                        <FaEdit className="inline mr-1" />
+                                        Edit
+                                    </button>
+                                    <button
                                         onClick={() => onReset(user)}
-                                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                        className="text-indigo-600 hover:text-indigo-900 mr-3"
+                                        title="Reset user password"
                                     >
                                         <FaKey className="inline mr-1" />
                                         Reset
@@ -87,6 +96,7 @@ export default function UserTable({ users, onRemove, onReset }) {
                                     <button
                                         onClick={() => onRemove(user)}
                                         className="text-red-600 hover:text-red-900"
+                                        title="Remove user"
                                     >
                                         <FaTrash className="inline mr-1" />
                                         Remove
@@ -103,19 +113,31 @@ export default function UserTable({ users, onRemove, onReset }) {
 
 // Helper function to determine color based on cluster
 function getClusterColor(cluster) {
-    if (cluster == null) return "bg-gray-100 text-gray-800";
+    if (cluster === null || cluster === undefined || cluster === "") return "bg-gray-100 text-gray-800";
     
-    // Map cluster numbers to different colors
-    switch(cluster) {
-        case 0:
-            return "bg-green-100 text-green-800";
-        case 1:
-            return "bg-yellow-100 text-yellow-800";
-        case 2:
-            return "bg-purple-100 text-purple-800";
-        case 3:
-            return "bg-pink-100 text-pink-800";
-        default:
-            return "bg-blue-100 text-blue-800";
-    }
+    // Map string values to colors
+    const colorMap = {
+        "ENG": "bg-purple-100 text-purple-800",
+        "FCB": "bg-pink-100 text-pink-800",
+        "ICT": "bg-blue-100 text-blue-800",
+        "HSS": "bg-green-100 text-green-800",
+        "BCD": "bg-yellow-100 text-yellow-800"
+    };
+    
+    return colorMap[cluster] || "bg-gray-100 text-gray-800";
+}
+
+// Helper function to get the display name for clusters
+function getClusterDisplayName(cluster) {
+    if (!cluster) return "Not assigned";
+    
+    const displayNames = {
+        "ENG": "Engineering (ENG)",
+        "FCB": "Food, Chemical and Biotechnology (FCB)",
+        "ICT": "Infocomm Technology (ICT)",
+        "HSS": "Health and Social Sciences (HSS)",
+        "BCD": "Business, Communication and Design (BCD)"
+    };
+    
+    return displayNames[cluster] || cluster;
 }

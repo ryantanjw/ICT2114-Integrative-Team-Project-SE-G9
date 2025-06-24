@@ -6,6 +6,7 @@ import { FaPlus } from "react-icons/fa";
 import SearchBar from "../../components/SearchBar.jsx";
 import UserTable from "./components/AdminUserTable.jsx";
 import RegisterForm from "./components/RegisterForm.jsx";
+import EditUserForm from "./components/EditUserForm.jsx";
 import axios from "axios";
 
 // Configure axios with explicit base URL to ensure correct paths
@@ -22,6 +23,9 @@ export default function AdminUser() {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+
 
   // Check session and fetch users when component mounts
   useEffect(() => {
@@ -80,7 +84,7 @@ export default function AdminUser() {
                 email: user.user_email,
                 role: user.user_role === 0 ? "Admin" : "User",
                 designation: user.user_designation || "Not specified",
-                cluster: user.user_cluster // Add this line to include the cluster
+                cluster: user.user_cluster 
               }));
               
               console.log("Formatted users:", formattedUsers);
@@ -113,7 +117,9 @@ export default function AdminUser() {
                   name: user.user_name,
                   email: user.user_email,
                   role: user.user_role === 0 ? "Admin" : "User",
-                  designation: user.user_designation || "Not specified"
+                  designation: user.user_designation || "Not specified",
+                  cluster: user.user_cluster
+
                 }));
                 
                 setUsers(formattedUsers);
@@ -142,6 +148,7 @@ export default function AdminUser() {
      
     fetchData();
   }, [navigate]);
+
   
   // Handle search
   useEffect(() => {
@@ -159,6 +166,13 @@ export default function AdminUser() {
       setFilteredUsers(filtered);
     }
   }, [searchTerm, users]);
+
+  // Handle user editing
+  const handleEditUser = (user) => {
+    setSelectedUser(user);
+    setEditModalOpen(true);
+  };
+
   // Handle user removal
   const handleRemoveUser = async (user) => {
     if (window.confirm(`Are you sure you want to remove ${user.name}?`)) {
@@ -246,6 +260,7 @@ export default function AdminUser() {
           users={filteredUsers}
           onRemove={handleRemoveUser}
           onReset={handleResetUser}
+          onEdit={handleEditUser}
         />
       )}
 
@@ -266,6 +281,26 @@ export default function AdminUser() {
           setModalOpen(false);
         }}
       />
+
+        {/* Edit User Modal */}
+        <EditUserForm 
+          isOpen={editModalOpen}
+          user={selectedUser}
+          onClose={() => {
+            setEditModalOpen(false);
+            setSelectedUser(null);
+          }}
+          onUserUpdated={(updatedUser) => {
+            setUsers(prevUsers => 
+              prevUsers.map(u => 
+                u.id === updatedUser.id ? updatedUser : u
+              )
+            );
+            setEditModalOpen(false);
+            setSelectedUser(null);
+          }}
+        />
+
     </div>
   );
 }
