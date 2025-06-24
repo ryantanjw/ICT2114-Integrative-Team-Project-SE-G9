@@ -9,6 +9,7 @@ export default function InputGroup({
   onChange,
   action,                // new prop for secondary action
   className = "",
+  options = [],
   ...rest
 }) {
   return (
@@ -33,6 +34,23 @@ export default function InputGroup({
           {label}
         </label>
       )}
+
+      {type === "select" ? (
+        <select
+          id={id}
+          value={value}
+          onChange={onChange}
+          className="block w-full px-4 py-2 text-gray-700 bg-[#F7F7F7] border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
+          {...rest}
+        >
+          {options.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select> ): (
+
+
       <input
         id={id}
         type={type}
@@ -41,7 +59,7 @@ export default function InputGroup({
         onChange={onChange}
         className="block w-full px-4 py-2 text-gray-700 placeholder-gray-400 bg-[#F7F7F7] border border-gray-200 rounded-md  focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
         {...rest}
-      />
+      /> )}
     </div>
   );
 }
