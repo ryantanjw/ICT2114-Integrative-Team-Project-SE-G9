@@ -1,5 +1,6 @@
 # Fix the import statements
 from flask import Blueprint, jsonify, request, session
+from werkzeug.security import generate_password_hash
 from models import User
 from . import db
 import random
@@ -47,7 +48,9 @@ def get_users():
                 "user_name": user.user_name,
                 "user_email": user.user_email,
                 "user_designation": user.user_designation,
-                "user_role": user.user_role
+                "user_role": user.user_role,
+                "user_cluster": user.user_cluster
+
             })
             
             # Print user details in a formatted table
@@ -57,7 +60,8 @@ def get_users():
                 user.user_name[:23] + "..." if len(user.user_name) > 23 else user.user_name,
                 user.user_email[:33] + "..." if len(user.user_email) > 33 else user.user_email,
                 user.user_designation[:13] + "..." if len(user.user_designation) > 13 else (user.user_designation or "N/A"),
-                role_text
+                role_text,
+                user.user_cluster if user.user_cluster else "N/A"
             ))
         
         print("\n=== END OF USERS LIST ===")
@@ -127,40 +131,44 @@ def reset_password():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     
     if session.get('user_role') != 0:  # 0 = admin
-        print(f"Non-admin user attempted to reset password. Role: {session.get('user_role')}")
+        print(f"Non-admin user attempted to reset a password. Role: {session.get('user_role')}")
         return jsonify({"success": False, "error": "Not authorized"}), 403
     
     data = request.get_json()
     
-    if not data or 'user_id' not in data:
-        return jsonify({"success": False, "error": "No user ID provided"}), 400
-    
-    user_id = data['user_id']
+    if not data or 'user_id' not in data or 'new_password' not in data:
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
     
     try:
-        # Find the user to reset password
-        user = User.query.get(user_id)
+        # Find the user to update
+        user = User.query.get(data['user_id'])
         
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
         
-        # Generate a new random password (8 characters)
-        new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        print(f"Resetting password for user: {user.user_name} (ID: {user.user_id})")
         
-        print(f"Resetting password for: {user.user_name} (ID: {user.user_id})")
+        # Hash the new password
+        # hashed_password = generate_password_hash(data['new_password'])
+        # user.user_password = hashed_password
         
-        # Update the user's password - adjust this according to your User model
-        user.password = new_password  # Make sure to hash this in production!
+        user.password = data['new_password']  # Make sure to hash this in production!
+        
+        # Save changes
         db.session.commit()
         
-        print(f"Password reset for user {user.user_name} (ID: {user.user_id})")
-        return jsonify({"success": True, "new_password": new_password})
+        print(f"Password reset successful for user: {user.user_name} (ID: {user.user_id})")
+        return jsonify({
+            "success": True,
+            "message": "Password reset successful"
+        })
         
     except Exception as e:
         print(f"Error resetting password: {str(e)}")
         db.session.rollback()
-        return jsonify({"success": False, "error": "Failed to reset password"}), 500
-
+        return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500
+    
+    
 # Add user (admin only)
 @admin.route('/add_user', methods=['POST'])
 def add_user():
@@ -204,7 +212,7 @@ def add_user():
         db.session.add(new_user)
         db.session.commit()
         
-        print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")
+        print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")        
         return jsonify({
             "success": True,
             "user": {
@@ -212,7 +220,8 @@ def add_user():
                 "user_name": new_user.user_name,
                 "user_email": new_user.user_email,
                 "user_designation": new_user.user_designation,
-                "user_role": new_user.user_role
+                "user_role": new_user.user_role,
+                "user_cluster": new_user.user_cluster
             }
         })
         
@@ -220,3 +229,92 @@ def add_user():
         print(f"Error creating user: {str(e)}")
         db.session.rollback()
         return jsonify({"success": False, "error": "Failed to create user"}), 500
+    
+@admin.route('/update_user', methods=['POST'])
+def update_user():
+    print("\n=== UPDATE USER CALLED ===")
+    
+    # Check if user is logged in and is an admin
+    if 'user_id' not in session:
+        print("No active session found")
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    
+    if session.get('user_role') != 0:  # 0 = admin
+        print(f"Non-admin user attempted to update a user. Role: {session.get('user_role')}")
+        return jsonify({"success": False, "error": "Not authorized"}), 403
+    
+    data = request.get_json()
+    
+    if not data or 'user_id' not in data:
+        return jsonify({"success": False, "error": "No user ID provided"}), 400
+    
+    try:
+        # Find the user to update
+        user = User.query.get(data['user_id'])
+        
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        print(f"Updating user: {user.user_name} (ID: {user.user_id})")
+        
+        # Update user details
+        if 'user_name' in data:
+            user.user_name = data['user_name']
+        
+        if 'user_email' in data:
+            # Check if email already exists for another user
+            existing_user = User.query.filter(User.user_email == data['user_email'], User.user_id != user.user_id).first()
+            if existing_user:
+                return jsonify({"success": False, "error": "Email already in use by another user"}), 400
+            
+            user.user_email = data['user_email']
+        
+        if 'user_designation' in data:
+            user.user_designation = data['user_designation']
+        
+        if 'user_role' in data:
+            # Prevent removing the last admin
+            if user.user_role == 0 and data['user_role'] != 0:
+                # Count how many admins we have
+                admin_count = User.query.filter_by(user_role=0).count()
+                if admin_count <= 1:
+                    return jsonify({"success": False, "error": "Cannot change the last admin to a regular user"}), 400
+            
+            user.user_role = data['user_role']
+                
+        if 'user_cluster' in data:
+            print(f"Updating cluster for user {user.user_id}:")
+            print(f"  - Current cluster: {user.user_cluster} (type: {type(user.user_cluster)})")
+            print(f"  - New cluster: {data['user_cluster']} (type: {type(data['user_cluster'])})")
+            
+            # Handle various formats
+            if data['user_cluster'] == "":
+                print("  - Setting cluster to None (empty string received)")
+                user.user_cluster = None
+            else:
+                print(f"  - Setting cluster to: {data['user_cluster']}")
+                user.user_cluster = data['user_cluster']
+            
+            print(f"  - Updated cluster value: {user.user_cluster} (type: {type(user.user_cluster)})")
+        else:
+            print("No cluster update requested (user_cluster not in data)")        
+        # Save changes
+        db.session.commit()
+        
+        print(f"User {user.user_name} (ID: {user.user_id}) updated successfully")
+        return jsonify({
+            "success": True,
+            "user": {
+                "user_id": user.user_id,
+                "user_name": user.user_name,
+                "user_email": user.user_email,
+                "user_designation": user.user_designation,
+                "user_role": user.user_role,
+                "user_cluster": user.user_cluster
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error updating user: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "error": "Failed to update user"}), 500

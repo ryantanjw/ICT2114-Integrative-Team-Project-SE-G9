@@ -6,6 +6,8 @@ import { FaPlus } from "react-icons/fa";
 import SearchBar from "../../components/SearchBar.jsx";
 import UserTable from "./components/AdminUserTable.jsx";
 import RegisterForm from "./components/RegisterForm.jsx";
+import EditUserForm from "./components/EditUserForm.jsx";
+import ResetUserPasswordForm from "./components/ResetUserPassForm.jsx";
 import axios from "axios";
 
 // Configure axios with explicit base URL to ensure correct paths
@@ -22,6 +24,11 @@ export default function AdminUser() {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+
+
 
   // Check session and fetch users when component mounts
   useEffect(() => {
@@ -30,41 +37,41 @@ export default function AdminUser() {
         console.log("Checking admin session...");
         setIsLoading(true);
         setError(null);
-    
+
         // Check session first
         const sessionResponse = await axios.get("/api/check_session");
         console.log("Session check response:", sessionResponse.data);
-    
+
         // If not logged in, redirect to login page
         if (!sessionResponse.data.logged_in) {
           console.log("No active session found, redirecting to login");
           navigate("/auth/login");
           return;
         }
-    
+
         // If user is not an admin, redirect to user dashboard
         if (sessionResponse.data.user_role !== 0) {
           console.log("Non-admin user detected, redirecting to user dashboard");
           navigate("/home");
           return;
         }
-    
+
         // Store admin data
         setAdminData(sessionResponse.data);
-    
+
         // Now fetch users from API with the correct path
         console.log("Fetching users from API with explicit path...");
         const apiPath = "/api/admin/get_users";
         console.log("API Request URL:", apiPath);
-        
+
         try {
           const usersResponse = await axios.get(apiPath);
           console.log("API Response:", usersResponse);
-          
+
           if (usersResponse.data.success) {
             const userData = usersResponse.data.users;
             console.log("Raw user data from API:", userData);
-            
+
             if (!userData || !Array.isArray(userData) || userData.length === 0) {
               console.warn("API returned empty or invalid users array");
               setError("No users found in database");
@@ -72,16 +79,17 @@ export default function AdminUser() {
               setFilteredUsers([]);
             } else {
               console.log(`Successfully fetched ${userData.length} users from API`);
-              
+
               // Format users for the table
               const formattedUsers = userData.map(user => ({
                 id: user.user_id,
                 name: user.user_name,
                 email: user.user_email,
                 role: user.user_role === 0 ? "Admin" : "User",
-                designation: user.user_designation || "Not specified"
+                designation: user.user_designation || "Not specified",
+                cluster: user.user_cluster
               }));
-              
+
               console.log("Formatted users:", formattedUsers);
               setUsers(formattedUsers);
               setFilteredUsers(formattedUsers);
@@ -97,14 +105,14 @@ export default function AdminUser() {
             status: apiError.response?.status,
             headers: apiError.response?.headers
           });
-          
+
           if (apiError.response?.status === 404) {
             console.error("Endpoint not found, trying fallback endpoint...");
             try {
               // Try alternate path in case URL prefix is wrong
               const fallbackResponse = await axios.get("/admin/get_users");
               console.log("Fallback response:", fallbackResponse.data);
-              
+
               if (fallbackResponse.data.success) {
                 const userData = fallbackResponse.data.users;
                 const formattedUsers = userData.map(user => ({
@@ -112,9 +120,11 @@ export default function AdminUser() {
                   name: user.user_name,
                   email: user.user_email,
                   role: user.user_role === 0 ? "Admin" : "User",
-                  designation: user.user_designation || "Not specified"
+                  designation: user.user_designation || "Not specified",
+                  cluster: user.user_cluster
+
                 }));
-                
+
                 setUsers(formattedUsers);
                 setFilteredUsers(formattedUsers);
                 console.log("Using data from fallback endpoint");
@@ -130,7 +140,7 @@ export default function AdminUser() {
       } catch (error) {
         console.error("Session check error:", error);
         setError(`Session error: ${error.message}`);
-        
+
         if (error.response && error.response.status === 401) {
           navigate("/auth/login");
         }
@@ -138,24 +148,54 @@ export default function AdminUser() {
         setIsLoading(false);
       }
     };
-     
+
     fetchData();
   }, [navigate]);
 
+
+
   // Handle search
   useEffect(() => {
-    if (searchTerm.trim() === "") {
+    if (!searchTerm || searchTerm.trim() === "") {
+      // If search term is empty, show all users
       setFilteredUsers(users);
-    } else {
-      const lowercasedTerm = searchTerm.toLowerCase();
-      const filtered = users.filter(
-        user =>
-          user.name.toLowerCase().includes(lowercasedTerm) ||
-          user.email.toLowerCase().includes(lowercasedTerm)
-      );
-      setFilteredUsers(filtered);
+      return;
     }
+
+    const lowercasedTerm = searchTerm.toLowerCase();
+    console.log("Searching for term:", lowercasedTerm);
+
+    const filtered = users.filter(user => {
+      // Check if name contains search term
+      const nameMatch = user.name && user.name.toLowerCase().includes(lowercasedTerm);
+
+      // Check if email contains search term
+      const emailMatch = user.email && user.email.toLowerCase().includes(lowercasedTerm);
+
+      // Check if designation contains search term (optional)
+      const designationMatch = user.designation &&
+        user.designation.toLowerCase().includes(lowercasedTerm);
+
+      // Check if cluster contains search term (optional)
+      const clusterMatch = user.cluster &&
+        String(user.cluster).toLowerCase().includes(lowercasedTerm);
+
+      // Log search matches for debugging
+      if (nameMatch || emailMatch || designationMatch || clusterMatch) {
+        console.log(`Match found for user: ${user.name}, term: ${lowercasedTerm}`);
+      }
+
+      return nameMatch || emailMatch || designationMatch || clusterMatch;
+    });
+
+    console.log(`Found ${filtered.length} matches out of ${users.length} total users`);
+    setFilteredUsers(filtered);
   }, [searchTerm, users]);
+  // Handle user editing
+  const handleEditUser = (user) => {
+    setSelectedUser(user);
+    setEditModalOpen(true);
+  };
 
   // Handle user removal
   const handleRemoveUser = async (user) => {
@@ -163,7 +203,7 @@ export default function AdminUser() {
       try {
         console.log("Removing user:", user);
         const response = await axios.post("/api/admin/remove_user", { user_id: user.id });
-        
+
         if (response.data.success) {
           setUsers(prevUsers => prevUsers.filter(u => u.id !== user.id));
           console.log(`User ${user.name} removed successfully`);
@@ -179,23 +219,10 @@ export default function AdminUser() {
   };
 
   // Handle password reset
-  const handleResetUser = async (user) => {
-    if (window.confirm(`Are you sure you want to reset password for ${user.name}?`)) {
-      try {
-        console.log("Resetting password for user:", user);
-        const response = await axios.post("/api/admin/reset_password", { user_id: user.id });
-        
-        if (response.data.success) {
-          alert(`Password has been reset for ${user.name}. New password: ${response.data.new_password}`);
-        } else {
-          console.error("Failed to reset password:", response.data.error);
-          alert(response.data.error || "Failed to reset password. Please try again.");
-        }
-      } catch (error) {
-        console.error("Error resetting user password:", error);
-        alert("Failed to reset password. Please try again.");
-      }
-    }
+  const handleResetUser = (user) => {
+    console.log("Resetting password for user:", user);
+    setSelectedUser(user);
+    setResetPasswordModalOpen(true);
   };
 
   // Show loading indicator
@@ -213,7 +240,7 @@ export default function AdminUser() {
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
-      
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-2">
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">User Management</h3>
         <CTAButton
@@ -223,17 +250,28 @@ export default function AdminUser() {
           className="w-full sm:w-auto"
         />
       </div>
-
+      
       <SearchBar
-        onSearch={setSearchTerm}
-        placeholder="Search users by name or email..."
+        onSearch={(term) => {
+          console.log("Search term from SearchBar:", term);
+          setSearchTerm(term);
+        }}
+        placeholder="Search users by name, email, or cluster..."
       />
       
+      {/* Add a debug indicator showing current search */}
+      {searchTerm && (
+        <div className="mb-2 text-sm text-gray-600">
+          Searching for: "{searchTerm}" ({filteredUsers.length} results)
+        </div>
+      )}
       {error && (
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
           {error}
         </div>
       )}
+
+      <div className="h-5"></div>
 
       {filteredUsers.length === 0 && !error ? (
         <div className="p-8 text-center bg-white rounded-lg shadow-sm">
@@ -244,6 +282,7 @@ export default function AdminUser() {
           users={filteredUsers}
           onRemove={handleRemoveUser}
           onReset={handleResetUser}
+          onEdit={handleEditUser}
         />
       )}
 
@@ -258,11 +297,47 @@ export default function AdminUser() {
             name: newUser.user_name,
             email: newUser.user_email,
             role: newUser.user_role === 0 ? "Admin" : "User",
-            designation: newUser.user_designation || "Not specified"
+            designation: newUser.user_designation || "Not specified",
+            cluster: newUser.user_cluster
           }]);
           setModalOpen(false);
         }}
       />
+
+      {/* Edit User Modal */}
+      <EditUserForm
+        isOpen={editModalOpen}
+        user={selectedUser}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedUser(null);
+        }}
+        onUserUpdated={(updatedUser) => {
+          setUsers(prevUsers =>
+            prevUsers.map(u =>
+              u.id === updatedUser.id ? updatedUser : u
+            )
+          );
+          setEditModalOpen(false);
+          setSelectedUser(null);
+        }}
+      />
+
+      {/* Reset password form modal */}
+      <ResetUserPasswordForm
+        isOpen={resetPasswordModalOpen}
+        user={selectedUser}
+        onClose={() => {
+          setResetPasswordModalOpen(false);
+          setSelectedUser(null);
+        }}
+        onPasswordReset={() => {
+          // Show success notification if needed
+          setResetPasswordModalOpen(false);
+          setSelectedUser(null);
+        }}
+      />
+
     </div>
   );
 }
