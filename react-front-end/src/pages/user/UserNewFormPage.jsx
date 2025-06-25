@@ -14,6 +14,13 @@ export default function UserNewForm() {
   const [currentTab, setCurrentTab] = useState(0);
   // Shared sampleEntry for both forms
   // in UserNewFormPage.jsx, inside your component:
+
+const emptyEntry = {
+  title: "",
+  division: "",
+  processes: []
+};
+
 const sampleEntry = {
   title: "Usage of X-ray Machines",
   division: "POD",
@@ -452,7 +459,7 @@ const sampleEntry = {
           <FormTabs onTabChange={setCurrentTab} />
         </div>
         <div className="mt-6">
-          {currentTab === 0 && <Form1 sample={sampleEntry} />}
+          {currentTab === 0 && <Form1 sample={emptyEntry} />}
           {currentTab === 1 && <Form2 sample={sampleEntry} />}
           {currentTab === 2 && <Form3 />}
         </div>

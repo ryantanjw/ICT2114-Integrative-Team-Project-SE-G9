@@ -18,7 +18,8 @@ class Form(db.Model):
     __tablename__ = 'form'
 
     # Define fields
-    form_reference_number = db.Column(db.Integer, primary_key=True)
+    form_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    form_reference_number = db.Column(db.Integer, nullable=True)
     form_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     form_RA_team_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     approved_by = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
@@ -60,7 +61,7 @@ class Activity(db.Model):
     # Define fields
     activity_id = db.Column(db.Integer, primary_key=True)
     hazard_id = db.Column(db.Integer, db.ForeignKey('hazard.hazard_id'), nullable=False)
-    form_id = db.Column(db.Integer, db.ForeignKey('form.form_reference_number'), nullable=False)
+    form_id = db.Column(db.Integer, db.ForeignKey('form.form_id'), nullable=False)
     work_activity = db.Column(db.String(255), nullable=False)
     
 class RA_team(db.Model):

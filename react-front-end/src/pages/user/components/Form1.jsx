@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete } from "react-icons/md";
@@ -18,6 +18,7 @@ export default function Form1({ sample }) {
       }
     ]
   );
+  const [formId, setFormId] = useState(null); 
   const [title, setTitle] = useState(sample?.title || "");
   const [division, setDivision] = useState(sample?.division || "");
 
@@ -68,30 +69,86 @@ export default function Form1({ sample }) {
     }));
   };
 
+  const formIdRef = useRef(null); // This updates immediately
+
+  const [isLoading, setIsLoading] = useState(false);
+
+
+
+  // Helper function to update both state and ref
+  const updateFormId = (id) => {
+    console.log('Updating formId to:', id);
+    setFormId(id);
+    formIdRef.current = id; // This is immediately available
+  };
+
   // Save handler
   const handleSave = async () => {
-    console.log("Form1 data:", { title, division, processes });
+    if (isLoading) return; // Prevent saving while already saving
+
+    setIsLoading(true);
+
+    const currentFormId = formIdRef.current;
+
+    console.log("Form1 data:", { formId: currentFormId, title, division, processes });
 
     try {
+      const requestBody = { title, division, processes };
+      if (currentFormId) {
+        requestBody.form_id = currentFormId;
+        console.log('Including form_id in request:', currentFormId);
+      } else {
+        console.log('No Form ID, creating new form');
+      }
+
       const response = await fetch('http://127.0.0.1:8000/api/user/form1', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ title, division, processes})
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
         const result = await response.json();
         console.log('Success:', result);
+
+        if (result.form_id && !currentFormId) {
+          updateFormId(result.form_id);
+          console.log('Form ID stored:', result.form_id);
+        }
+
+        // Show success message
+        if (result.action === 'created') {
+          console.log('New form created with ID:', result.form_id);
+        } else {
+          console.log('Form updated successfully');
+        }
         //Handle success here TODO
       } else {
         console.log('Error:', response.statusText);
       }
     } catch (error) {
       console.log('Network Errror:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+//   const loadForm = async (existingFormId) => {
+//   try {
+//     const response = await fetch(`http://127.0.0.1:8000/api/user/form1/${existingFormId}`);
+//     if (response.ok) {
+//       const formData = await response.json();
+//       setFormId(formData.form_id);
+//       setTitle(formData.title);
+//       setDivision(formData.division);
+//       setProcesses(JSON.parse(formData.process));
+//     }
+//   } catch (error) {
+//     console.log('Error loading form:', error);
+//   }
+// };
 
   return (
     <div className="space-y-6">
