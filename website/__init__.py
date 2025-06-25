@@ -43,9 +43,11 @@ def create_app():
     from .views import views
     from .auth import auth
     from .admin_routes import admin
+    from .user_routes import user
     
     app.register_blueprint(views, url_prefix='/')
     app.register_blueprint(auth, url_prefix='/')
     app.register_blueprint(admin, url_prefix='/admin')  
+    app.register_blueprint(user, url_prefix='/api/user')
     
     return app

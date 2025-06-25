@@ -12,7 +12,7 @@ export default function Form1({ sample }) {
         location: "",
         activities: [
           { id: 1, description: "", remarks: "" }
-        ],
+        ],  
         header: "Practical lesson and Projects",
         headerColor: "#EEF1F4",
       }
@@ -69,8 +69,28 @@ export default function Form1({ sample }) {
   };
 
   // Save handler
-  const handleSave = () => {
+  const handleSave = async () => {
     console.log("Form1 data:", { title, division, processes });
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/user/form1', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title, division, processes})
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Success:', result);
+        //Handle success here TODO
+      } else {
+        console.log('Error:', response.statusText);
+      }
+    } catch (error) {
+      console.log('Network Errror:', error);
+    }
   };
 
   return (
