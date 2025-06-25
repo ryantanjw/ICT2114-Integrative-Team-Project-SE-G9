@@ -3,7 +3,7 @@ import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete } from "react-icons/md";
 
-export default function Form1({ sample }) {
+export default function Form1({ sample, sessionData }) {
   const [processes, setProcesses] = useState(
     sample?.processes || [
       {
@@ -84,6 +84,10 @@ export default function Form1({ sample }) {
 
   // Save handler
   const handleSave = async () => {
+
+    //Get the sessionData here
+    console.log('session data:', sessionData);
+
     if (isLoading) return; // Prevent saving while already saving
 
     setIsLoading(true);
@@ -93,7 +97,8 @@ export default function Form1({ sample }) {
     console.log("Form1 data:", { formId: currentFormId, title, division, processes });
 
     try {
-      const requestBody = { title, division, processes };
+      const requestBody = { title, division, processes, userId: sessionData.user_id };
+
       if (currentFormId) {
         requestBody.form_id = currentFormId;
         console.log('Including form_id in request:', currentFormId);

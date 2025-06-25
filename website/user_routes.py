@@ -19,6 +19,9 @@ def base():
     data = request.get_json()
     print(f"Received data: {data}")  # Debug what you're getting
 
+    userid = data.get('userId')
+    print(f"current user id:", userid)
+
     #NEED TO GET USER_ID OF LOGGED IN USER
 
     if (not data or 
@@ -38,8 +41,7 @@ def base():
 
         else:
               form = Form()
-              #form.form_user_id = current_user.user_id
-              form.form_user_id = '1'
+              form.form_user_id = userid
               db.session.add(form)
         
         form.title = data['title']

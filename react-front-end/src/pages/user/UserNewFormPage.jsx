@@ -459,7 +459,7 @@ const sampleEntry = {
           <FormTabs onTabChange={setCurrentTab} />
         </div>
         <div className="mt-6">
-          {currentTab === 0 && <Form1 sample={emptyEntry} />}
+          {currentTab === 0 && <Form1 sample={emptyEntry} sessionData={userData} />}
           {currentTab === 1 && <Form2 sample={sampleEntry} />}
           {currentTab === 2 && <Form3 />}
         </div>
