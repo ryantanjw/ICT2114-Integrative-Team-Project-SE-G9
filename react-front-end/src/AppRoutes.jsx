@@ -24,7 +24,7 @@ function AppRoutes() {
   return (
       <Routes>
         {/* Root → Home */}
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<UserHome />} />
 
         {/* About page */}
         <Route path="/about" element={<About />} />
@@ -42,15 +42,15 @@ function AppRoutes() {
         {/* User-specific routes */}
         <Route path="/home" element={<UserHome />} />
         <Route path="/user/form" element={<UserForm />} />
-         <Route path="/user/new" element={<UserNewForm />} />
+        <Route path="/user/new" element={<UserNewForm />} />
         <Route path="/user/setting" element={<UserSetting />} />
 
         {/* Admin-specific routes */}
         <Route path="/admin" element={<AdminHome />} />       
-        <Route path="/user" element={<AdminUser />} />
-        <Route path="/form" element={<AdminForm />} />
-        <Route path="/setting" element={<AdminSetting />} />
-        <Route path="/db" element={<AdminDB />} />
+        <Route path="/admin/user" element={<AdminUser />} />
+        <Route path="/admin/form" element={<AdminForm />} />
+        <Route path="/admin/setting" element={<AdminSetting />} />
+        <Route path="/admin/db" element={<AdminDB />} />
       </Routes>
   );
 }

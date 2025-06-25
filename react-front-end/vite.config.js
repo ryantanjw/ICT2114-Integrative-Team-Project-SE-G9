@@ -10,6 +10,7 @@ export default defineConfig({
       '/api': { // Any requests starting with /api (e.g., /api/hello)
         target: 'http://127.0.0.1:8000', // Forward them to your Flask backend
         changeOrigin: true, // Necessary for virtual hosted sites
+        rewrite: (path) => path.replace(/^\/api/, ''),
         secure: false, // Set to true if your backend is HTTPS
       },
     },
