@@ -39,7 +39,7 @@ export default function InputGroup({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="block w-full px-4 py-2 text-gray-700 placeholder-gray-400 bg-[#F7F7F7] border border-gray-200 rounded-md  focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
+        className="block w-full px-4 py-2 text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-md  focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
         {...rest}
       />
     </div>
