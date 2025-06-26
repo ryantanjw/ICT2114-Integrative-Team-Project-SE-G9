@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdAdd, MdDelete } from "react-icons/md";
@@ -8,7 +8,7 @@ import { RiCollapseVerticalFill, RiExpandVerticalLine } from "react-icons/ri";
 
 const hazardTypesList = ["Biological", "Chemicals", "Physical", "Electrical"];
 
-export default function Form2({ sample }) {
+const Form2 = forwardRef(({ sample, sessionData }, ref) => {
   // Build RA processes with nested activities and default hazards
   const initialRaProcesses = (sample?.processes || []).map(proc => ({
     ...proc,
@@ -36,13 +36,65 @@ export default function Form2({ sample }) {
           ],
     }))
   }));
+  
   const [title, setTitle] = useState(sample?.title || "");
   const [division, setDivision] = useState(sample?.division || "");
   const [raProcesses, setRaProcesses] = useState(initialRaProcesses);
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const [formId, setFormId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const formIdRef = useRef(null);
+
+  // Initialize form data from sample (which comes from Form1)
+  useEffect(() => {
+    if (sample) {
+      setTitle(sample.title || "");
+      setDivision(sample.division || "");
+      
+      // Transform processes from Form1 to Form2 format
+      const processesWithHazards = (sample.processes || []).map(proc => ({
+        ...proc,
+        activities: proc.activities.map(act => ({
+          ...act,
+          expanded: true,
+          hazards: act.hazards && act.hazards.length > 0
+            ? act.hazards
+            : [
+                {
+                  id: 1,
+                  description: "",
+                  type: [],
+                  injuries: [],
+                  newInjury: "",
+                  newType: "",
+                  showTypeInput: false,
+                  showInjuryInput: false,
+                  existingControls: "",
+                  additionalControls: "",
+                  severity: 1,
+                  likelihood: 1,
+                  rpn: 1,
+                }
+              ],
+        }))
+      }));
+      
+      setRaProcesses(processesWithHazards);
+      
+      // Get form_id from sample if available
+      if (sample.form_id) {
+        setFormId(sample.form_id);
+        formIdRef.current = sample.form_id;
+      }
+    }
+  }, [sample]);
+
+  // Expose the save function to parent components
+  useImperativeHandle(ref, () => ({
+    saveForm: handleSave
+  }));
 
   // Helper functions to operate on raProcesses (processes with nested activities)
-  // All handlers now take processId and activityId as needed
   const toggleExpand = (processId, activityId) => {
     setRaProcesses(
       raProcesses.map(proc =>
@@ -315,11 +367,101 @@ export default function Form2({ sample }) {
     setAllCollapsed(!allCollapsed);
   };
 
-  // Save handler
-  const handleSave = () => {
-    console.log("Form2 data:", raProcesses);
+  // Helper function to update both state and ref
+  const updateFormId = (id) => {
+    console.log('Updating formId to:', id);
+    setFormId(id);
+    formIdRef.current = id; // This is immediately available
   };
 
+  // Save handler  
+  const handleSave = async () => {
+    //Get the sessionData here
+    console.log('session data:', sessionData);
+  
+    if (isLoading) return false; // Prevent saving while already saving
+  
+    setIsLoading(true);
+  
+    const currentFormId = formIdRef.current;
+  
+    console.log("Form2 data:", { formId: currentFormId, title, division, processes: raProcesses });
+  
+    try {
+      const requestBody = { 
+        title, 
+        division, 
+        processes: raProcesses, 
+        userId: sessionData.user_id 
+      };
+  
+      if (currentFormId) {
+        requestBody.form_id = currentFormId;
+        console.log('Including form_id in request:', currentFormId);
+      } else {
+        console.log('No Form ID, creating new form');
+      }
+  
+      const response = await fetch('/api/user/form2', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+  
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Success:', result);
+  
+        if (result.form_id) {
+          updateFormId(result.form_id);
+          console.log('Form ID stored:', result.form_id);
+          
+          // Also store the form_id in session for cross-tab access
+          await storeFormIdInSession(result.form_id);
+        }
+  
+        // Show success message
+        if (result.action === 'created') {
+          console.log('New form created with ID:', result.form_id);
+        } else {
+          console.log('Form updated successfully');
+        }
+        setIsLoading(false);
+        return true; // Indicate success
+      } else {
+        console.log('Error:', response.statusText);
+        setIsLoading(false);
+        return false; // Indicate failure
+      }
+    } catch (error) {
+      console.log('Network Error:', error);
+      setIsLoading(false);
+      return false; // Indicate failure
+    }
+  };
+  
+  // Add this helper function to store form_id in session
+  const storeFormIdInSession = async (form_id) => {
+    try {
+      const response = await fetch('/api/user/store_form_id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ form_id })
+      });
+      
+      if (response.ok) {
+        console.log('Form ID stored in session successfully');
+      } else {
+        console.error('Failed to store form ID in session');
+      }
+    } catch (error) {
+      console.error('Error storing form ID in session:', error);
+    }
+  };
   // Determine dropdown background based on value
   const getDropdownColor = (key, value) => {
     if (key === "severity" || key === "likelihood") {
@@ -334,6 +476,7 @@ export default function Form2({ sample }) {
     }
     return "bg-gray-200";
   };
+
   return (
     <div className="space-y-6">
       {/* Title & Division */}
@@ -655,8 +798,15 @@ export default function Form2({ sample }) {
       ))}
       {/* Save button */}
       <div className="flex justify-end mt-4">
-        <CTAButton text="Save" onClick={handleSave} className="px-6 py-2" />
+        <CTAButton 
+          text="Save" 
+          onClick={handleSave} 
+          className="px-6 py-2" 
+          disabled={isLoading}
+        />
       </div>
     </div>
   );
-}
+});
+
+export default Form2;

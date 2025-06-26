@@ -37,17 +37,24 @@ class Hazard(db.Model):
 
     # Define fields
     hazard_id = db.Column(db.Integer, primary_key=True)
-    risk_id = db.Column(db.Integer, db.ForeignKey('risk.risk_id'), nullable=False)
     hazard = db.Column(db.String(124), nullable=False)
     injury = db.Column(db.String(124), nullable=False)
-    hazard_type = db.Column(db.String(255), nullable=True)
+    hazard_type_id = db.Column(db.Integer, db.ForeignKey('hazard_type.hazard_type_id'), nullable=True)
     remarks = db.Column(db.Text, nullable=True)
+    
+class HazardType(db.Model):
+    __tablename__ = 'hazard_type'
+
+    # Define fields
+    hazard_type_id = db.Column(db.Integer, primary_key=True)
+    hazard_type = db.Column(db.String(124), nullable=False)
     
 class Risk(db.Model):
     __tablename__ = 'risk'
 
     # Define fields
     risk_id = db.Column(db.Integer, primary_key=True)
+    risk_hazard_id = db.Column(db.Integer, db.ForeignKey('hazard.hazard_id'), nullable=False)
     existing_risk_control = db.Column(db.Text, nullable=True)
     additional_risk_control = db.Column(db.Text, nullable=True)
     severity = db.Column(db.Integer, nullable=False)
@@ -60,7 +67,7 @@ class Activity(db.Model):
 
     # Define fields
     activity_id = db.Column(db.Integer, primary_key=True)
-    hazard_id = db.Column(db.Integer, db.ForeignKey('hazard.hazard_id'), nullable=False)
+    hazard_id = db.Column(db.Integer, db.ForeignKey('hazard.hazard_id'), nullable=True)
     form_id = db.Column(db.Integer, db.ForeignKey('form.form_id'), nullable=False)
     work_activity = db.Column(db.String(255), nullable=False)
     
