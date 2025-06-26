@@ -106,7 +106,7 @@ export default function Form1({ sample, sessionData }) {
         console.log('No Form ID, creating new form');
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/user/form1', {
+      const response = await fetch('/api/user/form1', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
