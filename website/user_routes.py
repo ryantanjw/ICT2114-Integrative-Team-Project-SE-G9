@@ -21,14 +21,20 @@ def retrieve_forms():
     try:
         print("=== Retrieve Forms Debug ===")
         print(f"Session data: {session}")
+        print(f"Session data: {session.get('user_id')}")
 
-        user_id='1'
-
-        # user_id = session.get('user_id') or request.args.get('user_id')
-
+        session_user_id = session.get('user_id')
+        
         print(f"Form model: {Form}")
 
-        forms = Form.query.filter_by(form_user_id=user_id).all()
+        #username = User.query.filter_by(user_id=session_user_id).user_name
+
+        user = User.query.filter_by(user_id=session_user_id).first()
+        username = user.user_name if user else "Unknown User"
+
+        print(f"username:", username)
+
+        forms = Form.query.filter_by(form_user_id=session_user_id).all()
 
         print(f"Forms:", forms)
 
@@ -67,7 +73,8 @@ def retrieve_forms():
                 'next_review_date': format_date(form.next_review_date),
                 'form_user_id': form.form_user_id,
                 'form_RA_team_id': form.form_RA_team_id,
-                'approved_by': form.approved_by
+                'approved_by': form.approved_by,
+                'owner': username  # Add username to the response
             })
 
         return jsonify(forms_list)
@@ -123,7 +130,8 @@ def form1_save():
             "success": True,
             "form_id": form.form_id,    
             "message": "Form saved successfully",
-            "action": "updated" if form_id else "created"
+            "action": "updated" if form_id else "created",
+            "last_access_date": form.last_access_date.isoformat(),  # Return the timestamp
         }), 200
 
     except Exception as e:

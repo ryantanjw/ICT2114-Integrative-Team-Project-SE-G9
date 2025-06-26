@@ -130,7 +130,7 @@ export default function UserForm() {
                   key={form.id}
                   date={formatDate(form.created_at || form.last_access_date)}
                   title={form.title || "Untitled Form"}
-                  owner={userData?.username || "Unknown User"}
+                  owner={form.owner || "Unknown User"}
                   tags={form.tags || [form.status] || ["Unknown"]}
                   // tags={createTags(form)}
                   onShare={() => handleShare(form.id)}
@@ -139,37 +139,6 @@ export default function UserForm() {
                 />
               ))}
               </div>
-
-            // <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
-            //     {/* Style A */}
-            //     <FormCardA
-            //       date="19/05/2025"
-            //       title="Comprehensive Utilization of Z-Ray Machines in Advanced Medical Imaging and Enhanced Safety Protocols for Diagnostic Accuracy and Patient Protection"
-            //       owner="Dave Timothy Johnson"
-            //       tags={["Ongoing"]}
-            //       onShare={() => console.log("Share")}
-            //       onDownload={() => console.log("Download")}
-            //       onDelete={() => console.log("Delete")}
-            //     />
-            //     <FormCardA
-            //       date="20/05/2025"
-            //       title="Comprehensive Radiation Safety Training for Medical Staff"
-            //       owner="Alice Smith"
-            //       tags={["Completed", "Expires 20/06/2025"]}
-            //       onShare={() => console.log("Share")}
-            //       onDownload={() => console.log("Download")}
-            //       onDelete={() => console.log("Delete")}
-            //     />
-            //     <FormCardA
-            //       date="21/05/2025"
-            //       title="Routine and Emergency Maintenance Procedures for Radiation Equipment"
-            //       owner="John Doe"
-            //       tags={["Pending"]}
-            //       onShare={() => console.log("Share")}
-            //       onDownload={() => console.log("Download")}
-            //       onDelete={() => console.log("Delete")}
-            //     />
-            //   </div>
           )}
         </div>
       </div>
