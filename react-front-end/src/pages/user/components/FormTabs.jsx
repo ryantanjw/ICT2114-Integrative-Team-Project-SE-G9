@@ -17,6 +17,8 @@ export default function FormTabs({ onTabChange }) {
     }
   };
 
+  
+
   return (
     <div className="w-full mb-4">
       <div className="relative">
