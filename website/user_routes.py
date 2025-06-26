@@ -5,6 +5,7 @@ from . import db
 import random
 import string
 from flask_cors import CORS, cross_origin
+from datetime import datetime
 import json
 
 # Create a new blueprint for user routes
@@ -97,6 +98,7 @@ def base():
     
     try:
         form_id = data.get('form_id')
+        current_time = datetime.now()
 
         if form_id:
               form = Form.query.get(form_id)
@@ -112,6 +114,8 @@ def base():
         form.title = data['title']
         form.division = data['division']
         form.process = json.dumps(data['processes'])
+        form.last_access_date = current_time  # Set last access date to current time
+
 
         db.session.commit()
 
@@ -120,10 +124,11 @@ def base():
 
         return jsonify({
             "success": True,
-            "form_id": form.form_id,
+            "form_id": form.form_id,    
             "message": "Form saved successfully",
             "form_id": form.form_id,  # Assuming your primary key is 'id'
-            "action": "updated" if form_id else "created"
+            "action": "updated" if form_id else "created",
+            "last_access_date": form.last_access_date.isoformat(),  # Return the timestamp
         }), 200
 
     except Exception as e:
