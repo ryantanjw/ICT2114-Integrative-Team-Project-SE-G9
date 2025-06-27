@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request, session
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity
+from models import User, Form, Activity, Process
 from . import db
 import random
 import string
@@ -83,7 +83,109 @@ def retrieve_forms():
         print(f"Error retrieving forms: {e}")
         return jsonify({'error': 'Failed to retrieve forms'}), 500
      
+@user.route('/process', methods=['POST'])
+def save_process():
+    try:
+        data = request.get_json()
 
+        # Extract data from request
+        process_form_id = data.get('process_form_id')
+        process_number = data.get('process_number')
+        process_title = data.get('process_title')
+        process_location = data.get('process_location')
+        process_id = data.get('process_id')  # For updates
+
+        # Validate required fields
+        if not process_form_id or not process_title:
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        if process_id:
+            # Update existing process
+            process = Process.query.get(process_id)
+            if not process:
+                return jsonify({'error': 'Process not found'}), 404
+            
+            process.process_form_id = process_form_id
+            process.process_number = process_number
+            process.process_title = process_title
+            process.process_location = process_location
+            
+            action = 'updated'
+
+        else:
+            # Create new process
+            process = Process(
+                process_form_id=process_form_id,
+                process_number=process_number,
+                process_title=process_title,
+                process_location=process_location
+            )
+            db.session.add(process)
+            action = 'created'
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'action': action,
+            'process_id': process.process_id,
+            'message': f'Process {action} successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving process: {str(e)}")
+        return jsonify({'error': 'Failed to save process'}), 500
+    
+#API Route for saving activity
+@user.route('/activity', methods=['POST'])
+def save_activity():
+    try:
+        data = request.get_json()
+
+        activity_process_id = data.get('activity_process_id')
+        work_activity = data.get('work_activity')
+        activity_number = data.get('activity_number')
+        activity_id = data.get('activity_id')  # For updates
+
+        # Validate required fields
+        if not activity_process_id or not work_activity:
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        if activity_id:
+            # Update existing activity
+            activity = Activity.query.get(activity_id)
+            if not activity:
+                return jsonify({'error': 'Activity not found'}), 404
+            
+            activity.activity_process_id = activity_process_id
+            activity.work_activity = work_activity
+            activity.activity_number = activity_number
+            
+            action = 'updated'
+        else:
+            # Create new activity
+            activity = Activity(
+                activity_process_id=activity_process_id,
+                work_activity=work_activity,
+                activity_number=activity_number
+            )
+            db.session.add(activity)
+            action = 'created'
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'action': action,
+            'activity_id': activity.activity_id,
+            'message': f'Activity {action} successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving activity: {str(e)}")
+        return jsonify({'error': 'Failed to save activity'}), 500
 
 @user.route('/form1', methods=['POST'])
 def form1_save():
@@ -97,12 +199,13 @@ def form1_save():
 
     if (not data or 
             not data.get('title') or 
-            not data.get('division') or 
-            not data.get('processes')):
+            not data.get('division')):
             return jsonify({"success": False, "error": "Missing required fields"}), 400
     
     try:
         form_id = data.get('form_id')
+        title = data.get('title')
+        division = data.get('division')
         current_time = datetime.now()
 
         if form_id:
@@ -110,14 +213,19 @@ def form1_save():
             if not form:
                 return jsonify({"error": "Form not Found"}), 404
             print(f"Updating existing form with ID: {form_id}")
+            form.title = title
+            form.division = division
+
+            action = 'updated'
         else:
-            form = Form()
+            form = Form(
+                title=title,
+                division=division,
+            )
             form.form_user_id = userid
             db.session.add(form)
+            action = 'created'
         
-        form.title = data['title']
-        form.division = data['division']
-        form.process = json.dumps(data['processes'])
         form.last_access_date = current_time  # Set last access date to current time
 
 
