@@ -27,8 +27,6 @@ def retrieve_forms():
         
         print(f"Form model: {Form}")
 
-        #username = User.query.filter_by(user_id=session_user_id).user_name
-
         user = User.query.filter_by(user_id=session_user_id).first()
         username = user.user_name if user else "Unknown User"
 
@@ -82,6 +80,48 @@ def retrieve_forms():
     except Exception as e:
         print(f"Error retrieving forms: {e}")
         return jsonify({'error': 'Failed to retrieve forms'}), 500
+
+@user.route('/process/<int:process_id>', methods=['DELETE'])
+def delete_process(process_id):
+    try:
+        # Find the process
+        process = Process.query.get(process_id)
+        print(f"backend process to be deleted found:", process)
+        if not process:
+            return jsonify({'error': 'Process not found'}), 404
+        
+        # Delete all activities associated with this process
+        # This will also cascade to delete hazards and risks if you have proper foreign key constraints
+        activities = Activity.query.filter_by(activity_process_id=process_id).all()
+        
+        for activity in activities:
+            # Delete hazards associated with this activity
+            hazards = Hazard.query.filter_by(hazard_activity_id=activity.activity_id).all()
+            
+            for hazard in hazards:
+                # Delete risks associated with this hazard
+                Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).delete()
+                
+            # Delete the hazards
+            Hazard.query.filter_by(hazard_activity_id=activity.activity_id).delete()
+            
+        # Delete the activities
+        Activity.query.filter_by(activity_process_id=process_id).delete()
+        
+        # Finally, delete the process
+        db.session.delete(process)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Process {process_id} and all associated data deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting process {process_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete process'}), 500
+
      
 @user.route('/process', methods=['POST'])
 def save_process():
@@ -147,6 +187,7 @@ def save_activity():
         work_activity = data.get('work_activity')
         activity_number = data.get('activity_number')
         activity_id = data.get('activity_id')  # For updates
+        activity_remarks = data.get('activity_remarks')
 
         # Validate required fields
         if not activity_process_id or not work_activity:
@@ -161,6 +202,7 @@ def save_activity():
             activity.activity_process_id = activity_process_id
             activity.work_activity = work_activity
             activity.activity_number = activity_number
+            activity.activity_remarks = activity_remarks
             
             action = 'updated'
         else:
@@ -168,7 +210,8 @@ def save_activity():
             activity = Activity(
                 activity_process_id=activity_process_id,
                 work_activity=work_activity,
-                activity_number=activity_number
+                activity_number=activity_number,
+                activity_remarks=activity_remarks
             )
             db.session.add(activity)
             action = 'created'
@@ -248,126 +291,85 @@ def form1_save():
   
 @user.route('/get_form2_data/<int:form_id>', methods=['GET'])
 def get_form2_data(form_id):
-    """
-    Get all form data needed for Form2 component, including processes, activities and hazards
-    with their associated risk data and correctly preserve all IDs.
-    """
-    try:
-        # Store form_id in session for easier access across routes
-        session['current_form_id'] = form_id
+    # Fetch the form
+    form = Form.query.get(form_id)
+    
+    if not form:
+        return jsonify({"error": "Form not found"}), 404
+    
+    # Fetch processes associated with this form
+    processes = Process.query.filter_by(process_form_id=form_id).all()
+    
+    # Build the response with processes, activities, hazards and risks
+    response_data = {
+        "form_id": form.form_id,
+        "title": form.title,
+        "division": form.division,
+        "processes": []
+    }
+    
+    for process in processes:
+        proc_data = {
+            "process_id": process.process_id,
+            "id": process.process_id,
+            "processNumber": process.process_number,
+            "header": process.process_title,
+            "location": process.process_location,
+            "activities": []
+        }
         
-        # Fetch the form
-        form = Form.query.get(form_id)
-        if not form:
-            return jsonify({"error": "Form not found"}), 404
-            
-        # Get all available hazard types for dropdown
-        hazard_types = HazardType.query.all()
-        hazard_types_list = [ht.hazard_type for ht in hazard_types]
-            
-        # Fetch all processes for this form
-        processes = Process.query.filter_by(process_form_id=form_id).order_by(Process.process_number).all()
+        # Get activities for this process
+        activities = Activity.query.filter_by(activity_process_id=process.process_id).all()
         
-        result_processes = []
-        
-        for process in processes:
-            # Get activities for this specific process
-            activities = Activity.query.filter_by(
-                activity_process_id=process.process_id
-            ).order_by(Activity.activity_number).all()
-            
-            process_data = {
-                "id": process.process_id,
-                "processNumber": process.process_number,
-                "header": process.process_title,
-                "location": process.process_location,
-                "activities": []
+        for activity in activities:
+            act_data = {
+                "activity_id": activity.activity_id,
+                "id": activity.activity_id,
+                "description": activity.work_activity,
+                "remarks": activity.remarks,
+                "hazards": []
             }
             
-            for activity in activities:
-                # Get hazards for this activity
-                hazards = Hazard.query.filter_by(hazard_activity_id=activity.activity_id).all()
+            # Get hazards for this activity
+            hazards = Hazard.query.filter_by(hazard_activity_id=activity.activity_id).all()
+            
+            for hazard in hazards:
+                # Get risk information for this hazard
+                risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first()
                 
-                activity_data = {
-                    "id": activity.activity_id,
-                    "description": activity.work_activity,
-                    "activityNumber": activity.activity_number,
-                    "remarks": activity.remarks if hasattr(activity, 'remarks') else "",
-                    "expanded": True,  # Default expanded for UI
-                    "hazards": []
+                # Get hazard type
+                hazard_type = HazardType.query.get(hazard.hazard_type_id)
+                hazard_type_name = hazard_type.hazard_type if hazard_type else ""
+                
+                hazard_data = {
+                    "hazard_id": hazard.hazard_id,
+                    "id": hazard.hazard_id,
+                    "description": hazard.hazard,
+                    "type": [hazard_type_name] if hazard_type_name else [],
+                    "injuries": [hazard.injury] if hazard.injury else [],
+                    "existingControls": risk.existing_risk_control if risk else "",
+                    "additionalControls": risk.additional_risk_control if risk else "",
+                    "severity": risk.severity if risk else 1,
+                    "likelihood": risk.likelihood if risk else 1,
+                    "rpn": risk.RPN if risk else 1
                 }
                 
-                for hazard in hazards:
-                    # Get risk data for this hazard
-                    risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first()
-                    
-                    # Get hazard type
-                    hazard_type = None
-                    if hazard.hazard_type_id:
-                        hazard_type_obj = HazardType.query.get(hazard.hazard_type_id)
-                        if hazard_type_obj:
-                            hazard_type = hazard_type_obj.hazard_type
-                    
-                    # Format injuries as list
-                    injuries = hazard.injury.split(',') if hazard.injury else []
-                    
-                    # Build hazard data with matching format expected by Form2.jsx
-                    hazard_data = {
-                        "id": hazard.hazard_id,
-                        "description": hazard.hazard,
-                        "type": [hazard_type] if hazard_type else [],
-                        "hazard_type_id": hazard.hazard_type_id,  # Include this for easier reference
-                        "injuries": injuries,
-                        "existingControls": risk.existing_risk_control if risk else "",
-                        "additionalControls": risk.additional_risk_control if risk else "",
-                        "severity": risk.severity if risk else 1,
-                        "likelihood": risk.likelihood if risk else 1,
-                        "rpn": risk.RPN if risk else 1,
-                        "newInjury": "",  # UI state fields
-                        "newType": "",
-                        "showTypeInput": False,
-                        "showInjuryInput": False
-                    }
-                    
-                    activity_data["hazards"].append(hazard_data)
-                
-                # If no hazards exist, create a default empty one
-                if not activity_data["hazards"]:
-                    activity_data["hazards"] = [{
-                        "id": f"new_{activity.activity_id}_1",  # Temporary ID that will be replaced on save
-                        "description": "",
-                        "type": [],
-                        "injuries": [],
-                        "newInjury": "",
-                        "newType": "",
-                        "showTypeInput": False,
-                        "showInjuryInput": False,
-                        "existingControls": "",
-                        "additionalControls": "",
-                        "severity": 1,
-                        "likelihood": 1,
-                        "rpn": 1,
-                    }]
-                
-                process_data["activities"].append(activity_data)
+                act_data["hazards"].append(hazard_data)
             
-            result_processes.append(process_data)
+            # If no hazards, add a default empty one
+            if not act_data["hazards"]:
+                act_data["hazards"] = []
+            
+            proc_data["activities"].append(act_data)
         
-        # Return the complete form data with hazard types list
-        return jsonify({
-            "form_id": form.form_id,
-            "title": form.title,
-            "division": form.division,
-            "processes": result_processes,
-            "hazardTypesList": hazard_types_list  # Include the hazard types list for dropdowns
-        }), 200
-        
-    except Exception as e:
-        import traceback
-        print(f"Error fetching form data: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
-  
+        response_data["processes"].append(proc_data)
+    
+    # Also get hazard types list
+    hazard_types = HazardType.query.all()
+    response_data["hazardTypesList"] = [ht.hazard_type for ht in hazard_types]
+    
+    return jsonify(response_data)
+
 @user.route('/hazard_types', methods=['GET'])
 def get_hazard_types():
     """Get all available hazard types for use in dropdown menus"""

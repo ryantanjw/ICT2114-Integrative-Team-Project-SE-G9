@@ -29,6 +29,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   const [dataLoaded, setDataLoaded] = useState(false); // Track if data has been loaded
   const formIdRef = useRef(formData?.form_id || null);
   const lastFetchTime = useRef(0);
+  const [deletedProcessIds, setDeletedProcessIds] = useState([]); //Use this state to track deleted processes --> need to include another one for deleted activities after
+
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {
@@ -237,6 +239,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   };
 
   const removeProcess = (id) => {
+    const processToRemove = processes.find(p => p.id === id);
+  
+    // If the process has a database ID (process_id), track it for deletion
+    if (processToRemove && processToRemove.process_id) {
+      setDeletedProcessIds(prev => [...prev, processToRemove.process_id]);
+    }
+
     setProcesses(processes.filter(p => p.id !== id));
   };
 
@@ -379,6 +388,33 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         await storeFormIdInSession(formId);
         console.log('New form created with ID:', formId);
       }
+
+      if (deletedProcessIds.length > 0) {
+        console.log('Deleting processes:', deletedProcessIds);
+      
+      for (const processId of deletedProcessIds) {
+        try {
+          const deleteResponse = await fetch(`/api/user/process/${processId}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          if (!deleteResponse.ok) {
+            console.error(`Failed to delete process ${processId}`);
+          } else {
+            console.log(`Successfully deleted process ${processId}`);
+          }
+        } catch (error) {
+          console.error(`Error deleting process ${processId}:`, error);
+        }
+      }
+      
+      // Clear the deleted processes list after attempting deletion
+      setDeletedProcessIds([]);
+    }
+
   
       if (processes && processes.length > 0) {
         console.log('Saving processes for form ID:', formId);
@@ -430,7 +466,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
                   activity_form_id: formId,
                   activity_number: j + 1, // Use sequential number instead of activity.id
                   work_activity: activity.description || "",
-                  remarks: activity.remarks || "",
+                  activity_remarks: activity.remarks || "",
                   ...(activity.activity_id && { activity_id: activity.activity_id })
                 };
   
