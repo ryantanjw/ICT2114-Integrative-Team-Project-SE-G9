@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdAdd, MdDelete } from "react-icons/md";
@@ -6,56 +6,348 @@ import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { MdCheck } from "react-icons/md";
 import { RiCollapseVerticalFill, RiExpandVerticalLine } from "react-icons/ri";
 
-const hazardTypesList = ["Biological", "Chemicals", "Physical", "Electrical"];
-
-export default function Form2({ sample }) {
+const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Build RA processes with nested activities and default hazards
-  const initialRaProcesses = (sample?.processes || []).map(proc => ({
-    ...proc,
-    activities: proc.activities.map(act => ({
-      ...act,
-      expanded: true,
-      hazards: act.hazards && act.hazards.length > 0
-        ? act.hazards
-        : [
-            {
-              id: 1,
-              description: "",
-              type: [],
-              injuries: [],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "",
-              additionalControls: "",
-              severity: 1,
-              likelihood: 1,
-              rpn: 1,
-            }
-          ],
-    }))
-  }));
-  const [title, setTitle] = useState(sample?.title || "");
-  const [division, setDivision] = useState(sample?.division || "");
-  const [raProcesses, setRaProcesses] = useState(initialRaProcesses);
+  const [hazardTypesList, setHazardTypesList] = useState([]);
+  const [title, setTitle] = useState("");
+  const [division, setDivision] = useState("");
+  const [raProcesses, setRaProcesses] = useState([]);
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const [formId, setFormId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const formIdRef = useRef(null);
+  const lastFetchTime = useRef(0);
+  const pendingUpdatesRef = useRef(null);
+  const updateTimeoutRef = useRef(null);
+  const lastUpdateTime = useRef(0);
+
+  // Helper function to update both state and ref
+  const updateFormId = (id) => {
+    console.log('Updating formId to:', id);
+    setFormId(id);
+    formIdRef.current = id; // This is immediately available
+  };
+
+  // Function to properly initialize hazards data structure
+  const initializeHazards = (hazards) => {
+    if (!hazards || hazards.length === 0) {
+      return [{
+        id: Date.now(),
+        description: "",
+        type: [],
+        injuries: [],
+        newInjury: "",
+        newType: "",
+        showTypeInput: false,
+        showInjuryInput: false,
+        existingControls: "",
+        additionalControls: "",
+        severity: 1,
+        likelihood: 1,
+        rpn: 1,
+      }];
+    }
+
+    // Make sure all required fields exist
+    return hazards.map(hazard => ({
+      id: hazard.id || hazard.hazard_id || Date.now(),
+      hazard_id: hazard.hazard_id || hazard.id,
+      description: hazard.description || "",
+      type: hazard.type || [],
+      injuries: hazard.injuries || [],
+      existingControls: hazard.existingControls || "",
+      additionalControls: hazard.additionalControls || "",
+      severity: hazard.severity || 1,
+      likelihood: hazard.likelihood || 1,
+      rpn: hazard.rpn || 1,
+      newInjury: "",
+      newType: "",
+      showTypeInput: false,
+      showInjuryInput: false,
+    }));
+  };
+
+  // Initialize data from either formData prop or directly from API
+  useEffect(() => {
+    const initializeFormData = () => {
+      // If we have formData passed from parent, use that
+      if (formData && Object.keys(formData).length > 0) {
+        // console.log('Initializing from formData prop:', formData);
+
+        setTitle(formData.title || "");
+        setDivision(formData.division || "");
+
+        if (formData.form_id) {
+          updateFormId(formData.form_id);
+        }
+
+        // Only process the processes if we have them
+        if (formData.processes && formData.processes.length > 0) {
+          const processesWithHazards = formData.processes.map(proc => ({
+            ...proc,
+            id: proc.id || proc.process_id,
+            process_id: proc.process_id || proc.id,
+            activities: (proc.activities || []).map(act => ({
+              ...act,
+              id: act.id || act.activity_id,
+              activity_id: act.activity_id || act.id,
+              expanded: true,
+              hazards: initializeHazards(act.hazards)
+            }))
+          }));
+
+          setRaProcesses(processesWithHazards);
+        }
+
+        setDataLoaded(true);
+        return true;
+      }
+
+      return false;
+    };
+
+    // Try to initialize from props first
+    const initialized = initializeFormData();
+
+    // If not initialized from props and we have a form ID in session, fetch from API
+    if (!initialized && sessionData?.current_form_id && !dataLoaded) {
+      fetchFormData(sessionData.current_form_id);
+    }
+  }, [formData, sessionData, dataLoaded]);
+
+  // Debounced function to store form ID in session
+  const storeFormIdInSession = useCallback(async (form_id) => {
+    const now = Date.now();
+    if (now - lastFetchTime.current < 2000) {
+      console.log('Skipping session update - too soon');
+      return;
+    }
+
+    lastFetchTime.current = now;
+
+    try {
+      const response = await fetch('/api/user/store_form_id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ form_id })
+      });
+
+      if (response.ok) {
+        console.log('Form ID stored in session successfully');
+      } else {
+        console.error('Failed to store form ID in session');
+      }
+    } catch (error) {
+      console.error('Error storing form ID in session:', error);
+    }
+  }, []);
+
+  // Fetch form data from API
+  const fetchFormData = useCallback(async (id) => {
+    if (!id) {
+      console.log('No form ID provided, skipping data fetch');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      console.log(`Fetching form data for ID: ${id}`);
+
+      const response = await fetch(`/api/user/get_form2_data/${id}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Form2 data loaded:', data);
+
+        setTitle(data.title || "");
+        setDivision(data.division || "");
+
+        // Process and initialize the processes with proper hazard structure
+        if (data.processes && data.processes.length > 0) {
+          const processesWithHazards = data.processes.map(proc => ({
+            ...proc,
+            id: proc.id || proc.process_id,
+            process_id: proc.process_id || proc.id,
+            activities: (proc.activities || []).map(act => ({
+              ...act,
+              id: act.id || act.activity_id,
+              activity_id: act.activity_id || act.id,
+              expanded: true,
+              hazards: initializeHazards(act.hazards)
+            }))
+          }));
+
+          setRaProcesses(processesWithHazards);
+        }
+
+        updateFormId(data.form_id);
+
+        // Also set hazard types list if it's included
+        if (data.hazardTypesList) {
+          setHazardTypesList(data.hazardTypesList);
+        }
+
+        // Also store form ID in session
+        await storeFormIdInSession(data.form_id);
+
+        setDataLoaded(true);
+      } else {
+        console.error('Failed to fetch form data');
+      }
+    } catch (error) {
+      console.error('Error fetching form data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [storeFormIdInSession]);
+
+  // Fetch hazard types list separately
+  useEffect(() => {
+    const fetchHazardTypes = async () => {
+      try {
+        const response = await fetch('/api/user/hazard_types');
+        if (response.ok) {
+          const data = await response.json();
+          setHazardTypesList(data.hazard_types?.map(ht => ht.type) || []);
+        }
+      } catch (error) {
+        console.error('Error fetching hazard types:', error);
+      }
+    };
+
+    fetchHazardTypes();
+  }, []);
+
+  // Batched update function to avoid excessive parent updates
+  const scheduleBatchedUpdate = useCallback(() => {
+    // Cancel any pending update
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    // Create the current form data
+    pendingUpdatesRef.current = {
+      form_id: formId,
+      title,
+      division,
+      processes: raProcesses
+    };
+
+    // Schedule an update for later - only update when user is idle for 2 seconds
+    updateTimeoutRef.current = setTimeout(() => {
+      if (pendingUpdatesRef.current && updateFormData && dataLoaded) {
+        console.log("Sending batched update to parent");
+        updateFormData(pendingUpdatesRef.current, false);
+        pendingUpdatesRef.current = null;
+      }
+    }, 2000);
+  }, [title, division, raProcesses, formId, updateFormData, dataLoaded]);
+
+  // Only update parent when explicitly requested (Save button) or after a long idle period
+  const triggerUpdateToParent = useCallback((force = false) => {
+    // Cancel any pending update
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = null;
+    }
+
+    // Prevent too frequent updates
+    const now = Date.now();
+    if (!force && now - lastUpdateTime.current < 1000) {
+      console.log("Skipping parent update - too soon");
+      return;
+    }
+    lastUpdateTime.current = now;
+
+    if (updateFormData && dataLoaded) {
+      const updatedFormData = {
+        form_id: formId,
+        title,
+        division,
+        processes: raProcesses
+      };
+
+      console.log("Explicitly updating parent", force ? "(forced)" : "");
+      updateFormData(updatedFormData, force);
+    }
+  }, [title, division, raProcesses, formId, updateFormData, dataLoaded]);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Expose methods to parent
+  useImperativeHandle(ref, () => ({
+    saveForm: async () => {
+      // Cancel any pending updates
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+
+      // Force update to parent before saving
+      triggerUpdateToParent(true);
+
+      // Then call the save handler
+      return handleSave();
+    },
+    validateForm: () => {
+      // Check if each activity has at least one hazard with description and type
+      const isValid = raProcesses.every(process =>
+        process.activities.every(activity =>
+          activity.hazards.some(hazard =>
+            hazard.description.trim() !== "" &&
+            hazard.type.length > 0
+          )
+        )
+      );
+
+      return {
+        valid: isValid,
+        message: isValid ? "" : "Please complete all hazard descriptions and select hazard types"
+      };
+    },
+    getData: () => ({
+      form_id: formId,
+      title,
+      division,
+      processes: raProcesses
+    }),
+    // New method to handle going back without saving to DB
+    goBack: () => {
+      console.log("Form2: Going back without saving to DB");
+
+      // Just update parent state without saving to DB
+      triggerUpdateToParent(true);
+
+      // Return success
+      return true;
+    }
+  }));
 
   // Helper functions to operate on raProcesses (processes with nested activities)
-  // All handlers now take processId and activityId as needed
   const toggleExpand = (processId, activityId) => {
     setRaProcesses(
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId ? { ...a, expanded: !a.expanded } : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId ? { ...a, expanded: !a.expanded } : a
+            ),
+          }
           : proc
       )
     );
+    // This change doesn't affect form data validity or saved state
   };
 
   const updateActivityField = (processId, activityId, key, value) => {
@@ -63,14 +355,16 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId ? { ...a, [key]: value } : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId ? { ...a, [key]: value } : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const removeActivity = (processId, activityId) => {
@@ -84,6 +378,8 @@ export default function Form2({ sample }) {
         };
       })
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const addHazard = (processId, activityId) => {
@@ -91,36 +387,38 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: [
-                        ...a.hazards,
-                        {
-                          id: Date.now(),
-                          description: "",
-                          type: [],
-                          injuries: [],
-                          newInjury: "",
-                          newType: "",
-                          showTypeInput: false,
-                          showInjuryInput: false,
-                          existingControls: "",
-                          additionalControls: "",
-                          severity: 1,
-                          likelihood: 1,
-                          rpn: 1,
-                        },
-                      ],
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: [
+                    ...a.hazards,
+                    {
+                      id: Date.now(),
+                      description: "",
+                      type: [],
+                      injuries: [],
+                      newInjury: "",
+                      newType: "",
+                      showTypeInput: false,
+                      showInjuryInput: false,
+                      existingControls: "",
+                      additionalControls: "",
+                      severity: 1,
+                      likelihood: 1,
+                      rpn: 1,
+                    },
+                  ],
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const handleConfirmNewType = (processId, activityId, hazardId) => {
@@ -128,30 +426,39 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: a.hazards.map(h =>
-                        h.id === hazardId
-                          ? {
-                              ...h,
-                              type: [h.newType],
-                              newType: "",
-                              showTypeInput: false,
-                              injuries: [],
-                              showInjuryInput: false,
-                            }
-                          : h
-                      ),
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: a.hazards.map(h =>
+                    h.id === hazardId
+                      ? {
+                        ...h,
+                        type: [h.newType],
+                        newType: "",
+                        showTypeInput: false,
+                        // Keep existing injuries
+                        showInjuryInput: false,
+                      }
+                      : h
+                  ),
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
+  };
+
+  const handleInjuryKeyPress = (e, processId, activityId, hazardId) => {
+    if (e.key === 'Enter' && e.target.value.trim() !== '') {
+      e.preventDefault(); // Prevent form submission
+      handleConfirmNewInjury(processId, activityId, hazardId);
+    }
   };
 
   const handleConfirmNewInjury = (processId, activityId, hazardId) => {
@@ -159,28 +466,30 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: a.hazards.map(h =>
-                        h.id === hazardId
-                          ? {
-                              ...h,
-                              injuries: [...h.injuries, h.newInjury],
-                              newInjury: "",
-                              showInjuryInput: false,
-                            }
-                          : h
-                      ),
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: a.hazards.map(h =>
+                    h.id === hazardId
+                      ? {
+                        ...h,
+                        injuries: [...h.injuries, h.newInjury],
+                        newInjury: "",
+                        showInjuryInput: false,
+                      }
+                      : h
+                  ),
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const removeHazard = (processId, activityId, hazardId) => {
@@ -188,22 +497,24 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards:
-                        a.hazards.length > 1
-                          ? a.hazards.filter(h => h.id !== hazardId)
-                          : a.hazards,
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards:
+                    a.hazards.length > 1
+                      ? a.hazards.filter(h => h.id !== hazardId)
+                      : a.hazards,
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const updateHazard = (processId, activityId, hazardId, key, value) => {
@@ -211,21 +522,23 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: a.hazards.map(h =>
-                        h.id === hazardId ? { ...h, [key]: value } : h
-                      ),
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: a.hazards.map(h =>
+                    h.id === hazardId ? { ...h, [key]: value } : h
+                  ),
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const toggleHazardType = (processId, activityId, hazardId, type) => {
@@ -233,21 +546,23 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: a.hazards.map(h =>
-                        h.id === hazardId ? { ...h, type: [type] } : h
-                      ),
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: a.hazards.map(h =>
+                    h.id === hazardId ? { ...h, type: [type] } : h
+                  ),
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const addInjury = (processId, activityId, hazardId) => {
@@ -255,27 +570,29 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: a.hazards.map(h =>
-                        h.id === hazardId
-                          ? {
-                              ...h,
-                              injuries: h.newInjury ? [...h.injuries, h.newInjury] : h.injuries,
-                              newInjury: "",
-                            }
-                          : h
-                      ),
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: a.hazards.map(h =>
+                    h.id === hazardId
+                      ? {
+                        ...h,
+                        injuries: h.newInjury ? [...h.injuries, h.newInjury] : h.injuries,
+                        newInjury: "",
+                      }
+                      : h
+                  ),
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const removeInjury = (processId, activityId, hazardId, injury) => {
@@ -283,26 +600,28 @@ export default function Form2({ sample }) {
       raProcesses.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: a.hazards.map(h =>
-                        h.id === hazardId
-                          ? {
-                              ...h,
-                              injuries: h.injuries.filter(i => i !== injury),
-                            }
-                          : h
-                      ),
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: a.hazards.map(h =>
+                    h.id === hazardId
+                      ? {
+                        ...h,
+                        injuries: h.injuries.filter(i => i !== injury),
+                      }
+                      : h
+                  ),
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const toggleExpandAll = () => {
@@ -313,13 +632,91 @@ export default function Form2({ sample }) {
       }))
     );
     setAllCollapsed(!allCollapsed);
+    // This change doesn't affect form data validity or saved state
   };
 
-  // Save handler
-  const handleSave = () => {
-    console.log("Form2 data:", raProcesses);
+  // Save handler  
+  const handleSave = async () => {
+    if (isLoading) return false; // Prevent saving while already saving
+  
+    setIsLoading(true);
+  
+    const currentFormId = formIdRef.current;
+  
+    console.log("Form2 data:", { formId: currentFormId, title, division, processes: raProcesses });
+  
+    try {
+      const requestBody = {
+        title,
+        division,
+        processes: raProcesses,
+        userId: sessionData?.user_id
+      };
+  
+      if (currentFormId) {
+        requestBody.form_id = currentFormId;
+        console.log('Including form_id in request:', currentFormId);
+      } else {
+        console.log('No Form ID, creating new form');
+      }
+  
+      const response = await fetch('/api/user/form2', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+  
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Success:', result);
+  
+        if (result.form_id) {
+          updateFormId(result.form_id);
+          console.log('Form ID stored:', result.form_id);
+  
+          // Also store the form_id in session for cross-tab access
+          await storeFormIdInSession(result.form_id);
+          
+          // Cache the full form data in localStorage for persistence
+          try {
+            localStorage.setItem('form2_data', JSON.stringify({
+              form_id: result.form_id,
+              title,
+              division,
+              processes: raProcesses,
+              lastUpdated: new Date().toISOString()
+            }));
+            console.log('Form data cached in localStorage');
+          } catch (storageError) {
+            console.error('Failed to cache form data:', storageError);
+          }
+        }
+  
+        // Show success message
+        if (result.action === 'created') {
+          console.log('New form created with ID:', result.form_id);
+        } else {
+          console.log('Form updated successfully');
+        }
+  
+        // Force update to parent after successful save
+        triggerUpdateToParent(true);
+  
+        setIsLoading(false);
+        return true; // Indicate success
+      } else {
+        console.log('Error:', response.statusText);
+        setIsLoading(false);
+        return false; // Indicate failure
+      }
+    } catch (error) {
+      console.log('Network Error:', error);
+      setIsLoading(false);
+      return false; // Indicate failure
+    }
   };
-
   // Determine dropdown background based on value
   const getDropdownColor = (key, value) => {
     if (key === "severity" || key === "likelihood") {
@@ -334,6 +731,19 @@ export default function Form2({ sample }) {
     }
     return "bg-gray-200";
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-700">Loading hazard data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Title & Division */}
@@ -343,7 +753,10 @@ export default function Form2({ sample }) {
             label="Title"
             id="form2-title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              scheduleBatchedUpdate();
+            }}
           />
         </div>
         <div className="flex-1">
@@ -351,14 +764,17 @@ export default function Form2({ sample }) {
             label="Division"
             id="form2-division"
             value={division}
-            onChange={(e) => setDivision(e.target.value)}
+            onChange={(e) => {
+              setDivision(e.target.value);
+              scheduleBatchedUpdate();
+            }}
           />
         </div>
-       <CTAButton
-        icon={allCollapsed ? <RiExpandVerticalLine /> : <RiCollapseVerticalFill />}
-        text={allCollapsed ? "Expand All" : "Collapse All"}
-        onClick={toggleExpandAll}
-        className="ml-auto bg-gray-100 text-black"
+        <CTAButton
+          icon={allCollapsed ? <RiExpandVerticalLine /> : <RiCollapseVerticalFill />}
+          text={allCollapsed ? "Expand All" : "Collapse All"}
+          onClick={toggleExpandAll}
+          className="ml-auto bg-gray-100 text-black"
         />
       </div>
       {/* Render a section for each process */}
@@ -370,7 +786,32 @@ export default function Form2({ sample }) {
             </span>
             <CTAButton
               text="Generate"
-              onClick={() => { /* generate for this processId */ }}
+              // onClick={() => { /* generate for this processId */ }}
+              onClick={() => {
+                setRaProcesses(prev =>
+                  prev.map(p => {
+                    if (p.id !== proc.id) return p;
+                    return {
+                      ...p,
+                      activities: p.activities.map(act => ({
+                        ...act,
+                        hazards: act.hazards.map((h, idx) => ({
+                          ...h,
+                          description: `${act.description || `Activity ${act.activityNumber}`} hello`,
+                          type: ["Biological"],
+                          injuries: ["hello", "bye", "soz"],
+                          existingControls: "hello",
+                          severity: 2,
+                          likelihood: 2,
+                          rpn: 4,
+                        }))
+                      }))
+                    };
+                  })
+                );
+              }}
+
+
               className="ml-auto bg-gray-100 text-black"
             />
           </div>
@@ -400,7 +841,7 @@ export default function Form2({ sample }) {
                     <div>
                       <label className="block text-sm font-medium mb-1">Activity Number</label>
                       <select
-                        value={act.activityNumber || act.id}
+                        value={act.activityNumber || idx + 1}
                         onChange={(e) =>
                           updateActivityField(proc.id, act.id, "activityNumber", parseInt(e.target.value))
                         }
@@ -459,11 +900,10 @@ export default function Form2({ sample }) {
                               <button
                                 key={type}
                                 onClick={() => toggleHazardType(proc.id, act.id, h.id, type)}
-                                className={`px-3 py-1 rounded-full  ${
-                                  h.type.includes(type)
-                                    ? "bg-black text-white"
-                                    : "bg-gray-200"
-                                }`}
+                                className={`px-3 py-1 rounded-full  ${h.type.includes(type)
+                                  ? "bg-black text-white"
+                                  : "bg-gray-200"
+                                  }`}
                               >
                                 {type}
                               </button>
@@ -538,6 +978,7 @@ export default function Form2({ sample }) {
                                 onChange={e =>
                                   updateHazard(proc.id, act.id, h.id, "newInjury", e.target.value)
                                 }
+                                onKeyPress={e => handleInjuryKeyPress(e, proc.id, act.id, h.id)}
                                 placeholder="Enter New Injury"
                                 className="flex-1 border border-gray-300 rounded px-3 py-2"
                               />
@@ -633,14 +1074,14 @@ export default function Form2({ sample }) {
                             label="Due Date"
                             id={`due-${h.id}`}
                             value="14/05/2025"
-                            onChange={() => {}}
+                            onChange={() => { }}
                             disabled
                           />
                           <InputGroup
                             label="Implementation Person"
                             id={`impl-${h.id}`}
                             value="Hajmath Begum (PO, POD)"
-                            onChange={() => {}}
+                            onChange={() => { }}
                             disabled
                           />
                         </div>
@@ -655,8 +1096,19 @@ export default function Form2({ sample }) {
       ))}
       {/* Save button */}
       <div className="flex justify-end mt-4">
-        <CTAButton text="Save" onClick={handleSave} className="px-6 py-2" />
+        <CTAButton
+          text="Save"
+          onClick={() => {
+            // Force update to parent before saving
+            triggerUpdateToParent(true);
+            handleSave();
+          }}
+          className="px-6 py-2"
+          disabled={isLoading}
+        />
       </div>
     </div>
   );
-}
+});
+
+export default Form2;

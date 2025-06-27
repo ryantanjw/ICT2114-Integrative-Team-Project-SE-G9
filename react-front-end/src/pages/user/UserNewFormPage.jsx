@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Header from "../../components/Header.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import FormTabs from "./components/FormTabs.jsx";
@@ -7,427 +7,526 @@ import Form2 from "./components/Form2.jsx";
 import Form3 from "./components/Form3.jsx";
 import axios from "axios";
 
-
 export default function UserNewForm() {
   const location = useLocation();
   const navigate = useNavigate();
+  const form1Ref = useRef(null);
+  const form2Ref = useRef(null);
+  const form3Ref = useRef(null);
+  const sessionCheckTimeoutRef = useRef(null);
+  const initialLoadRef = useRef(true);
+
+  // State declarations
   const [currentTab, setCurrentTab] = useState(0);
-  // Shared sampleEntry for both forms
-  // in UserNewFormPage.jsx, inside your component:
-const sampleEntry = {
-  title: "Usage of X-ray Machines",
-  division: "POD",
-  processes: [
-    {
-      id: 1,
-      processNumber: 1,
-      header: "Practical Lesson and Projects",
-      headerColor: "#EEF1F4",
-      location: "Dover URC SR1C",
-      activities: [
-        {
-          id: 1,
-          description: "Conducting Practical Sessions",
-          remarks: "Practice only, no live subjects.",
-          hazards: [
-            {
-              id: 1,
-              description: "Slip or Fall",
-              type: ["Physical"],
-              injuries: ["Sprains", "Bruises"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Wear safety shoes\n2) Keep area clear",
-              additionalControls: "",
-              severity: 2,
-              likelihood: 3,
-              rpn: 6
-            }
-          ]
-        },
-        {
-          id: 2,
-          description: "Group Project Workshops",
-          remarks: "Student-led collaborative tasks.",
-          hazards: [
-            {
-              id: 1,
-              description: "Tool Misuse",
-              type: ["Physical"],
-              injuries: ["Cuts"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Provide tool training",
-              additionalControls: "",
-              severity: 3,
-              likelihood: 2,
-              rpn: 6
-            }
-          ]
-        },
-        {
-          id: 3,
-          description: "Data Analysis Review",
-          remarks: "Analyze results from prior sessions.",
-          hazards: [
-            {
-              id: 1,
-              description: "Eye Strain",
-              type: ["Physical"],
-              injuries: ["Headache"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Take regular breaks",
-              additionalControls: "",
-              severity: 2,
-              likelihood: 2,
-              rpn: 4
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 2,
-      processNumber: 2,
-      header: "Laboratory Demonstrations",
-      headerColor: "#EEF1F4",
-      location: "Central Lab",
-      activities: [
-        {
-          id: 1,
-          description: "Microscope Handling",
-          remarks: "Clean lenses after use.",
-          hazards: [
-            {
-              id: 1,
-              description: "Glass breakage",
-              type: ["Physical"],
-              injuries: ["Cuts"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Handle with care\n2) Store properly",
-              additionalControls: "",
-              severity: 2,
-              likelihood: 2,
-              rpn: 4
-            }
-          ]
-        },
-        {
-          id: 2,
-          description: "Chemical Preparation",
-          remarks: "Mix solutions under fume hood.",
-          hazards: [
-            {
-              id: 1,
-              description: "Chemical Exposure",
-              type: ["Chemicals"],
-              injuries: ["Burns", "Irritation"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Use gloves\n2) Work in fume hood",
-              additionalControls: "",
-              severity: 3,
-              likelihood: 2,
-              rpn: 6
-            }
-          ]
-        },
-        {
-          id: 3,
-          description: "Spectrometer Calibration",
-          remarks: "Ensure device is properly zeroed.",
-          hazards: [
-            {
-              id: 1,
-              description: "Electrical Shock",
-              type: ["Electrical"],
-              injuries: ["Shock"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Ensure power is off before calibrating",
-              additionalControls: "",
-              severity: 4,
-              likelihood: 1,
-              rpn: 4
-            }
-          ]
-        },
-        {
-          id: 4,
-          description: "Sample Incubation",
-          remarks: "Monitor temperature and time.",
-          hazards: [
-            {
-              id: 1,
-              description: "Burns from hot surfaces",
-              type: ["Physical"],
-              injuries: ["Burns"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Use heat-resistant gloves",
-              additionalControls: "",
-              severity: 2,
-              likelihood: 2,
-              rpn: 4
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 3,
-      processNumber: 3,
-      header: "Safety Training",
-      headerColor: "#EEF1F4",
-      location: "Training Room",
-      activities: [
-        {
-          id: 1,
-          description: "Fire Drill Procedures",
-          remarks: "Mandatory attendance.",
-          hazards: [
-            {
-              id: 1,
-              description: "Tripping during evacuation",
-              type: ["Physical"],
-              injuries: ["Sprains"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Clear evacuation routes",
-              additionalControls: "",
-              severity: 2,
-              likelihood: 2,
-              rpn: 4
-            }
-          ]
-        },
-        {
-          id: 2,
-          description: "First Aid Basics",
-          remarks: "Certified instructor session.",
-          hazards: [
-            {
-              id: 1,
-              description: "Incorrect application of aid",
-              type: ["Physical"],
-              injuries: ["Worsened injury"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Instructor supervision",
-              additionalControls: "",
-              severity: 2,
-              likelihood: 1,
-              rpn: 2
-            }
-          ]
-        },
-        {
-          id: 3,
-          description: "Equipment Shutdown",
-          remarks: "Learn safe power-off steps.",
-          hazards: [
-            {
-              id: 1,
-              description: "Electrical hazard",
-              type: ["Electrical"],
-              injuries: ["Shock"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Follow shutdown procedures",
-              additionalControls: "",
-              severity: 3,
-              likelihood: 1,
-              rpn: 3
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 4,
-      processNumber: 4,
-      header: "Equipment Maintenance",
-      headerColor: "#EEF1F4",
-      location: "Maintenance Bay",
-      activities: [
-        {
-          id: 1,
-          description: "Routine Inspection",
-          remarks: "Check for wear and tear.",
-          hazards: [
-            {
-              id: 1,
-              description: "Contact with moving parts",
-              type: ["Physical"],
-              injuries: ["Pinch injuries"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Power off before inspection",
-              additionalControls: "",
-              severity: 2,
-              likelihood: 2,
-              rpn: 4
-            }
-          ]
-        },
-        {
-          id: 2,
-          description: "Filter Replacement",
-          remarks: "Change X-ray tube filters.",
-          hazards: [
-            {
-              id: 1,
-              description: "Radiation exposure",
-              type: ["Physical"],
-              injuries: ["Radiation burns"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Shielding and PPE",
-              additionalControls: "",
-              severity: 4,
-              likelihood: 1,
-              rpn: 4
-            }
-          ]
-        },
-        {
-          id: 3,
-          description: "Software Update",
-          remarks: "Install latest patches.",
-          hazards: [
-            {
-              id: 1,
-              description: "System crash",
-              type: ["Physical"],
-              injuries: ["Data loss"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Backup before update",
-              additionalControls: "",
-              severity: 2,
-              likelihood: 1,
-              rpn: 2
-            }
-          ]
-        },
-        {
-          id: 4,
-          description: "Performance Testing",
-          remarks: "Validate output and safety metrics.",
-          hazards: [
-            {
-              id: 1,
-              description: "Exposure to high voltage",
-              type: ["Electrical"],
-              injuries: ["Shock"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Insulated tools required",
-              additionalControls: "",
-              severity: 3,
-              likelihood: 1,
-              rpn: 3
-            }
-          ]
-        },
-        {
-          id: 5,
-          description: "Report Generation",
-          remarks: "Document all maintenance steps.",
-          hazards: [
-            {
-              id: 1,
-              description: "Eye fatigue",
-              type: ["Physical"],
-              injuries: ["Eye strain"],
-              newInjury: "",
-              newType: "",
-              showTypeInput: false,
-              showInjuryInput: false,
-              existingControls: "1) Take breaks during report writing",
-              additionalControls: "",
-              severity: 1,
-              likelihood: 2,
-              rpn: 2
-            }
-          ]
-        }
-      ]
-    }
-  ],
-};
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    division: "",
+    processes: [],
+    form_id: null // Track form ID
+  });
+  const [isForm1Valid, setIsForm1Valid] = useState(false);
+  const [isForm2Valid, setIsForm2Valid] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
-  // Check session when component mounts
+  // Function to validate Form 1
+  const validateForm1 = useCallback((data) => {
+    console.log("Validating Form1 data:", data);
+
+    // Make sure we have processes to check
+    if (!data.processes || data.processes.length === 0) {
+      console.log("No processes found - form invalid");
+      setIsForm1Valid(false);
+      return false;
+    }
+
+    // Basic validation - check if title and division are filled
+    // and at least one process exists with valid activities
+    const isValid =
+      data.title?.trim() !== "" &&
+      data.division?.trim() !== "" &&
+      data.processes?.length > 0 &&
+      data.processes.every(p => {
+        // Make sure header exists
+        const headerValid = p.header?.trim() !== "";
+        if (!headerValid) console.log(`Process ${p.processNumber || p.id} missing header`);
+
+        // Make sure at least one activity has a description
+        const hasValidActivity = p.activities?.length > 0 &&
+          p.activities.some(a => a.description?.trim() !== "");
+        if (!hasValidActivity) console.log(`Process ${p.processNumber || p.id} has no valid activities`);
+
+        return headerValid && hasValidActivity;
+      });
+
+    console.log("Form1 validation result:", isValid);
+    setIsForm1Valid(isValid);
+    return isValid;
+  }, []);
+
+  // Function to validate Form 2
+  const validateForm2 = useCallback((data) => {
+    // Check if hazards are properly defined
+    const isValid = data.processes?.every(process =>
+      process.activities?.every(activity =>
+        activity.hazards?.some(hazard =>
+          hazard.description?.trim() !== "" &&
+          hazard.type?.length > 0
+        )
+      )
+    );
+
+    setIsForm2Valid(isValid);
+    return isValid;
+  }, []);
+
+  // Debounced function to store form ID in session
+  const storeFormIdInSession = useCallback(async (form_id) => {
+    // Skip if no form ID
+    if (!form_id) return;
+
+    // Skip if the form ID is already stored in state and hasn't changed
+    if (formData.form_id === form_id) {
+      console.log('Form ID already stored, skipping update');
+      return;
+    }
+
+    // Prevent excessive calls (no more than once every 5 seconds)
+    const now = Date.now();
+    if (now - lastFetchTime < 5000) {
+      console.log('Skipping form ID update - too soon');
+      return;
+    }
+
+    setLastFetchTime(now);
+
+    try {
+      console.log('Storing form ID in session:', form_id);
+      const response = await fetch('/api/user/store_form_id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ form_id })
+      });
+
+      if (response.ok) {
+        console.log('Form ID stored in session successfully');
+        // Save to localStorage as a fallback
+        localStorage.setItem('current_form_id', form_id.toString());
+      } else {
+        console.error('Failed to store form ID in session - trying local fallback');
+        // If the API fails, store in localStorage as fallback
+        localStorage.setItem('current_form_id', form_id.toString());
+      }
+    } catch (error) {
+      console.error('Error storing form ID in session:', error);
+      // Store in localStorage as fallback
+      localStorage.setItem('current_form_id', form_id.toString());
+    }
+  }, [formData.form_id, lastFetchTime]);
+
+  // Function to update form data (with automatic persistence)
+  const updateFormData = useCallback(async (data, forceSave = false) => {
+    // Skip update if data is the same and not forced
+    if (!forceSave && JSON.stringify(data) === JSON.stringify(formData)) {
+      console.log("Form data unchanged, skipping update");
+      return;
+    }
+  
+    console.log("Updating form data:", data);
+  
+    // Preserve the form_id when updating
+    const newFormData = {
+      ...data,
+      form_id: data.form_id || formData.form_id
+    };
+  
+    setFormData(newFormData);
+  
+    // Only validate if we're not forcing a save (to reduce unnecessary processing)
+    if (!forceSave) {
+      // Validate forms based on current tab
+      if (currentTab === 0) {
+        validateForm1(newFormData);
+      } else if (currentTab === 1) {
+        validateForm2(newFormData);
+      }
+    }
+  
+    // Only store form ID in session when it changes or when forced
+    if ((newFormData.form_id && newFormData.form_id !== formData.form_id) || forceSave) {
+      await storeFormIdInSession(newFormData.form_id);
+    }
+  }, [formData, currentTab, validateForm1, validateForm2, storeFormIdInSession]);
+  
+  // Fetch latest form data from the server
+  const refreshFormData = useCallback(async (force = false) => {
+    if (!formData.form_id) {
+      return;
+    }
+
+    // Prevent excessive fetches (no more than once every 3 seconds)
+    const now = Date.now();
+    if (!force && now - lastFetchTime < 3000) {
+      console.log("Skipping refresh - too soon");
+      return;
+    }
+
+    setLastFetchTime(now);
+
+    try {
+      console.log(`Refreshing form data for ID: ${formData.form_id}`);
+      setIsLoading(true);
+
+      const response = await axios.get(`/api/user/get_form/${formData.form_id}`);
+
+      if (response.data) {
+        const freshData = {
+          title: response.data.title || "",
+          division: response.data.division || "",
+          processes: response.data.processes || [],
+          form_id: response.data.form_id
+        };
+
+        console.log("Refreshed form data:", freshData);
+        setFormData(freshData);
+
+        // Update form validations
+        validateForm1(freshData);
+        validateForm2(freshData);
+      }
+    } catch (error) {
+      console.error("Error refreshing form data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [formData.form_id, lastFetchTime, validateForm1, validateForm2]);
+
+  // Clear form ID on page reload (but not tab changes)
+  useEffect(() => {
+    const clearFormIdOnReload = async () => {
+      // Only clear on initial page load
+      if (!initialLoadRef.current) return;
+      
+      initialLoadRef.current = false;
+      
+      try {
+        console.log('Clearing form ID from session on page load');
+        
+        // Clear from session using API
+        await fetch('/api/user/clear_form_id', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        console.log('Form ID cleared from session on page load');
+      } catch (error) {
+        console.error('Error clearing form ID from session:', error);
+      }
+    };
+    
+    clearFormIdOnReload();
+    
+    // Set up beforeunload handler to clear form ID when navigating away from page
+    const handleBeforeUnload = () => {
+      // Use synchronous localStorage for unload event
+      localStorage.removeItem('current_form_id');
+      
+      // For modern browsers, we can try to make a synchronous request
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/user/clear_form_id', false); // false = synchronous
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send();
+      } catch (e) {
+        console.error('Error sending synchronous XHR:', e);
+      }
+    };
+    
+    // Add beforeunload listener
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Clean up event listener
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
+  // Update the handleTabChange function to be more resilient to server errors
+  const handleTabChange = async (tabIndex) => {
+    try {
+      console.log(`Attempting to navigate from tab ${currentTab} to tab ${tabIndex}`);
+  
+      // Skip if already on the selected tab
+      if (currentTab === tabIndex) {
+        return;
+      }
+  
+      // Going backward - don't save to DB, just update state
+      if (tabIndex < currentTab) {
+        console.log("Going backward, preserving form data without saving to DB");
+        
+        let stateUpdateSuccess = true;
+        
+        // For Form2, use the goBack method
+        if (currentTab === 1 && form2Ref.current) {
+          stateUpdateSuccess = form2Ref.current.goBack();
+        }
+        // For Form3, use the goBack method if it exists
+        else if (currentTab === 2 && form3Ref.current && form3Ref.current.goBack) {
+          stateUpdateSuccess = form3Ref.current.goBack();
+        }
+        
+        if (!stateUpdateSuccess) {
+          console.error("Failed to update state when going back");
+          return;
+        }
+        
+        // Change the tab without validation or saving
+        setCurrentTab(tabIndex);
+        return;
+      }
+  
+      // Going forward - save current tab data before switching
+      let saveSuccess = true;
+  
+      // Always validate first before trying to save
+      if (currentTab === 0 && form1Ref.current) {
+        // Validate before attempting to save
+        const validation = form1Ref.current.validateForm();
+        if (!validation.valid) {
+          alert(validation.message || "Please complete Form 1 before proceeding.");
+          return;
+        }
+        
+        console.log("Saving Form 1 before tab change...");
+        saveSuccess = await form1Ref.current.saveForm();
+  
+        if (!saveSuccess) {
+          console.error("Failed to save Form 1");
+          
+          // Instead of immediately blocking navigation, check if we have locally saved data
+          const localData = localStorage.getItem('form1_pending_data');
+          
+          if (localData) {
+            try {
+              const parsedData = JSON.parse(localData);
+              console.log("Using locally saved Form 1 data:", parsedData);
+              
+              // Allow continuing with offline data
+              updateFormData(parsedData, true);
+              
+              // We'll show a warning but allow navigation
+              alert("Warning: Unable to save to server. Continuing with locally saved data.");
+              
+              // Set currentTab and exit early
+              setCurrentTab(tabIndex);
+              return;
+            } catch (e) {
+              console.error("Error parsing local data:", e);
+              alert("Failed to save Form 1 and no valid local data found. Please try again.");
+              return;
+            }
+          } else {
+            alert("Failed to save Form 1. Please try again.");
+            return;
+          }
+        }
+  
+        // Get the form data after saving
+        const formData = form1Ref.current.getData();
+        if (formData.form_id) {
+          console.log("Form 1 saved with ID:", formData.form_id);
+  
+          // Store form ID in session ONCE when the tab changes
+          await storeFormIdInSession(formData.form_id);
+  
+          // Update the parent's formData state
+          updateFormData(formData);
+        } else {
+          console.error("Form saved but no form_id returned!");
+          alert("Error: Form saved but no ID was generated. Please try again.");
+          return;
+        }
+      }
+      else if (currentTab === 1 && form2Ref.current) {
+        // Similar logic for Form2...
+        const validation = form2Ref.current.validateForm();
+        if (!validation.valid) {
+          alert(validation.message || "Please complete Form 2 before proceeding.");
+          return;
+        }
+        
+        console.log("Saving Form 2 before tab change...");
+        saveSuccess = await form2Ref.current.saveForm();
+  
+        if (!saveSuccess) {
+          console.error("Failed to save Form 2");
+          alert("Failed to save Form 2. Please try again.");
+          return;
+        }
+      }
+  
+      // Change the tab
+      console.log(`Successfully navigating from tab ${currentTab} to tab ${tabIndex}`);
+      setCurrentTab(tabIndex);
+  
+      // Only refresh data ONCE after a tab change
+      if (formData.form_id) {
+        refreshFormData(true);
+      }
+    } catch (error) {
+      console.error("Error during tab change:", error);
+      alert("An error occurred while changing tabs. Please try again.");
+    }
+  };  // Check user session on initial load
   useEffect(() => {
     const checkSession = async () => {
+      // Skip if we've already checked the session in this component instance
+      if (sessionChecked) {
+        console.log("Session already checked, skipping...");
+        return;
+      }
+
       try {
         console.log("Checking user session...");
         setIsLoading(true);
-        
-        const response = await axios.get("/api/check_session", {
-          withCredentials: true
+
+        // Add cache-busting parameter to prevent browser caching
+        const response = await axios.get("/api/check_session?_=" + new Date().getTime(), {
+          withCredentials: true,
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
         });
-        
-        console.log("Session check response:", response.data);
-        
+
+        console.log("Session check complete");
+
         // If not logged in, redirect to login page
         if (!response.data.logged_in) {
           console.log("No active session found, redirecting to login");
           navigate("/auth/login");
           return;
         }
-        
+
         // If user is an admin, redirect to admin dashboard
         if (response.data.user_role === 0) {
           console.log("Admin user detected, redirecting to admin dashboard");
           navigate("/admin");
           return;
         }
-        
+
         // Store user data for display
         setUserData(response.data);
-        setIsLoading(false);
+
+        // Check for form ID in localStorage first (preserved during tab navigation)
+        const localFormId = localStorage.getItem('current_form_id');
+        
+        // If not in localStorage, check session
+        const formIdToUse = localFormId || response.data.current_form_id;
+        
+        if (formIdToUse) {
+          console.log("Found form ID to continue with:", formIdToUse);
+
+          // Fetch the form data to continue
+          try {
+            const formResponse = await axios.get(`/api/user/get_form/${formIdToUse}`);
+
+            if (formResponse.data) {
+              // Update the form data
+              const loadedFormData = {
+                title: formResponse.data.title || "",
+                division: formResponse.data.division || "",
+                processes: formResponse.data.processes || [],
+                form_id: formResponse.data.form_id
+              };
+
+              console.log("Loading existing form data:", loadedFormData);
+              setFormData(loadedFormData);
+
+              // Validate forms with the loaded data
+              validateForm1(loadedFormData);
+              validateForm2(loadedFormData);
+            }
+          }
+          catch (formError) {
+            console.error("Error loading form data:", formError);
+          }
+        }
+
+        // Mark session as checked - will prevent additional checks
+        setSessionChecked(true);
+
       } catch (error) {
         console.error("Error checking session:", error);
         // If there's an error, assume not logged in and redirect
         navigate("/auth/login");
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    checkSession();
-  }, [navigate]);
+    // Only run the session check if we haven't already checked
+    if (!sessionChecked) {
+      checkSession();
+    }
+
+    // Clean up any timeouts on unmount
+    return () => {
+      if (sessionCheckTimeoutRef.current) {
+        clearTimeout(sessionCheckTimeoutRef.current);
+      }
+    };
+  }, [navigate, validateForm1, validateForm2, sessionChecked, formData.form_id, storeFormIdInSession]);
+
+  // Only check session data once on initial load
+  useEffect(() => {
+    const checkSessionDataOnce = async () => {
+      // Skip if we've already fetched session data in this component instance
+      if (sessionChecked) return;
+
+      try {
+        console.log("Checking session data once...");
+
+        // Use sessionStorage to check if we've done this within the last minute
+        const lastSessionDataCheck = sessionStorage.getItem('lastSessionDataCheck');
+        const now = Date.now();
+
+        if (lastSessionDataCheck && now - parseInt(lastSessionDataCheck) < 60000) {
+          console.log("Skipping session data check - checked recently");
+          return;
+        }
+
+        const response = await fetch('/api/user/session');
+
+        if (response.ok) {
+          const data = await response.json();
+
+          // If we have a form_id in session but not in our state, update state
+          if (data.current_form_id && (!formData.form_id || data.current_form_id !== formData.form_id)) {
+            console.log("Found form_id in session, refreshing data:", data.current_form_id);
+            const newFormData = { ...formData, form_id: data.current_form_id };
+            setFormData(newFormData);
+            await refreshFormData(true);
+          }
+
+          // Mark that we've checked
+          sessionStorage.setItem('lastSessionDataCheck', now.toString());
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      }
+    };
+
+    // Only run once on component mount
+    checkSessionDataOnce();
+  }, [sessionChecked, formData, refreshFormData]);
 
   // Show loading indicator while checking session
   if (isLoading) {
@@ -449,12 +548,40 @@ const sampleEntry = {
           RA Form Submission
         </h3>
         <div className="mt-5">
-          <FormTabs onTabChange={setCurrentTab} />
+          <FormTabs
+            onTabChange={handleTabChange}
+            currentTab={currentTab}
+            isForm1Valid={isForm1Valid}
+            isForm2Valid={isForm2Valid}
+          />
         </div>
         <div className="mt-6">
-          {currentTab === 0 && <Form1 sample={sampleEntry} />}
-          {currentTab === 1 && <Form2 sample={sampleEntry} />}
-          {currentTab === 2 && <Form3 />}
+          {currentTab === 0 && (
+            <Form1
+              ref={form1Ref}
+              sample={null}
+              sessionData={userData}
+              updateFormData={updateFormData}
+              formData={formData}
+            />
+          )}
+          {currentTab === 1 && (
+            <Form2
+              ref={form2Ref}
+              sample={null}
+              sessionData={userData}
+              updateFormData={updateFormData}
+              formData={formData}
+            />
+          )}
+          {currentTab === 2 && (
+            <Form3
+              ref={form3Ref}
+              formData={formData}
+              sessionData={userData}
+              updateFormData={updateFormData}
+            />
+          )}
         </div>
       </div>
     </div>
