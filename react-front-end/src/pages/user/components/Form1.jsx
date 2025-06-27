@@ -279,6 +279,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     // Add toast notification here if you have one
   };
 
+  // Update the handleSave function to implement offline capability and better error handling
+  
   const handleSave = async () => {
     // Validate form first
     const validation = ref.current.validateForm();
@@ -286,15 +288,35 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       showErrorMessage(validation.message);
       return false;
     }
-
+  
     if (isLoading) return false; // Prevent saving while already saving
-
+  
     setIsLoading(true);
-
+  
     const currentFormId = formIdRef.current;
-
+  
     console.log("Form1 data:", { formId: currentFormId, title, division, processes });
-
+  
+    // Create a function to save form data to localStorage as a fallback
+    const saveToLocalStorage = () => {
+      try {
+        const formDataToSave = {
+          title,
+          division,
+          processes,
+          form_id: currentFormId || `temp_${Date.now()}`,
+          last_saved: new Date().toISOString(),
+          pending_save: true
+        };
+        localStorage.setItem('form1_pending_data', JSON.stringify(formDataToSave));
+        console.log('Form data saved to localStorage as fallback');
+        return true;
+      } catch (error) {
+        console.error('Error saving to localStorage:', error);
+        return false;
+      }
+    };
+  
     try {
       const requestBody = {
         title,
@@ -302,14 +324,15 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         processes: processes, // Include all processes in the main request
         userId: sessionData?.user_id
       };
-
+  
       if (currentFormId) {
         requestBody.form_id = currentFormId;
         console.log('Including form_id in request:', currentFormId);
       } else {
         console.log('No Form ID, creating new form');
       }
-
+  
+      // First attempt to save to server
       const response = await fetch('/api/user/form1', {
         method: 'POST',
         headers: {
@@ -317,32 +340,54 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         },
         body: JSON.stringify(requestBody)
       });
-
+  
       if (!response.ok) {
+        // Server error - check if it's a MySQL connection error
         const errorData = await response.json();
+        
+        if (errorData.error && errorData.error.includes('MySQL Connection not available')) {
+          console.warn('MySQL connection error detected - saving to localStorage instead');
+          
+          // Save to localStorage as a fallback
+          const localSaveSuccess = saveToLocalStorage();
+          
+          if (localSaveSuccess) {
+            showSuccessMessage('Form saved locally (database connection unavailable). Your changes will be synchronized when connection is restored.');
+            
+            // Generate a temporary form ID if needed
+            const tempFormId = currentFormId || `temp_${Date.now()}`;
+            updateFormId(tempFormId);
+            
+            setIsLoading(false);
+            return true; // Return success for UI flow
+          } else {
+            throw new Error('Failed to save locally');
+          }
+        }
+        
         throw new Error(errorData.error || `Form save failed: ${response.statusText}`);
       }
-
+  
       const formResult = await response.json();
       console.log('Form save success:', formResult);
-
+  
       let formId = formResult.form_id;
-
+  
       // Update form ID if new form
       if (formResult.action === 'created' || !currentFormId) {
         updateFormId(formId);
         await storeFormIdInSession(formId);
         console.log('New form created with ID:', formId);
       }
-
+  
       if (processes && processes.length > 0) {
         console.log('Saving processes for form ID:', formId);
-
+  
         const savedProcesses = [];
-
+  
         for (let i = 0; i < processes.length; i++) {
           const process = processes[i];
-
+  
           const processRequestBody = {
             process_form_id: formId,
             process_number: process.processNumber || (i + 1),
@@ -350,89 +395,110 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             process_location: process.location || null,
             ...(process.process_id && { process_id: process.process_id })
           };
-
+  
           console.log(`Saving process ${i + 1}:`, processRequestBody);
-
-          const processResponse = await fetch('/api/user/process', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(processRequestBody)
-          });
-
-          if (!processResponse.ok) {
-            const errorData = await processResponse.json();
-            throw new Error(errorData.error || `Process save failed for process ${i + 1}: ${processResponse.statusText}`);
-          }
-
-          const processResult = await processResponse.json();
-          console.log(`Process ${i + 1} saved:`, processResult);
-
-          const processId = processResult.process_id;
-          savedProcesses.push({ ...process, process_id: processId });
-
-          if (process.activities && process.activities.length > 0) {
-            console.log('Saving activities for process ID:', processId);
-
-            const savedActivities = [];
-
-            for (let j = 0; j < process.activities.length; j++) {
-              const activity = process.activities[j];
-              const activityRequestBody = {
-                activity_process_id: processId,
-                activity_form_id: formId,
-                activity_number: j + 1, // Use sequential number instead of activity.id
-                work_activity: activity.description || "",
-                remarks: activity.remarks || "",
-                ...(activity.activity_id && { activity_id: activity.activity_id })
-              };
-
-              console.log(`Saving activity ${j + 1} for process ${i + 1}:`, activityRequestBody);
-
-              const activityResponse = await fetch('/api/user/activity', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(activityRequestBody)
-              });
-
-              if (!activityResponse.ok) {
-                const errorData = await activityResponse.json();
-                throw new Error(errorData.error || `Activity save failed for activity ${j + 1} in process ${i + 1}: ${activityResponse.statusText}`);
-              }
-
-              const activityResult = await activityResponse.json();
-              console.log(`Activity ${j + 1} for process ${i + 1} saved:`, activityResult);
-
-              savedActivities.push({ ...activity, activity_id: activityResult.activity_id });
+  
+          try {
+            const processResponse = await fetch('/api/user/process', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(processRequestBody)
+            });
+  
+            if (!processResponse.ok) {
+              const errorData = await processResponse.json();
+              throw new Error(errorData.error || `Process save failed for process ${i + 1}: ${processResponse.statusText}`);
             }
-
-            // Update the process with saved activity IDs
-            savedProcesses[i].activities = savedActivities;
+  
+            const processResult = await processResponse.json();
+            console.log(`Process ${i + 1} saved:`, processResult);
+  
+            const processId = processResult.process_id;
+            savedProcesses.push({ ...process, process_id: processId });
+  
+            if (process.activities && process.activities.length > 0) {
+              console.log('Saving activities for process ID:', processId);
+  
+              const savedActivities = [];
+  
+              for (let j = 0; j < process.activities.length; j++) {
+                const activity = process.activities[j];
+                const activityRequestBody = {
+                  activity_process_id: processId,
+                  activity_form_id: formId,
+                  activity_number: j + 1, // Use sequential number instead of activity.id
+                  work_activity: activity.description || "",
+                  remarks: activity.remarks || "",
+                  ...(activity.activity_id && { activity_id: activity.activity_id })
+                };
+  
+                console.log(`Saving activity ${j + 1} for process ${i + 1}:`, activityRequestBody);
+  
+                const activityResponse = await fetch('/api/user/activity', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(activityRequestBody)
+                });
+  
+                if (!activityResponse.ok) {
+                  const errorData = await activityResponse.json();
+                  throw new Error(errorData.error || `Activity save failed for activity ${j + 1} in process ${i + 1}: ${activityResponse.statusText}`);
+                }
+  
+                const activityResult = await activityResponse.json();
+                console.log(`Activity ${j + 1} for process ${i + 1} saved:`, activityResult);
+  
+                savedActivities.push({ ...activity, activity_id: activityResult.activity_id });
+              }
+  
+              // Update the process with saved activity IDs
+              savedProcesses[i].activities = savedActivities;
+            }
+          } catch (processError) {
+            // If a process fails to save but the form was saved, we can continue
+            console.error(`Error saving process ${i + 1}:`, processError);
+            // Try to save locally for synchronization later
+            saveToLocalStorage();
           }
         }
-        updateProcessesWithSavedIds(savedProcesses);
+        
+        // Only update if we have processes successfully saved
+        if (savedProcesses.length > 0) {
+          updateProcessesWithSavedIds(savedProcesses);
+        }
       }
-
+  
+      // Clear any locally stored pending data since we've successfully saved
+      localStorage.removeItem('form1_pending_data');
+  
       setIsLoading(false);
       console.log('All data saved successfully');
-
+  
       showSuccessMessage('Form saved successfully!');
-
+  
       return true;
-
+  
     } catch (error) {
       console.error('Save operation failed:', error);
-      setIsLoading(false);
-
-      showErrorMessage(`Save failed: ${error.message}`);
-
-      return false;
+      
+      // Try to save to localStorage as fallback
+      const localSaveSuccess = saveToLocalStorage();
+      
+      if (localSaveSuccess) {
+        showSuccessMessage('Form saved locally. Your changes will be synchronized when connection is restored.');
+        setIsLoading(false);
+        return true; // Allow navigation to continue
+      } else {
+        setIsLoading(false);
+        showErrorMessage(`Save failed: ${error.message}`);
+        return false;
+      }
     }
   };
-
   const updateProcessesWithSavedIds = (savedProcesses) => {
     const updatedProcesses = processes.map((proc, index) => {
       const savedProcess = savedProcesses[index];

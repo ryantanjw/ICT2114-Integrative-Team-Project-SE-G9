@@ -257,37 +257,95 @@ export default function UserNewForm() {
     };
   }, []);
 
-  // Function to handle tab change with validation and saving  
+  // Update the handleTabChange function to be more resilient to server errors
   const handleTabChange = async (tabIndex) => {
     try {
       console.log(`Attempting to navigate from tab ${currentTab} to tab ${tabIndex}`);
-
+  
       // Skip if already on the selected tab
       if (currentTab === tabIndex) {
         return;
       }
-
-      // Always save current tab data before switching
-      let saveSuccess = true;
-
-      if (currentTab === 0 && form1Ref.current) {
-        console.log("Saving Form 1 before tab change...");
-        saveSuccess = await form1Ref.current.saveForm();
-
-        if (!saveSuccess) {
-          console.error("Failed to save Form 1");
-          alert("Failed to save Form 1. Please try again.");
+  
+      // Going backward - don't save to DB, just update state
+      if (tabIndex < currentTab) {
+        console.log("Going backward, preserving form data without saving to DB");
+        
+        let stateUpdateSuccess = true;
+        
+        // For Form2, use the goBack method
+        if (currentTab === 1 && form2Ref.current) {
+          stateUpdateSuccess = form2Ref.current.goBack();
+        }
+        // For Form3, use the goBack method if it exists
+        else if (currentTab === 2 && form3Ref.current && form3Ref.current.goBack) {
+          stateUpdateSuccess = form3Ref.current.goBack();
+        }
+        
+        if (!stateUpdateSuccess) {
+          console.error("Failed to update state when going back");
           return;
         }
-
+        
+        // Change the tab without validation or saving
+        setCurrentTab(tabIndex);
+        return;
+      }
+  
+      // Going forward - save current tab data before switching
+      let saveSuccess = true;
+  
+      // Always validate first before trying to save
+      if (currentTab === 0 && form1Ref.current) {
+        // Validate before attempting to save
+        const validation = form1Ref.current.validateForm();
+        if (!validation.valid) {
+          alert(validation.message || "Please complete Form 1 before proceeding.");
+          return;
+        }
+        
+        console.log("Saving Form 1 before tab change...");
+        saveSuccess = await form1Ref.current.saveForm();
+  
+        if (!saveSuccess) {
+          console.error("Failed to save Form 1");
+          
+          // Instead of immediately blocking navigation, check if we have locally saved data
+          const localData = localStorage.getItem('form1_pending_data');
+          
+          if (localData) {
+            try {
+              const parsedData = JSON.parse(localData);
+              console.log("Using locally saved Form 1 data:", parsedData);
+              
+              // Allow continuing with offline data
+              updateFormData(parsedData, true);
+              
+              // We'll show a warning but allow navigation
+              alert("Warning: Unable to save to server. Continuing with locally saved data.");
+              
+              // Set currentTab and exit early
+              setCurrentTab(tabIndex);
+              return;
+            } catch (e) {
+              console.error("Error parsing local data:", e);
+              alert("Failed to save Form 1 and no valid local data found. Please try again.");
+              return;
+            }
+          } else {
+            alert("Failed to save Form 1. Please try again.");
+            return;
+          }
+        }
+  
         // Get the form data after saving
         const formData = form1Ref.current.getData();
         if (formData.form_id) {
           console.log("Form 1 saved with ID:", formData.form_id);
-
+  
           // Store form ID in session ONCE when the tab changes
           await storeFormIdInSession(formData.form_id);
-
+  
           // Update the parent's formData state
           updateFormData(formData);
         } else {
@@ -298,38 +356,26 @@ export default function UserNewForm() {
       }
       else if (currentTab === 1 && form2Ref.current) {
         // Similar logic for Form2...
+        const validation = form2Ref.current.validateForm();
+        if (!validation.valid) {
+          alert(validation.message || "Please complete Form 2 before proceeding.");
+          return;
+        }
+        
         console.log("Saving Form 2 before tab change...");
         saveSuccess = await form2Ref.current.saveForm();
-
+  
         if (!saveSuccess) {
           console.error("Failed to save Form 2");
           alert("Failed to save Form 2. Please try again.");
           return;
         }
       }
-
-      // Now validate before proceeding to next tab
-      if (tabIndex > currentTab) {
-        if (currentTab === 0) {
-          const validation = form1Ref.current.validateForm();
-          if (!validation.valid) {
-            alert(validation.message || "Please complete Form 1 before proceeding.");
-            return;
-          }
-        }
-        else if (currentTab === 1) {
-          const validation = form2Ref.current.validateForm();
-          if (!validation.valid) {
-            alert(validation.message || "Please complete Form 2 before proceeding.");
-            return;
-          }
-        }
-      }
-
+  
       // Change the tab
       console.log(`Successfully navigating from tab ${currentTab} to tab ${tabIndex}`);
       setCurrentTab(tabIndex);
-
+  
       // Only refresh data ONCE after a tab change
       if (formData.form_id) {
         refreshFormData(true);
@@ -338,9 +384,7 @@ export default function UserNewForm() {
       console.error("Error during tab change:", error);
       alert("An error occurred while changing tabs. Please try again.");
     }
-  };
-
-  // Check user session on initial load
+  };  // Check user session on initial load
   useEffect(() => {
     const checkSession = async () => {
       // Skip if we've already checked the session in this component instance

@@ -20,6 +20,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const lastFetchTime = useRef(0);
   const pendingUpdatesRef = useRef(null);
   const updateTimeoutRef = useRef(null);
+  const lastUpdateTime = useRef(0);
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {
@@ -253,6 +254,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       updateTimeoutRef.current = null;
     }
 
+    // Prevent too frequent updates
+    const now = Date.now();
+    if (!force && now - lastUpdateTime.current < 1000) {
+      console.log("Skipping parent update - too soon");
+      return;
+    }
+    lastUpdateTime.current = now;
+
     if (updateFormData && dataLoaded) {
       const updatedFormData = {
         form_id: formId,
@@ -311,7 +320,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       title,
       division,
       processes: raProcesses
-    })
+    }),
+    // New method to handle going back without saving to DB
+    goBack: () => {
+      console.log("Form2: Going back without saving to DB");
+      
+      // Just update parent state without saving to DB
+      triggerUpdateToParent(true);
+      
+      // Return success
+      return true;
+    }
   }));
 
   // Helper functions to operate on raProcesses (processes with nested activities)
