@@ -48,7 +48,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         rpn: 1,
       }];
     }
-    
+
     // Make sure all required fields exist
     return hazards.map(hazard => ({
       id: hazard.id || hazard.hazard_id || Date.now(),
@@ -74,14 +74,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // If we have formData passed from parent, use that
       if (formData && Object.keys(formData).length > 0) {
         // console.log('Initializing from formData prop:', formData);
-        
+
         setTitle(formData.title || "");
         setDivision(formData.division || "");
-        
+
         if (formData.form_id) {
           updateFormId(formData.form_id);
         }
-        
+
         // Only process the processes if we have them
         if (formData.processes && formData.processes.length > 0) {
           const processesWithHazards = formData.processes.map(proc => ({
@@ -96,20 +96,20 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               hazards: initializeHazards(act.hazards)
             }))
           }));
-          
+
           setRaProcesses(processesWithHazards);
         }
-        
+
         setDataLoaded(true);
         return true;
       }
-      
+
       return false;
     };
-    
+
     // Try to initialize from props first
     const initialized = initializeFormData();
-    
+
     // If not initialized from props and we have a form ID in session, fetch from API
     if (!initialized && sessionData?.current_form_id && !dataLoaded) {
       fetchFormData(sessionData.current_form_id);
@@ -123,9 +123,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       console.log('Skipping session update - too soon');
       return;
     }
-    
+
     lastFetchTime.current = now;
-    
+
     try {
       const response = await fetch('/api/user/store_form_id', {
         method: 'POST',
@@ -155,7 +155,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     try {
       setIsLoading(true);
       console.log(`Fetching form data for ID: ${id}`);
-      
+
       const response = await fetch(`/api/user/get_form2_data/${id}`);
 
       if (response.ok) {
@@ -164,7 +164,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
         setTitle(data.title || "");
         setDivision(data.division || "");
-        
+
         // Process and initialize the processes with proper hazard structure
         if (data.processes && data.processes.length > 0) {
           const processesWithHazards = data.processes.map(proc => ({
@@ -179,12 +179,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               hazards: initializeHazards(act.hazards)
             }))
           }));
-          
+
           setRaProcesses(processesWithHazards);
         }
-        
+
         updateFormId(data.form_id);
-        
+
         // Also set hazard types list if it's included
         if (data.hazardTypesList) {
           setHazardTypesList(data.hazardTypesList);
@@ -192,7 +192,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
         // Also store form ID in session
         await storeFormIdInSession(data.form_id);
-        
+
         setDataLoaded(true);
       } else {
         console.error('Failed to fetch form data');
@@ -269,7 +269,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         division,
         processes: raProcesses
       };
-      
+
       console.log("Explicitly updating parent", force ? "(forced)" : "");
       updateFormData(updatedFormData, force);
     }
@@ -292,25 +292,25 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         clearTimeout(updateTimeoutRef.current);
         updateTimeoutRef.current = null;
       }
-      
+
       // Force update to parent before saving
       triggerUpdateToParent(true);
-      
+
       // Then call the save handler
       return handleSave();
     },
     validateForm: () => {
       // Check if each activity has at least one hazard with description and type
-      const isValid = raProcesses.every(process => 
-        process.activities.every(activity => 
-          activity.hazards.some(hazard => 
-            hazard.description.trim() !== "" && 
+      const isValid = raProcesses.every(process =>
+        process.activities.every(activity =>
+          activity.hazards.some(hazard =>
+            hazard.description.trim() !== "" &&
             hazard.type.length > 0
           )
         )
       );
-      
-      return { 
+
+      return {
         valid: isValid,
         message: isValid ? "" : "Please complete all hazard descriptions and select hazard types"
       };
@@ -324,10 +324,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // New method to handle going back without saving to DB
     goBack: () => {
       console.log("Form2: Going back without saving to DB");
-      
+
       // Just update parent state without saving to DB
       triggerUpdateToParent(true);
-      
+
       // Return success
       return true;
     }
@@ -438,7 +438,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                         type: [h.newType],
                         newType: "",
                         showTypeInput: false,
-                        injuries: [],
+                        // Keep existing injuries
                         showInjuryInput: false,
                       }
                       : h
@@ -452,6 +452,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     );
     // Schedule a batched update
     scheduleBatchedUpdate();
+  };
+
+  const handleInjuryKeyPress = (e, processId, activityId, hazardId) => {
+    if (e.key === 'Enter' && e.target.value.trim() !== '') {
+      e.preventDefault(); // Prevent form submission
+      handleConfirmNewInjury(processId, activityId, hazardId);
+    }
   };
 
   const handleConfirmNewInjury = (processId, activityId, hazardId) => {
@@ -631,13 +638,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Save handler  
   const handleSave = async () => {
     if (isLoading) return false; // Prevent saving while already saving
-
+  
     setIsLoading(true);
-
+  
     const currentFormId = formIdRef.current;
-
+  
     console.log("Form2 data:", { formId: currentFormId, title, division, processes: raProcesses });
-
+  
     try {
       const requestBody = {
         title,
@@ -645,14 +652,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         processes: raProcesses,
         userId: sessionData?.user_id
       };
-
+  
       if (currentFormId) {
         requestBody.form_id = currentFormId;
         console.log('Including form_id in request:', currentFormId);
       } else {
         console.log('No Form ID, creating new form');
       }
-
+  
       const response = await fetch('/api/user/form2', {
         method: 'POST',
         headers: {
@@ -660,29 +667,43 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         },
         body: JSON.stringify(requestBody)
       });
-
+  
       if (response.ok) {
         const result = await response.json();
         console.log('Success:', result);
-
+  
         if (result.form_id) {
           updateFormId(result.form_id);
           console.log('Form ID stored:', result.form_id);
-
+  
           // Also store the form_id in session for cross-tab access
           await storeFormIdInSession(result.form_id);
+          
+          // Cache the full form data in localStorage for persistence
+          try {
+            localStorage.setItem('form2_data', JSON.stringify({
+              form_id: result.form_id,
+              title,
+              division,
+              processes: raProcesses,
+              lastUpdated: new Date().toISOString()
+            }));
+            console.log('Form data cached in localStorage');
+          } catch (storageError) {
+            console.error('Failed to cache form data:', storageError);
+          }
         }
-
+  
         // Show success message
         if (result.action === 'created') {
           console.log('New form created with ID:', result.form_id);
         } else {
           console.log('Form updated successfully');
         }
-        
+  
         // Force update to parent after successful save
         triggerUpdateToParent(true);
-        
+  
         setIsLoading(false);
         return true; // Indicate success
       } else {
@@ -696,7 +717,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       return false; // Indicate failure
     }
   };
-
   // Determine dropdown background based on value
   const getDropdownColor = (key, value) => {
     if (key === "severity" || key === "likelihood") {
@@ -856,8 +876,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                 key={type}
                                 onClick={() => toggleHazardType(proc.id, act.id, h.id, type)}
                                 className={`px-3 py-1 rounded-full  ${h.type.includes(type)
-                                    ? "bg-black text-white"
-                                    : "bg-gray-200"
+                                  ? "bg-black text-white"
+                                  : "bg-gray-200"
                                   }`}
                               >
                                 {type}
@@ -933,6 +953,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                 onChange={e =>
                                   updateHazard(proc.id, act.id, h.id, "newInjury", e.target.value)
                                 }
+                                onKeyPress={e => handleInjuryKeyPress(e, proc.id, act.id, h.id)}
                                 placeholder="Enter New Injury"
                                 className="flex-1 border border-gray-300 rounded px-3 py-2"
                               />
