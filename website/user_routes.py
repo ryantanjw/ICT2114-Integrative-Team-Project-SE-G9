@@ -80,6 +80,48 @@ def retrieve_forms():
     except Exception as e:
         print(f"Error retrieving forms: {e}")
         return jsonify({'error': 'Failed to retrieve forms'}), 500
+
+@user.route('/process/<int:process_id>', methods=['DELETE'])
+def delete_process(process_id):
+    try:
+        # Find the process
+        process = Process.query.get(process_id)
+        print(f"backend process to be deleted found:", process)
+        if not process:
+            return jsonify({'error': 'Process not found'}), 404
+        
+        # Delete all activities associated with this process
+        # This will also cascade to delete hazards and risks if you have proper foreign key constraints
+        activities = Activity.query.filter_by(activity_process_id=process_id).all()
+        
+        for activity in activities:
+            # Delete hazards associated with this activity
+            hazards = Hazard.query.filter_by(hazard_activity_id=activity.activity_id).all()
+            
+            for hazard in hazards:
+                # Delete risks associated with this hazard
+                Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).delete()
+                
+            # Delete the hazards
+            Hazard.query.filter_by(hazard_activity_id=activity.activity_id).delete()
+            
+        # Delete the activities
+        Activity.query.filter_by(activity_process_id=process_id).delete()
+        
+        # Finally, delete the process
+        db.session.delete(process)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Process {process_id} and all associated data deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting process {process_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete process'}), 500
+
      
 @user.route('/process', methods=['POST'])
 def save_process():
