@@ -27,8 +27,6 @@ def retrieve_forms():
         
         print(f"Form model: {Form}")
 
-        #username = User.query.filter_by(user_id=session_user_id).user_name
-
         user = User.query.filter_by(user_id=session_user_id).first()
         username = user.user_name if user else "Unknown User"
 
@@ -147,6 +145,7 @@ def save_activity():
         work_activity = data.get('work_activity')
         activity_number = data.get('activity_number')
         activity_id = data.get('activity_id')  # For updates
+        activity_remarks = data.get('activity_remarks')
 
         # Validate required fields
         if not activity_process_id or not work_activity:
@@ -161,6 +160,7 @@ def save_activity():
             activity.activity_process_id = activity_process_id
             activity.work_activity = work_activity
             activity.activity_number = activity_number
+            activity.activity_remarks = activity_remarks
             
             action = 'updated'
         else:
@@ -168,7 +168,8 @@ def save_activity():
             activity = Activity(
                 activity_process_id=activity_process_id,
                 work_activity=work_activity,
-                activity_number=activity_number
+                activity_number=activity_number,
+                activity_remarks=activity_remarks
             )
             db.session.add(activity)
             action = 'created'

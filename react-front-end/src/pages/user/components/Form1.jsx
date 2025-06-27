@@ -430,7 +430,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
                   activity_form_id: formId,
                   activity_number: j + 1, // Use sequential number instead of activity.id
                   work_activity: activity.description || "",
-                  remarks: activity.remarks || "",
+                  activity_remarks: activity.remarks || "",
                   ...(activity.activity_id && { activity_id: activity.activity_id })
                 };
   

@@ -83,6 +83,7 @@ class Activity(db.Model):
     activity_process_id = db.Column(db.Integer, db.ForeignKey('process.process_id'), nullable=False)
     work_activity = db.Column(db.String(255), nullable=False)
     activity_number = db.Column(db.Integer, nullable=False)
+    activity_remarks = db.Column(db.String(255), nullable=True)
     
 class RA_team(db.Model):
     __tablename__ = 'RA_team'
