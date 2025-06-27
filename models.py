@@ -14,6 +14,7 @@ class User(db.Model):
     user_cluster = db.Column(db.Enum('ENG', 'FCB', 'ICT', 'HSS', 'BCD'), nullable=False)
     password = db.Column(db.String(255), nullable=False)
 
+#No Changes
 class Form(db.Model):
     __tablename__ = 'form'
 
@@ -37,7 +38,7 @@ class Process(db.Model):
 
     # Define fields
     process_id = db.Column(db.Integer, primary_key=True)
-    form_id = db.Column(db.Integer, db.ForeignKey('form.form_id'), nullable=False)
+    process_form_id = db.Column(db.Integer, db.ForeignKey('form.form_id'), nullable=False)
     process_number = db.Column(db.Integer, nullable=False) 
     process_title = db.Column(db.String(124), nullable=False)
     process_location = db.Column(db.String(255), nullable=True)
@@ -80,7 +81,7 @@ class Activity(db.Model):
 
     # Define fields
     activity_id = db.Column(db.Integer, primary_key=True)
-    activity_form_id = db.Column(db.Integer, db.ForeignKey('form.form_id'), nullable=False)
+    activity_process_id = db.Column(db.Integer, db.ForeignKey('process.process_id'), nullable=False)
     work_activity = db.Column(db.String(255), nullable=False)
     activity_number = db.Column(db.Integer, nullable=False)
     
