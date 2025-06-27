@@ -73,7 +73,6 @@ class Risk(db.Model):
     additional_risk_control = db.Column(db.Text, nullable=True)
     severity = db.Column(db.Integer, nullable=False)
     likelihood = db.Column(db.Integer, nullable=False)
-    risk_rating = db.Column(db.Integer, nullable=False)
     RPN = db.Column(db.Integer, nullable=False)
     
 class Activity(db.Model):

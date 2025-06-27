@@ -612,38 +612,31 @@ def form2_save():
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
   
-@user.route('/store_form_id', methods=['POST'])
-def store_form_id():
-    """Store form_id in session for persistence across tabs/forms"""
+@user.route('/clear_form_id', methods=['POST'])
+def clear_form_id():
+    """Clear the form_id from session when the page reloads"""
     try:
-        data = request.get_json()
-        form_id = data.get('form_id')
-        
-        if not form_id:
-            return jsonify({"error": "No form_id provided"}), 400
+        if 'current_form_id' in session:
+            # Get the current form ID for logging
+            form_id = session.get('current_form_id')
             
-        # Store in session
-        session['current_form_id'] = form_id
-        
-        # Force session save
-        session.modified = True
-        
-        print(f"Stored form_id in session: {form_id}")
-        print(f"Current session data: {session}")
-        
+            # Remove it from session
+            del session['current_form_id']
+            
+            # Force session save
+            session.modified = True
+            
+            print(f"Cleared form_id {form_id} from session")
+            
         return jsonify({
             "success": True, 
-            "message": "Form ID stored in session",
-            "current_form_id": form_id
+            "message": "Form ID cleared from session"
         }), 200
     
     except Exception as e:
-        print(f"Error storing form ID: {str(e)}")
-        return jsonify({"error": str(e)}), 500@user.route('/clear_form_id', methods=['POST'])
-def clear_form_id():
-    if 'current_form_id' in session:
-        del session['current_form_id']
-    return jsonify({"success": True, "message": "Form ID cleared from session"}), 200
+        print(f"Error clearing form ID: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+  
 
 @user.route('/complete_form', methods=['POST'])
 def complete_form():
@@ -731,13 +724,51 @@ def get_form(form_id):
         print(f"Error fetching form: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+  
 @user.route('/check_session', methods=['GET'])
 def check_session():
+    # Check if this is a redundant call (within 5 seconds of last check)
+    current_time = datetime.now()
+    last_check = session.get('last_session_check')
+    
+    # Convert stored time string back to datetime if it exists
+    if last_check and isinstance(last_check, str):
+        try:
+            last_check = datetime.fromisoformat(last_check)
+            # If checked within last 5 seconds, return cached result without logging
+            if (current_time - last_check).total_seconds() < 5:
+                if 'user_id' in session:
+                    return jsonify({
+                        "logged_in": True,
+                        "user_id": session.get('user_id'),
+                        "user_name": session.get('user_name', ""),
+                        "user_email": session.get('user_email', ""),
+                        "user_role": session.get('user_role'),
+                        "current_form_id": session.get('current_form_id')
+                    }), 200
+                return jsonify({"logged_in": False}), 200
+        except ValueError:
+            pass  # If date parsing fails, continue with normal check
+    
+    # Store this check time
+    session['last_session_check'] = current_time.isoformat()
+    
+    # Actual session check
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
         if user:
+            # Cache user data in session for faster repeat checks
+            session['user_name'] = user.user_name
+            session['user_email'] = user.user_email
+            session['user_role'] = user.user_role
+            
             # Include current_form_id in the response if it exists
             current_form_id = session.get('current_form_id')
+            
+            # Only log full session details once per user session
+            if not session.get('logged_session_once'):
+                print(f"Session authenticated for user: {user.user_name}")
+                session['logged_session_once'] = True
             
             return jsonify({
                 "logged_in": True,
@@ -750,6 +781,36 @@ def check_session():
     
     return jsonify({"logged_in": False}), 200
 
+@user.route('/store_form_id', methods=['POST'])
+def store_form_id():
+    """Store form_id in session for persistence across tabs/forms"""
+    try:
+        data = request.get_json()
+        form_id = data.get('form_id')
+        
+        if not form_id:
+            return jsonify({"error": "No form_id provided"}), 400
+            
+        # Only store if different than current value
+        if session.get('current_form_id') != form_id:
+            # Store in session
+            session['current_form_id'] = form_id
+            
+            # Force session save
+            session.modified = True
+            
+            print(f"Stored new form_id in session: {form_id}")
+        
+        return jsonify({
+            "success": True, 
+            "message": "Form ID stored in session",
+            "current_form_id": form_id
+        }), 200
+    
+    except Exception as e:
+        print(f"Error storing form ID: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+  
 @user.route('/session', methods=['GET'])
 def get_session_data():
     """Get current session data including form_id with caching"""
@@ -760,8 +821,8 @@ def get_session_data():
             "current_form_id": session.get('current_form_id')
         })
         
-        # Cache for 5 seconds - adjust as needed
-        response.headers['Cache-Control'] = 'max-age=5'
+        # Cache for a longer time - 30 seconds
+        response.headers['Cache-Control'] = 'max-age=30'
         return response, 200
         
     except Exception as e:

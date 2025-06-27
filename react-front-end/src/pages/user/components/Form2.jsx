@@ -18,6 +18,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const [dataLoaded, setDataLoaded] = useState(false);
   const formIdRef = useRef(null);
   const lastFetchTime = useRef(0);
+  const pendingUpdatesRef = useRef(null);
+  const updateTimeoutRef = useRef(null);
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {
@@ -70,7 +72,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     const initializeFormData = () => {
       // If we have formData passed from parent, use that
       if (formData && Object.keys(formData).length > 0) {
-        console.log('Initializing from formData prop:', formData);
+        // console.log('Initializing from formData prop:', formData);
         
         setTitle(formData.title || "");
         setDivision(formData.division || "");
@@ -218,8 +220,39 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     fetchHazardTypes();
   }, []);
 
-  // Update parent's form data when our local state changes
-  useEffect(() => {
+  // Batched update function to avoid excessive parent updates
+  const scheduleBatchedUpdate = useCallback(() => {
+    // Cancel any pending update
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    // Create the current form data
+    pendingUpdatesRef.current = {
+      form_id: formId,
+      title,
+      division,
+      processes: raProcesses
+    };
+
+    // Schedule an update for later - only update when user is idle for 2 seconds
+    updateTimeoutRef.current = setTimeout(() => {
+      if (pendingUpdatesRef.current && updateFormData && dataLoaded) {
+        console.log("Sending batched update to parent");
+        updateFormData(pendingUpdatesRef.current, false);
+        pendingUpdatesRef.current = null;
+      }
+    }, 2000);
+  }, [title, division, raProcesses, formId, updateFormData, dataLoaded]);
+
+  // Only update parent when explicitly requested (Save button) or after a long idle period
+  const triggerUpdateToParent = useCallback((force = false) => {
+    // Cancel any pending update
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = null;
+    }
+
     if (updateFormData && dataLoaded) {
       const updatedFormData = {
         form_id: formId,
@@ -228,13 +261,35 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         processes: raProcesses
       };
       
-      updateFormData(updatedFormData);
+      console.log("Explicitly updating parent", force ? "(forced)" : "");
+      updateFormData(updatedFormData, force);
     }
   }, [title, division, raProcesses, formId, updateFormData, dataLoaded]);
 
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
-    saveForm: handleSave,
+    saveForm: async () => {
+      // Cancel any pending updates
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+      
+      // Force update to parent before saving
+      triggerUpdateToParent(true);
+      
+      // Then call the save handler
+      return handleSave();
+    },
     validateForm: () => {
       // Check if each activity has at least one hazard with description and type
       const isValid = raProcesses.every(process => 
@@ -273,6 +328,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // This change doesn't affect form data validity or saved state
   };
 
   const updateActivityField = (processId, activityId, key, value) => {
@@ -288,6 +344,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const removeActivity = (processId, activityId) => {
@@ -301,6 +359,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         };
       })
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const addHazard = (processId, activityId) => {
@@ -338,6 +398,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const handleConfirmNewType = (processId, activityId, hazardId) => {
@@ -369,6 +431,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const handleConfirmNewInjury = (processId, activityId, hazardId) => {
@@ -398,6 +462,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const removeHazard = (processId, activityId, hazardId) => {
@@ -421,6 +487,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const updateHazard = (processId, activityId, hazardId, key, value) => {
@@ -443,6 +511,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const toggleHazardType = (processId, activityId, hazardId, type) => {
@@ -465,6 +535,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const addInjury = (processId, activityId, hazardId) => {
@@ -493,6 +565,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const removeInjury = (processId, activityId, hazardId, injury) => {
@@ -520,6 +594,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+    // Schedule a batched update
+    scheduleBatchedUpdate();
   };
 
   const toggleExpandAll = () => {
@@ -530,6 +606,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       }))
     );
     setAllCollapsed(!allCollapsed);
+    // This change doesn't affect form data validity or saved state
   };
 
   // Save handler  
@@ -583,6 +660,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         } else {
           console.log('Form updated successfully');
         }
+        
+        // Force update to parent after successful save
+        triggerUpdateToParent(true);
+        
         setIsLoading(false);
         return true; // Indicate success
       } else {
@@ -633,7 +714,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             label="Title"
             id="form2-title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              scheduleBatchedUpdate();
+            }}
           />
         </div>
         <div className="flex-1">
@@ -641,7 +725,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             label="Division"
             id="form2-division"
             value={division}
-            onChange={(e) => setDivision(e.target.value)}
+            onChange={(e) => {
+              setDivision(e.target.value);
+              scheduleBatchedUpdate();
+            }}
           />
         </div>
         <CTAButton
@@ -946,7 +1033,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       <div className="flex justify-end mt-4">
         <CTAButton
           text="Save"
-          onClick={handleSave}
+          onClick={() => {
+            // Force update to parent before saving
+            triggerUpdateToParent(true);
+            handleSave();
+          }}
           className="px-6 py-2"
           disabled={isLoading}
         />
