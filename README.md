@@ -39,8 +39,7 @@ Follow these steps to set up this project:
 
 To start the Flask server (interim example providing responses to the React frontend):
 
-    cd flask-backend
-    flask run
+    run main.py in the parent directory
 
 To start the React project:
 
