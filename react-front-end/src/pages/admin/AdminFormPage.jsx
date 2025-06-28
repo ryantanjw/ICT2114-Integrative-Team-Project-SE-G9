@@ -13,6 +13,32 @@ export default function AdminForm() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [adminData, setAdminData] = useState(null);
+  const [forms, setForms] = useState([]);
+
+    // Helper function to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "No date";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+  };
+
+   // Function to fetch user's forms
+  const fetchUserForms = async () => {
+    try {
+      console.log("Fetching all user forms...");
+      const response = await axios.get("/api/admin/retrieveForms", {
+        withCredentials: true
+      });
+      
+      console.log("Forms fetched:", response.data);
+      setForms(response.data);
+    } catch (error) {
+      console.error("Error fetching forms:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      // Handle error appropriately - maybe show a toast notification
+    }
+  };
 
   // Check session when component mounts
   useEffect(() => {
@@ -43,6 +69,9 @@ export default function AdminForm() {
         
         // Store admin data for display
         setAdminData(response.data);
+
+        await fetchUserForms();
+
         setIsLoading(false);
       } catch (error) {
         console.error("Error checking session:", error);
@@ -69,75 +98,41 @@ export default function AdminForm() {
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-2">
-        <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">Form Management</h3>
-        <CTAButton
-          icon={<IoMdRefresh />}
-          text="Refresh Forms"
-          onClick={() => console.log("Refresh Forms clicked")}
-          className="w-full sm:w-auto"
-        />
-      </div>
-      <SearchBar></SearchBar>
-
-      {/* Style B */}
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6 w-full">
-        <FormCardB
-          owner="Jane Doe"
-          title="Advanced Techniques in Radiation Therapy for Oncology Patients"
-          tags={["Ongoing", "22/05/2025"]}
-          onOpen={() => console.log("Open")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
-        <FormCardB
-          owner="Emily Johnson"
-          title="Innovative Approaches to Radiation Dose Optimization in Pediatric Imaging"
-          tags={["Pending", "23/05/2025"]}
-          onOpen={() => console.log("Open")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
-        <FormCardB
-          owner="Michael Brown"
-          date="24/05/2025"
-          title="Radiation Safety Protocols for Interventional Radiology Procedures"
-          tags={["Completed", "24/06/2023", "Exp 24/06/2025"]}
-          onOpen={() => console.log("Open")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
-      </div>
-
-      {/* Style A */}
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6 w-full">
-        <FormCardA
-          date="19/05/2025"
-          title="Comprehensive Utilization of Z-Ray Machines in Advanced Medical Imaging and Enhanced Safety Protocols for Diagnostic Accuracy and Patient Protection"
-          owner="Dave Timothy Johnson"
-          tags={["Ongoing"]}
-          onShare={() => console.log("Share")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
-        <FormCardA
-          date="20/05/2025"
-          title="Comprehensive Radiation Safety Training for Medical Staff"
-          owner="Alice Smith"
-          tags={["Completed", "Expires 20/06/2025"]}
-          onShare={() => console.log("Share")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
-        <FormCardA
-          date="21/05/2025"
-          title="Routine and Emergency Maintenance Procedures for Radiation Equipment"
-          owner="John Doe"
-          tags={["Pending"]}
-          onShare={() => console.log("Share")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
+      <div className="flex flex-col justify-start mb-5">
+        <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
+          All Forms
+        </h3>
+        <SearchBar />
+        <div className="mt-6">
+          {/* Set forms.length === 1 temporarily so that i can see the UI --> RESET Back to 0 After */}
+          {forms.length === 0 ? (
+            <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+              <p className="text-gray-600">No forms found. Create a new form to get started.</p>
+              <button 
+                onClick={() => navigate("/user/new")}
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                Create New Form
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+              {forms.map((form) => (
+                <FormCardA
+                  key={form.id}
+                  date={formatDate(form.created_at || form.last_access_date)}
+                  title={form.title || "Untitled Form"}
+                  owner={form.owner || "Unknown User"}
+                  tags={form.tags || [form.status] || ["Unknown"]}
+                  // tags={createTags(form)}
+                  onShare={() => handleShare(form.id)}
+                  onDownload={() => handleDownload(form.id, form.title)}
+                  onDelete={() => handleDelete(form.id)}
+                />
+              ))}
+              </div>
+          )}
+        </div>
       </div>
     </div>
   );

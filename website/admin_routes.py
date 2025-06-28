@@ -1,7 +1,7 @@
 # Fix the import statements
 from flask import Blueprint, jsonify, request, session
 from werkzeug.security import generate_password_hash
-from models import User
+from models import User, Form, Activity, Process
 from . import db
 import random
 import string
@@ -318,3 +318,77 @@ def update_user():
         print(f"Error updating user: {str(e)}")
         db.session.rollback()
         return jsonify({"success": False, "error": "Failed to update user"}), 500
+    
+#Route for retrieving all user created forms
+@admin.route('/retrieveForms', methods=['GET'])
+def retrieve_forms():
+    print(f"RETRIEVING ALL USER FORMS AS ADMIN")
+
+    try:
+        print("=== Retrieve Forms Debug ===")
+        print(f"Session data: {session}")
+        print(f"Session data: {session.get('user_id')}")
+
+        # Query all forms with their associated users using a join
+        forms_with_users = db.session.query(Form, User).join(
+            User, Form.form_user_id == User.user_id
+        ).all()
+
+        print(f"Total forms found: {len(forms_with_users)}")
+
+        forms_list = []
+        for form, user in forms_with_users:
+
+            def format_date(date_obj):
+                return date_obj.isoformat() if date_obj else None
+            
+            # Create status based on approval and dates
+            status = "Draft"
+            if form.approval == 1:
+                status = "Approved"
+            elif form.approval == 0:
+                status = "Pending Approval"
+
+            # Check if review is due
+            if form.next_review_date:
+                from datetime import datetime
+                if form.next_review_date < datetime.now():
+                    status = "Review Due"
+
+            # Get approved_by username if available
+            approved_by_username = None
+            if form.approved_by:
+                approved_by_user = User.query.filter_by(user_id=form.approved_by).first()
+                approved_by_username = approved_by_user.user_name if approved_by_user else f"User ID: {form.approved_by}"
+
+            forms_list.append({
+                'id': form.form_id,
+                'title': form.title or "Untitled Form",
+                'form_reference_number': form.form_reference_number,
+                'location': form.location,
+                'division': form.division,
+                'process': form.process,
+                'status': status,
+                'approval': form.approval,
+                'created_at': format_date(form.last_access_date),  # Using last_access_date as created_at
+                'last_access_date': format_date(form.last_access_date),
+                'last_review_date': format_date(form.last_review_date),
+                'next_review_date': format_date(form.next_review_date),
+                'form_user_id': form.form_user_id,
+                'form_RA_team_id': form.form_RA_team_id,
+                'approved_by': form.approved_by,
+                'approved_by_username': approved_by_username,
+                'owner': user.user_name,  # Username of the form creator
+                'owner_email': user.email if hasattr(user, 'email') else None,  # Add email if available
+                # 'owner_department': user.department if hasattr(user, 'department') else None  # Add department if available
+            })
+
+        # Sort by creation date (newest first) or by username
+        forms_list.sort(key=lambda x: x['created_at'] or '', reverse=True)
+
+        print(f"Returning {len(forms_list)} forms")
+        return jsonify(forms_list)
+     
+    except Exception as e:
+        print(f"Error retrieving forms: {e}")
+        return jsonify({'error': 'Failed to retrieve forms'}), 500
