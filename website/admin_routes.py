@@ -1,11 +1,12 @@
 # Fix the import statements
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request, session, make_response
 from werkzeug.security import generate_password_hash
 from models import User, Form, Activity, Process
 from . import db
 import random
 import string
 from flask_cors import CORS, cross_origin
+from math import ceil
 
 
 # Create a new blueprint for admin routes
@@ -29,6 +30,7 @@ def get_users():
     #     return jsonify({"success": False, "error": "Not authorized"}), 403
     
     try:
+
         # Query all users from the database
         users = User.query.all()
         
@@ -329,32 +331,75 @@ def retrieve_forms():
         print(f"Session data: {session}")
         print(f"Session data: {session.get('user_id')}")
 
-        # Query all forms with their associated users using a join
-        forms_with_users = db.session.query(Form, User).join(
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 21, type=int)  # Default 21 per page
+        
+        # Optional: Add search/filter parameters
+        search = request.args.get('search', '', type=str)
+        status_filter = request.args.get('status', '', type=str)
+        division_filter = request.args.get('division', '', type=str)
+
+        query = db.session.query(Form, User).join(
             User, Form.form_user_id == User.user_id
-        ).all()
+        )
 
-        print(f"Total forms found: {len(forms_with_users)}")
+        # Apply filters if provided
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    Form.title.ilike(search_term),
+                    Form.form_reference_number.ilike(search_term),
+                    User.user_name.ilike(search_term),
+                    Form.location.ilike(search_term),
+                    Form.process.ilike(search_term)
+                )
+            )
 
-        forms_list = []
-        for form, user in forms_with_users:
+        if division_filter:
+            query = query.filter(Form.division == division_filter)
 
-            def format_date(date_obj):
-                return date_obj.isoformat() if date_obj else None
-            
+        all_forms_with_users = query.all()
+
+        # Filter by status if specified
+        filtered_forms = []
+        for form, user in all_forms_with_users:
             # Create status based on approval and dates
-            status = "Draft"
+            status = "draft"  # Default status
             if form.approval == 1:
-                status = "Approved"
+                status = "approved"
             elif form.approval == 0:
-                status = "Pending Approval"
+                status = "pending approval"
 
             # Check if review is due
             if form.next_review_date:
                 from datetime import datetime
                 if form.next_review_date < datetime.now():
-                    status = "Review Due"
+                    status = "review due"
+            
+            # Apply status filter
+            if status_filter and status.lower() != status_filter.lower():
+                continue
+                
+            filtered_forms.append((form, user, status))
 
+        # Apply pagination to filtered results
+        total_forms = len(filtered_forms)
+        total_pages = ceil(total_forms / per_page)
+        
+        # Calculate pagination bounds
+        start_index = (page - 1) * per_page
+        end_index = start_index + per_page
+        paginated_forms = filtered_forms[start_index:end_index]
+
+        print(f"Total forms after filtering: {total_forms}, Current page forms: {len(paginated_forms)}")
+
+        forms_list = []
+        for form, user, status in paginated_forms:
+
+            def format_date(date_obj):
+                return date_obj.isoformat() if date_obj else None
+            
             # Get approved_by username if available
             approved_by_username = None
             if form.approved_by:
@@ -383,11 +428,45 @@ def retrieve_forms():
                 # 'owner_department': user.department if hasattr(user, 'department') else None  # Add department if available
             })
 
-        # Sort by creation date (newest first) or by username
-        forms_list.sort(key=lambda x: x['created_at'] or '', reverse=True)
+        has_next = page < total_pages
+        has_prev = page > 1
 
-        print(f"Returning {len(forms_list)} forms")
-        return jsonify(forms_list)
+        response_data = {
+            'forms': forms_list,
+            'pagination': {
+                'current_page': page,
+                'per_page': per_page,
+                'total_forms': total_forms,
+                'total_pages': total_pages,
+                'has_next': has_next,
+                'has_prev': has_prev,
+                'next_page': page + 1 if has_next else None,
+                'prev_page': page - 1 if has_prev else None,
+                'start_index': start_index + 1 if total_forms > 0 else 0,
+                'end_index': min(end_index, total_forms)
+            },
+            'filters': {
+                'search': search,
+                'status': status_filter,
+                'division': division_filter
+            }
+        }
+
+        print(f"Returning page {page} with {len(forms_list)} forms")
+        
+        # Create response with no-cache headers
+        response = make_response(jsonify(response_data))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
+    
+        # Sort by creation date (newest first) or by username
+        # forms_list.sort(key=lambda x: x['created_at'] or '', reverse=True)
+
+        # print(f"Returning {len(forms_list)} forms")
+        # return jsonify(forms_list)
      
     except Exception as e:
         print(f"Error retrieving forms: {e}")
