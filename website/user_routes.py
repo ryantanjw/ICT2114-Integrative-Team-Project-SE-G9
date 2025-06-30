@@ -1,13 +1,14 @@
 from flask import Blueprint, jsonify, request, session
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity, Process, Hazard, Risk, HazardType
+from models import User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData
 from . import db
 import random
 import string
 from flask_cors import CORS, cross_origin
 from datetime import datetime
 import json
+from .rag import *
 
 # Create a new blueprint for user routes
 user = Blueprint('user', __name__,static_folder='static')
@@ -723,9 +724,6 @@ def get_form(form_id):
     
     except Exception as e:
         import traceback
-        print(f"Error fetching form: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
   
 @user.route('/check_session', methods=['GET'])
 def check_session():
@@ -829,4 +827,25 @@ def get_session_data():
         
     except Exception as e:
         print(f"Error getting session: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+# ctrl f tag AI
+@user.route('/ai_generate', methods=['POST'])
+def ai_generate():
+    """Generate hazard data using AI or query known_data"""
+    try:
+        data = request.get_json()
+        user_input = data.get('input')
+        
+        if not user_input:
+            return jsonify({"error": "No input provided"}), 400
+
+        hazard_data = ai_function(str(user_input)) # Call RAG.py function
+        return jsonify({
+            "success": True,
+            "hazard_data": hazard_data
+        }), 200
+
+    except Exception as e:
+        print(f"Error generating hazard data: {str(e)}")
         return jsonify({"error": str(e)}), 500

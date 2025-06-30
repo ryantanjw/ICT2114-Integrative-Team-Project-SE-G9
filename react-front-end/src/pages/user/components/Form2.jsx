@@ -5,6 +5,8 @@ import { MdAdd, MdDelete } from "react-icons/md";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { MdCheck } from "react-icons/md";
 import { RiCollapseVerticalFill, RiExpandVerticalLine } from "react-icons/ri";
+import { v4 as uuidv4 } from 'uuid';
+
 
 const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Build RA processes with nested activities and default hazards
@@ -34,7 +36,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const initializeHazards = (hazards) => {
     if (!hazards || hazards.length === 0) {
       return [{
-        id: Date.now(),
+        id: uuidv4(),
         description: "",
         type: [],
         injuries: [],
@@ -52,7 +54,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
     // Make sure all required fields exist while preserving existing data
     return hazards.map(hazard => ({
-      id: hazard.id || hazard.hazard_id || Date.now(),
+      id: hazard.id || hazard.hazard_id || uuidv4(),
       hazard_id: hazard.hazard_id || hazard.id,
       description: hazard.description || "",
       // Fix: Ensure type and injuries are properly preserved
@@ -454,40 +456,41 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const addHazard = (processId, activityId) => {
-    setRaProcesses(
-      raProcesses.map(proc =>
+    setRaProcesses(prev =>
+      prev.map(proc =>
         proc.id === processId
           ? {
-            ...proc,
-            activities: proc.activities.map(a =>
-              a.id === activityId
-                ? {
-                  ...a,
-                  hazards: [
-                    ...a.hazards,
-                    {
-                      id: Date.now(),
-                      description: "",
-                      type: [],
-                      injuries: [],
-                      newInjury: "",
-                      newType: "",
-                      showTypeInput: false,
-                      showInjuryInput: false,
-                      existingControls: "",
-                      additionalControls: "",
-                      severity: 1,
-                      likelihood: 1,
-                      rpn: 1,
-                    },
-                  ],
-                }
-                : a
-            ),
-          }
+              ...proc,
+              activities: proc.activities.map(a =>
+                a.id === activityId
+                  ? {
+                      ...a,
+                      hazards: [
+                        ...a.hazards,
+                        {
+                          id: uuidv4(), // ctrl f tag AI (changed this from date.Now() to uuidv4())
+                          description: "",
+                          type: [],
+                          injuries: [],
+                          newInjury: "",
+                          newType: "",
+                          showTypeInput: false,
+                          showInjuryInput: false,
+                          existingControls: "",
+                          additionalControls: "",
+                          severity: 1,
+                          likelihood: 1,
+                          rpn: 1,
+                        },
+                      ],
+                    }
+                  : a
+              ),
+            }
           : proc
       )
     );
+
     // Schedule a batched update
     scheduleBatchedUpdate();
   };
@@ -819,6 +822,98 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     return "bg-gray-200";
   };
 
+  // ctrl f tag AI
+    const createNewHazard = ({
+      description = "",
+      type = [],
+      injuries = [],
+      existingControls = "",
+      severity = 1,
+      likelihood = 1,
+      rpn = 1
+    } = {}) => ({
+      id: uuidv4(),
+      hazard_id: uuidv4(),
+      description,
+      type,
+      injuries,
+      newInjury: "",
+      newType: "",
+      showTypeInput: false,
+      showInjuryInput: false,
+      existingControls,
+      additionalControls: "",
+      severity,
+      likelihood,
+      rpn
+    });
+
+  const addHazardsToProcess = async (targetProcessId) => {
+    // Find the process by id
+    const process = raProcesses.find(p => p.id === targetProcessId);
+    if (!process) return;
+
+    // For each activity, call AI and add hazards
+    const updatedActivities = await Promise.all(
+      process.activities.map(async (act) => {
+        const activityName = act.description || `Activity ${act.activityNumber || ""}`;
+        try {
+          const response = await fetch('/api/user/ai_generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ input: [activityName] })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            // Assume data.hazard_data is an array of hazards
+            const hazardsArray = Array.isArray(data.hazard_data)
+              ? data.hazard_data
+              : [data.hazard_data];
+
+            const newHazards = hazardsArray.map(h =>
+              createNewHazard({
+                description: h.description,
+                type: h.type,
+                injuries: h.injuries,
+                existingControls: h.existingControls,
+                severity: h.severity,
+                likelihood: h.likelihood,
+                rpn: h.rpn
+              })
+            );
+
+            return {
+              ...act,
+              hazards: [...act.hazards, ...newHazards]
+            };
+          } else {
+            console.error('Failed to get from AI');
+            return act;
+          }
+        } catch (error) {
+          console.error('Error from AI:', error);
+          return act;
+        }
+      })
+    );
+
+    // Now safely update the state after all async ops are done
+    setRaProcesses(prev =>
+      prev.map(p => {
+        if (p.id !== targetProcessId) return p;
+        return {
+          ...p,
+          activities: updatedActivities
+        };
+      })
+    );
+  };
+
+// end of ctrl f tag AI
+
   // Show loading state
   if (isLoading) {
     return (
@@ -873,32 +968,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             </span>
             <CTAButton
               text="Generate"
-              // onClick={() => { /* generate for this processId */ }}
-              onClick={() => {
-                setRaProcesses(prev =>
-                  prev.map(p => {
-                    if (p.id !== proc.id) return p;
-                    return {
-                      ...p,
-                      activities: p.activities.map(act => ({
-                        ...act,
-                        hazards: act.hazards.map((h, idx) => ({
-                          ...h,
-                          description: `${act.description || `Activity ${act.activityNumber}`} hello`,
-                          type: ["Biological"],
-                          injuries: ["hello", "bye", "soz"],
-                          existingControls: "hello",
-                          severity: 2,
-                          likelihood: 2,
-                          rpn: 4,
-                        }))
-                      }))
-                    };
-                  })
-                );
-              }}
-
-
+              /* ctrl f tag AI Generate button */
+                onClick={async () => await addHazardsToProcess(proc.id)}
               className="ml-auto bg-gray-100 text-black"
             />
           </div>
