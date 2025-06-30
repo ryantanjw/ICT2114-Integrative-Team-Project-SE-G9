@@ -66,7 +66,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       console.error('Error storing form ID in session:', error);
     }
   }, []);
-    
+
   // Force refetch when component becomes visible again
   useEffect(() => {
     // This function checks if the component is becoming visible again
@@ -79,33 +79,33 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         }
       }
     };
-  
+
     // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     // Reset dataLoaded when this component mounts, forcing a data fetch
     setDataLoaded(false);
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []); // Empty deps array - only run on mount and unmount
-  
+
   // Then, modify your main data fetching useEffect:
   useEffect(() => {
     const fetchFormData = async () => {
       // If already loading, skip
       if (isLoading) return;
-      
+
       // Reset loading state
       setIsLoading(true);
-      
+
       try {
         // Check multiple sources for form ID in this priority:
         // 1. Passed directly in formData prop
         // 2. URL parameter
         // 3. Session data
-        
+
         // First check formData prop
         if (formData && formData.form_id) {
           console.log('Using form data from props:', formData);
@@ -117,36 +117,36 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           setIsLoading(false);
           return;
         }
-        
+
         // Then check URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         let id = urlParams.get('form_id');
-  
+
         // Then check session data
         if (!id && sessionData?.current_form_id) {
           id = sessionData.current_form_id;
           console.log('Using form_id from session:', id);
         }
-  
+
         if (!id) {
           console.log('No form ID found, showing empty form');
           setDataLoaded(true);
           setIsLoading(false);
           return;
         }
-  
+
         console.log(`Fetching form data for ID: ${id}`);
-  
+
         const response = await fetch(`/api/user/get_form/${id}`);
-  
+
         if (response.ok) {
           const data = await response.json();
           console.log('Form data loaded:', data);
-  
+
           // Update form state
           setTitle(data.title || "");
           setDivision(data.division || "");
-  
+
           // Ensure all processes have valid IDs
           const processesWithIds = data.processes.map(proc => ({
             ...proc,
@@ -158,10 +158,10 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               activity_id: act.activity_id || act.id
             }))
           }));
-  
+
           setProcesses(processesWithIds || []);
           updateFormId(data.form_id);
-  
+
           // Also store in session
           await storeFormIdInSession(data.form_id);
         } else {
@@ -174,18 +174,18 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         setDataLoaded(true);
       }
     };
-  
+
     // Only fetch if data not loaded yet
     if (!dataLoaded) {
       fetchFormData();
     }
   }, [sessionData, formData, dataLoaded, isLoading, storeFormIdInSession]);
-  
+
   // Add a special effect to detect changes in form_id in session
   useEffect(() => {
-    if (sessionData?.current_form_id && 
-        sessionData.current_form_id !== formId && 
-        sessionData.current_form_id !== formIdRef.current) {
+    if (sessionData?.current_form_id &&
+      sessionData.current_form_id !== formId &&
+      sessionData.current_form_id !== formIdRef.current) {
       console.log('Form ID in session changed, resetting data loaded state');
       setDataLoaded(false);
     }
@@ -240,7 +240,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
   const removeProcess = (id) => {
     const processToRemove = processes.find(p => p.id === id);
-  
+
     // If the process has a database ID (process_id), track it for deletion
     if (processToRemove && processToRemove.process_id) {
       setDeletedProcessIds(prev => [...prev, processToRemove.process_id]);
@@ -289,7 +289,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   };
 
   // Update the handleSave function to implement offline capability and better error handling
-  
+
   const handleSave = async () => {
     // Validate form first
     const validation = ref.current.validateForm();
@@ -297,15 +297,15 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       showErrorMessage(validation.message);
       return false;
     }
-  
+
     if (isLoading) return false; // Prevent saving while already saving
-  
+
     setIsLoading(true);
-  
+
     const currentFormId = formIdRef.current;
-  
+
     console.log("Form1 data:", { formId: currentFormId, title, division, processes });
-  
+
     // Create a function to save form data to localStorage as a fallback
     const saveToLocalStorage = () => {
       try {
@@ -325,7 +325,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         return false;
       }
     };
-  
+
     try {
       const requestBody = {
         title,
@@ -333,14 +333,14 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         processes: processes, // Include all processes in the main request
         userId: sessionData?.user_id
       };
-  
+
       if (currentFormId) {
         requestBody.form_id = currentFormId;
         console.log('Including form_id in request:', currentFormId);
       } else {
         console.log('No Form ID, creating new form');
       }
-  
+
       // First attempt to save to server
       const response = await fetch('/api/user/form1', {
         method: 'POST',
@@ -349,39 +349,39 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         },
         body: JSON.stringify(requestBody)
       });
-  
+
       if (!response.ok) {
         // Server error - check if it's a MySQL connection error
         const errorData = await response.json();
-        
+
         if (errorData.error && errorData.error.includes('MySQL Connection not available')) {
           console.warn('MySQL connection error detected - saving to localStorage instead');
-          
+
           // Save to localStorage as a fallback
           const localSaveSuccess = saveToLocalStorage();
-          
+
           if (localSaveSuccess) {
             showSuccessMessage('Form saved locally (database connection unavailable). Your changes will be synchronized when connection is restored.');
-            
+
             // Generate a temporary form ID if needed
             const tempFormId = currentFormId || `temp_${Date.now()}`;
             updateFormId(tempFormId);
-            
+
             setIsLoading(false);
             return true; // Return success for UI flow
           } else {
             throw new Error('Failed to save locally');
           }
         }
-        
+
         throw new Error(errorData.error || `Form save failed: ${response.statusText}`);
       }
-  
+
       const formResult = await response.json();
       console.log('Form save success:', formResult);
-  
+
       let formId = formResult.form_id;
-  
+
       // Update form ID if new form
       if (formResult.action === 'created' || !currentFormId) {
         updateFormId(formId);
@@ -391,39 +391,39 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
       if (deletedProcessIds.length > 0) {
         console.log('Deleting processes:', deletedProcessIds);
-      
-      for (const processId of deletedProcessIds) {
-        try {
-          const deleteResponse = await fetch(`/api/user/process/${processId}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          });
-          
-          if (!deleteResponse.ok) {
-            console.error(`Failed to delete process ${processId}`);
-          } else {
-            console.log(`Successfully deleted process ${processId}`);
-          }
-        } catch (error) {
-          console.error(`Error deleting process ${processId}:`, error);
-        }
-      }
-      
-      // Clear the deleted processes list after attempting deletion
-      setDeletedProcessIds([]);
-    }
 
-  
+        for (const processId of deletedProcessIds) {
+          try {
+            const deleteResponse = await fetch(`/api/user/process/${processId}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            });
+
+            if (!deleteResponse.ok) {
+              console.error(`Failed to delete process ${processId}`);
+            } else {
+              console.log(`Successfully deleted process ${processId}`);
+            }
+          } catch (error) {
+            console.error(`Error deleting process ${processId}:`, error);
+          }
+        }
+
+        // Clear the deleted processes list after attempting deletion
+        setDeletedProcessIds([]);
+      }
+
+
       if (processes && processes.length > 0) {
         console.log('Saving processes for form ID:', formId);
-  
+
         const savedProcesses = [];
-  
+
         for (let i = 0; i < processes.length; i++) {
           const process = processes[i];
-  
+
           const processRequestBody = {
             process_form_id: formId,
             process_number: process.processNumber || (i + 1),
@@ -431,9 +431,9 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             process_location: process.location || null,
             ...(process.process_id && { process_id: process.process_id })
           };
-  
+
           console.log(`Saving process ${i + 1}:`, processRequestBody);
-  
+
           try {
             const processResponse = await fetch('/api/user/process', {
               method: 'POST',
@@ -442,23 +442,23 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               },
               body: JSON.stringify(processRequestBody)
             });
-  
+
             if (!processResponse.ok) {
               const errorData = await processResponse.json();
               throw new Error(errorData.error || `Process save failed for process ${i + 1}: ${processResponse.statusText}`);
             }
-  
+
             const processResult = await processResponse.json();
             console.log(`Process ${i + 1} saved:`, processResult);
-  
+
             const processId = processResult.process_id;
             savedProcesses.push({ ...process, process_id: processId });
-  
+
             if (process.activities && process.activities.length > 0) {
               console.log('Saving activities for process ID:', processId);
-  
+
               const savedActivities = [];
-  
+
               for (let j = 0; j < process.activities.length; j++) {
                 const activity = process.activities[j];
                 const activityRequestBody = {
@@ -469,9 +469,9 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
                   activity_remarks: activity.remarks || "",
                   ...(activity.activity_id && { activity_id: activity.activity_id })
                 };
-  
+
                 console.log(`Saving activity ${j + 1} for process ${i + 1}:`, activityRequestBody);
-  
+
                 const activityResponse = await fetch('/api/user/activity', {
                   method: 'POST',
                   headers: {
@@ -479,18 +479,18 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
                   },
                   body: JSON.stringify(activityRequestBody)
                 });
-  
+
                 if (!activityResponse.ok) {
                   const errorData = await activityResponse.json();
                   throw new Error(errorData.error || `Activity save failed for activity ${j + 1} in process ${i + 1}: ${activityResponse.statusText}`);
                 }
-  
+
                 const activityResult = await activityResponse.json();
                 console.log(`Activity ${j + 1} for process ${i + 1} saved:`, activityResult);
-  
+
                 savedActivities.push({ ...activity, activity_id: activityResult.activity_id });
               }
-  
+
               // Update the process with saved activity IDs
               savedProcesses[i].activities = savedActivities;
             }
@@ -501,29 +501,29 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             saveToLocalStorage();
           }
         }
-        
+
         // Only update if we have processes successfully saved
         if (savedProcesses.length > 0) {
           updateProcessesWithSavedIds(savedProcesses);
         }
       }
-  
+
       // Clear any locally stored pending data since we've successfully saved
       localStorage.removeItem('form1_pending_data');
-  
+
       setIsLoading(false);
       console.log('All data saved successfully');
-  
+
       showSuccessMessage('Form saved successfully!');
-  
+
       return true;
-  
+
     } catch (error) {
       console.error('Save operation failed:', error);
-      
+
       // Try to save to localStorage as fallback
       const localSaveSuccess = saveToLocalStorage();
-      
+
       if (localSaveSuccess) {
         showSuccessMessage('Form saved locally. Your changes will be synchronized when connection is restored.');
         setIsLoading(false);
@@ -615,21 +615,9 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             {/* Process Number */}
             <div>
               <label className="block text-sm font-medium mb-1">Process Number</label>
-              <select
-                value={proc.processNumber}
-                onChange={(e) =>
-                  setProcesses(processes.map(p =>
-                    p.id === proc.id
-                      ? { ...p, processNumber: parseInt(e.target.value) }
-                      : p
-                  ))
-                }
-                className="w-24 border border-gray-300 rounded px-2 py-1"
-              >
-                {[...Array(10)].map((_, i) => (
-                  <option key={i + 1} value={i + 1}>{i + 1}</option>
-                ))}
-              </select>
+              <div className="px-2 py-1 bg-gray-100 rounded inline-block">
+                {proc.processNumber}
+              </div>
             </div>
 
             {/* Location */}

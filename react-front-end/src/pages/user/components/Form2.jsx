@@ -1090,19 +1090,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     {/* Activity Number */}
                     <div>
                       <label className="block text-sm font-medium mb-1">Activity Number</label>
-                      <select
-                        value={act.activityNumber || idx + 1}
-                        onChange={(e) =>
-                          updateActivityField(proc.id, act.id, "activityNumber", parseInt(e.target.value))
-                        }
-                        className="border border-gray-300 rounded px-2 py-1"
-                      >
-                        {[...Array(10)].map((_, i) => (
-                          <option key={i + 1} value={i + 1}>
-                            {i + 1}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="px-2 py-1 bg-gray-100 rounded inline-block">
+                        {act.activityNumber || idx + 1}
+                      </div>
                     </div>
 
                     {/* Hazard sections */}
