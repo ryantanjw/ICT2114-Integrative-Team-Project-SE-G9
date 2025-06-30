@@ -221,7 +221,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   }, [storeFormIdInSession, hazardTypesList, fetchHazardTypes]);
 
   // Initialize data from either formData prop or directly from API
-  // Modify the useEffect that initializes form data to prevent reinitializing after data is loaded
   useEffect(() => {
     const initializeFormData = () => {
       // Add this guard clause to prevent reinitializing if data is already loaded
@@ -229,26 +228,26 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         console.log('Data already loaded, skipping initialization');
         return true;
       }
-      
+
       // If we have formData passed from parent, use that
       if (formData && Object.keys(formData).length > 0 && formData.form_id) {
         console.log('Initializing from formData prop:', formData);
-  
+
         setTitle(formData.title || "");
         setDivision(formData.division || "");
         updateFormId(formData.form_id);
-  
+
         // Check localStorage for cached Form2 data for this form_id
         try {
           const cachedData = localStorage.getItem(`form2_data_${formData.form_id}`);
           if (cachedData) {
             const parsedData = JSON.parse(cachedData);
-  
+
             // Only use cache if it's less than 1 hour old
             const cacheAge = new Date() - new Date(parsedData.lastUpdated || 0);
             if (cacheAge < 3600000) { // 1 hour in milliseconds
               console.log('Using cached Form2 data');
-  
+
               if (parsedData.processes && parsedData.processes.length > 0) {
                 setRaProcesses(parsedData.processes);
                 setDataLoaded(true);
@@ -262,7 +261,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         } catch (err) {
           console.error('Error reading from cache:', err);
         }
-  
+
         // If we have processes with hazards, initialize them
         if (formData.processes && formData.processes.length > 0) {
           const processesWithHazards = formData.processes.map(proc => ({
@@ -277,20 +276,20 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               hazards: initializeHazards(act.hazards || [])
             }))
           }));
-  
+
           setRaProcesses(processesWithHazards);
         }
-  
+
         setDataLoaded(true);
         return true;
       }
-  
+
       return false;
     };
-  
+
     // Try to initialize from props first
     const initialized = initializeFormData();
-  
+
     // If not initialized from props, try to get from session
     if (!initialized && !dataLoaded && sessionData?.current_form_id) {
       console.log('Form ID found in session:', sessionData.current_form_id);
@@ -358,6 +357,75 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
       }
+    };
+  }, []);
+
+  // Enhanced cleanup logic using useEffect
+  useEffect(() => {
+    const clearFormIdOnReload = async () => {
+      // Only clear on initial page load
+      if (!initialLoadRef.current) return;
+
+      initialLoadRef.current = false;
+
+      try {
+        console.log('Clearing form ID from session on page load');
+
+        // Clear from session using API
+        await fetch('/api/user/clear_form_id', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        // Also clear from localStorage to be thorough
+        localStorage.removeItem('current_form_id');
+
+        console.log('Form ID cleared from session on page load');
+      } catch (error) {
+        console.error('Error clearing form ID from session:', error);
+      }
+    };
+
+    clearFormIdOnReload();
+
+    // Set up beforeunload handler to clear form ID when navigating away from page
+    const handleBeforeUnload = () => {
+      // Use synchronous localStorage for unload event
+      localStorage.removeItem('current_form_id');
+
+      // For modern browsers, we can try to make a synchronous request
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/user/clear_form_id', false); // false = synchronous
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send();
+      } catch (e) {
+        console.error('Error sending synchronous XHR:', e);
+      }
+
+      // Let the browser know we've handled the event
+      return null;
+    };
+
+    // Add beforeunload listener for browser refreshes/closes
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Clean up event listeners and clear form ID when component unmounts
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+
+      // Final cleanup when component unmounts
+      fetch('/api/user/clear_form_id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }).catch(e => console.error('Error clearing form ID on unmount:', e));
+
+      localStorage.removeItem('current_form_id');
+      console.log('Cleared form ID on component unmount');
     };
   }, []);
 
@@ -543,6 +611,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     scheduleBatchedUpdate();
   };
 
+  const handleHazardTypeKeyPress = (e, processId, activityId, hazardId) => {
+    if (e.key === 'Enter' && e.target.value.trim() !== '') {
+      e.preventDefault(); // Prevent form submission
+      handleConfirmNewType(processId, activityId, hazardId);
+    }
+  };
+
   const handleInjuryKeyPress = (e, processId, activityId, hazardId) => {
     if (e.key === 'Enter' && e.target.value.trim() !== '') {
       e.preventDefault(); // Prevent form submission
@@ -555,7 +630,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     const newInjuryValue = raProcesses.find(p => p.id === processId)
       ?.activities.find(a => a.id === activityId)
       ?.hazards.find(h => h.id === hazardId)?.newInjury.trim();
-  
+
     setRaProcesses(
       raProcesses.map(proc =>
         proc.id === processId
@@ -1105,6 +1180,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                 onChange={e =>
                                   updateHazard(proc.id, act.id, h.id, "newType", e.target.value)
                                 }
+                                onKeyPress={e => handleHazardTypeKeyPress(e, proc.id, act.id, h.id)}
                                 placeholder="Enter New Hazard"
                                 className="flex-1 border border-gray-300 rounded px-3 py-2"
                               />
