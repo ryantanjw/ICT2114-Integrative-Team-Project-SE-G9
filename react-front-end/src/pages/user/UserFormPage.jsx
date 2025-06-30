@@ -40,6 +40,19 @@ export default function UserForm() {
     }
   };
 
+// Handle downloading a form
+const handleDownload = (formId, formTitle) => {
+  console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
+  // Add your download logic here
+  // For example, generate PDF or export data
+  try {
+    // Example: Navigate to download endpoint
+    window.open(`/api/user/downloadForm/${formId}`, '_blank');
+  } catch (error) {
+    console.error('Error downloading form:', error);
+  }
+};
+
   // Handle deleting a form
 const handleDelete = async (formId) => {
   console.log(`Deleting form with ID: ${formId}`);

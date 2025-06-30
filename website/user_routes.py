@@ -831,6 +831,11 @@ def get_session_data():
         print(f"Error getting session: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
+@user.route('/downloadForm/<int:form_id>', methods=['GET'])
+def download_form(form_id):
+    print(f"downloading form with id:", form_id)
+    return jsonify({'success': 'Downloading form'}), 200
+    
 @user.route('/deleteForm/<int:form_id>', methods=['DELETE'])
 def delete_form(form_id):
     try:
