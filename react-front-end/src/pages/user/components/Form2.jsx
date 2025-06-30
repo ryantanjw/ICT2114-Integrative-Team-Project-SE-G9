@@ -221,27 +221,34 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   }, [storeFormIdInSession, hazardTypesList, fetchHazardTypes]);
 
   // Initialize data from either formData prop or directly from API
+  // Modify the useEffect that initializes form data to prevent reinitializing after data is loaded
   useEffect(() => {
     const initializeFormData = () => {
+      // Add this guard clause to prevent reinitializing if data is already loaded
+      if (dataLoaded && raProcesses.length > 0) {
+        console.log('Data already loaded, skipping initialization');
+        return true;
+      }
+      
       // If we have formData passed from parent, use that
       if (formData && Object.keys(formData).length > 0 && formData.form_id) {
         console.log('Initializing from formData prop:', formData);
-
+  
         setTitle(formData.title || "");
         setDivision(formData.division || "");
         updateFormId(formData.form_id);
-
+  
         // Check localStorage for cached Form2 data for this form_id
         try {
           const cachedData = localStorage.getItem(`form2_data_${formData.form_id}`);
           if (cachedData) {
             const parsedData = JSON.parse(cachedData);
-
+  
             // Only use cache if it's less than 1 hour old
             const cacheAge = new Date() - new Date(parsedData.lastUpdated || 0);
             if (cacheAge < 3600000) { // 1 hour in milliseconds
               console.log('Using cached Form2 data');
-
+  
               if (parsedData.processes && parsedData.processes.length > 0) {
                 setRaProcesses(parsedData.processes);
                 setDataLoaded(true);
@@ -255,7 +262,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         } catch (err) {
           console.error('Error reading from cache:', err);
         }
-
+  
         // If we have processes with hazards, initialize them
         if (formData.processes && formData.processes.length > 0) {
           const processesWithHazards = formData.processes.map(proc => ({
@@ -270,29 +277,26 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               hazards: initializeHazards(act.hazards || [])
             }))
           }));
-
+  
           setRaProcesses(processesWithHazards);
         }
-
+  
         setDataLoaded(true);
         return true;
       }
-
+  
       return false;
     };
-
+  
     // Try to initialize from props first
     const initialized = initializeFormData();
-
+  
     // If not initialized from props, try to get from session
     if (!initialized && !dataLoaded && sessionData?.current_form_id) {
       console.log('Form ID found in session:', sessionData.current_form_id);
       fetchFormData(sessionData.current_form_id);
     }
   }, [formData, sessionData, dataLoaded, fetchFormData]);
-
-  // Rest of your component remains unchanged
-  // ...
 
   // Batched update function to avoid excessive parent updates
   const scheduleBatchedUpdate = useCallback(() => {
@@ -547,6 +551,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const handleConfirmNewInjury = (processId, activityId, hazardId) => {
+    // Get the new injury value
+    const newInjuryValue = raProcesses.find(p => p.id === processId)
+      ?.activities.find(a => a.id === activityId)
+      ?.hazards.find(h => h.id === hazardId)?.newInjury.trim();
+  
     setRaProcesses(
       raProcesses.map(proc =>
         proc.id === processId
@@ -576,7 +585,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // Schedule a batched update
     scheduleBatchedUpdate();
   };
-
   const removeHazard = (processId, activityId, hazardId) => {
     setRaProcesses(
       raProcesses.map(proc =>
