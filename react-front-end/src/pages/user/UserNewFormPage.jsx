@@ -7,6 +7,7 @@ import { useState } from "react";
 import Form1 from "./components/Form1.jsx";
 import Form2 from "./components/Form2.jsx";
 import Form3 from "./components/Form3.jsx";
+import ConfirmForm from "./components/ConfirmForm.jsx"; // will be used for Confirmation Details
 
 
 =======
@@ -462,7 +463,8 @@ const sampleEntry = {
         <div className="mt-6">
           {currentTab === 0 && <Form1 sample={sampleEntry} />}
           {currentTab === 1 && <Form2 sample={sampleEntry} />}
-          {currentTab === 2 && <Form3 />}
+          {currentTab === 2 && <Form3 sample={sampleEntry} />}      
+          {currentTab === 3 && <ConfirmForm />}                     
         </div>
       </div>
     </div>

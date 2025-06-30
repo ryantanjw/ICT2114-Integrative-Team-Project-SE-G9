@@ -1,21 +1,17 @@
 import React, { useState } from "react";
 import { FaFileAlt, FaExclamationTriangle, FaCheckCircle } from "react-icons/fa";
+import { HiMiniDocumentCheck } from "react-icons/hi2";
+
 
 const tabs = [
   { label: "Form 1 - WA Inventory", icon: <FaFileAlt /> },
   { label: "Form 2 - RA Process", icon: <FaExclamationTriangle /> },
-  { label: "Confirmation", icon: <FaCheckCircle /> },
+  { label: "Overall Details", icon: <HiMiniDocumentCheck /> },
+  { label: "Confirmation Details", icon: <FaCheckCircle /> },
 ];
 
 export default function FormTabs({ onTabChange }) {
   const [activeTab, setActiveTab] = useState(0);
-
-  const handleNext = () => {
-    if (activeTab < tabs.length - 1) {
-      setActiveTab(activeTab + 1);
-      onTabChange?.(activeTab + 1);
-    }
-  };
 
   return (
     <div className="w-full mb-4">
@@ -52,16 +48,23 @@ export default function FormTabs({ onTabChange }) {
             }
           }}
           disabled={activeTab <= 0}
-          className="px-4 py-2 bg-gray-300 text-black rounded disabled:opacity-50"
+          className="px-10 py-3 bg-gray-200 text-black rounded-lg disabled:opacity-50"
         >
           Back
         </button>
         <button
-          onClick={handleNext}
-          disabled={activeTab < tabs.length - 1 && activeTab >= tabs.length - 1}
-          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+          onClick={() => {
+            if (activeTab < tabs.length - 1) {
+              // if on “Overall Details” (second-to-last), jump to Confirmation Details
+              const next = activeTab === tabs.length - 2 ? tabs.length - 1 : activeTab + 1;
+              setActiveTab(next);
+              onTabChange?.(next);
+            }
+          }}
+          disabled={activeTab >= tabs.length - 1}
+          className="px-10 py-3 bg-black text-white rounded-lg disabled:opacity-50"
         >
-          {activeTab >= tabs.length - 1 ? "Complete Form" : "Next"}
+          {activeTab === tabs.length - 2 ? "Complete Form" : "Next"}
         </button>
       </div>
     </div>

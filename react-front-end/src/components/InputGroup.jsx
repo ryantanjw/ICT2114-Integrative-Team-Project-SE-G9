@@ -10,6 +10,7 @@ export default function InputGroup({
   action,                // new prop for secondary action
   className = "",
   options = [],
+  error = "",
   ...rest
 }) {
   return (
@@ -60,6 +61,11 @@ export default function InputGroup({
         className="block w-full px-4 py-2 text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-md  focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
         {...rest}
       /> )}
+      {error && (
+        <p className="mt-1 text-sm text-red-500 text-right">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -635,6 +635,7 @@ export default function Form2({ sample }) {
                             value="14/05/2025"
                             onChange={() => {}}
                             disabled
+                            className="flex-1"
                           />
                           <InputGroup
                             label="Implementation Person"
@@ -642,6 +643,7 @@ export default function Form2({ sample }) {
                             value="Hajmath Begum (PO, POD)"
                             onChange={() => {}}
                             disabled
+                            className="flex-1"
                           />
                         </div>
                       </div>

@@ -7,6 +7,8 @@ import SearchBar from "../../components/SearchBar.jsx";
 import FormCardA from "../../components/FormCardA.jsx";
 import FormCardB from "../../components/FormCardB.jsx";
 import axios from "axios";
+import FormCardA2 from "../../components/FormCardA2.jsx";
+
 
 export default function AdminForm() {
   const location = useLocation();
@@ -109,36 +111,77 @@ export default function AdminForm() {
         />
       </div>
 
-      {/* Style A */}
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6 w-full">
-        <FormCardA
-          date="19/05/2025"
-          title="Comprehensive Utilization of Z-Ray Machines in Advanced Medical Imaging and Enhanced Safety Protocols for Diagnostic Accuracy and Patient Protection"
-          owner="Dave Timothy Johnson"
-          tags={["Ongoing"]}
-          onShare={() => console.log("Share")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
-        <FormCardA
-          date="20/05/2025"
-          title="Comprehensive Radiation Safety Training for Medical Staff"
-          owner="Alice Smith"
-          tags={["Completed", "Expires 20/06/2025"]}
-          onShare={() => console.log("Share")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
-        <FormCardA
-          date="21/05/2025"
-          title="Routine and Emergency Maintenance Procedures for Radiation Equipment"
-          owner="John Doe"
-          tags={["Pending"]}
-          onShare={() => console.log("Share")}
-          onDownload={() => console.log("Download")}
-          onDelete={() => console.log("Delete")}
-        />
-      </div>
+        {/* Style A */}
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6 w-full">
+              <FormCardA
+                date="19/05/2025"
+                title="Comprehensive Utilization of Z-Ray Machines in Advanced Medical Imaging and Enhanced Safety Protocols for Diagnostic Accuracy and Patient Protection"
+                owner="Dave Timothy Johnson"
+                tags={["Ongoing"]}
+                onShare={() => console.log("Share")}
+                onDownload={() => console.log("Download")}
+                onDelete={() => console.log("Delete")}
+              />
+              <FormCardA
+                date="20/05/2025"
+                title="Comprehensive Radiation Safety Training for Medical Staff"
+                owner="Alice Smith"
+                tags={["Completed", "Expires 20/06/2025"]}
+                onShare={() => console.log("Share")}
+                onDownload={() => console.log("Download")}
+                onDelete={() => console.log("Delete")}
+              />
+              <FormCardA
+                date="21/05/2025"
+                title="Routine and Emergency Maintenance Procedures for Radiation Equipment"
+                owner="John Doe"
+                tags={["Pending"]}
+                onShare={() => console.log("Share")}
+                onDownload={() => console.log("Download")}
+                onDelete={() => console.log("Delete")}
+              />
+        </div>
+
+        {/* Style A2 */}
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full">
+              <FormCardA2
+                status="Ongoing"
+                date="19/05/2025"
+                title="Advanced Techniques in Radiation Therapy for Oncology Patients"
+                owner="Jane Doe"
+                expiryDate="-"
+                onView={() => console.log("View")}
+                onShare={() => console.log("Share")}
+                onDuplicate={() => console.log("Duplicate")}
+                onDownload={() => console.log("Download")}
+                onDelete={() => console.log("Delete")}
+              />
+              <FormCardA2
+                status="Pending"
+                date="20/05/2025"
+                title="Innovative Approaches to Radiation Dose Optimization in Pediatric Imaging"
+                owner="Emily Johnson"         
+                expiryDate="-"
+                onView={() => console.log("View")}
+                onShare={() => console.log("Share")}
+                onDuplicate={() => console.log("Duplicate")}
+                onDownload={() => console.log("Download")}
+                onDelete={() => console.log("Delete")}
+              />
+              <FormCardA2
+                status="Completed"
+                date="21/05/2025"   
+                title="Radiation Safety Protocols for Interventional Radiology Procedures"
+                owner="Michael Brown"
+                expiryDate="24/06/2025"
+                onView={() => console.log("View")}
+                onShare={() => console.log("Share")}
+                onDuplicate={() => console.log("Duplicate")}
+                onDownload={() => console.log("Download")}
+                onDelete={() => console.log("Delete")}
+              />
+        </div>
+        
     </div>
   );
 }
