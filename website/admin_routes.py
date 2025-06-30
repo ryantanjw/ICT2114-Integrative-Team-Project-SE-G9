@@ -472,6 +472,11 @@ def retrieve_forms():
         print(f"Error retrieving forms: {e}")
         return jsonify({'error': 'Failed to retrieve forms'}), 500
     
+@admin.route('/downloadForm/<int:form_id>', methods=['GET'])
+def download_form(form_id):
+    print(f"downloading form with id:", form_id)
+    return jsonify({'success': 'Downloading form'}), 200
+    
 
 @admin.route('/deleteForm/<int:form_id>', methods=['DELETE'])
 def delete_form(form_id):

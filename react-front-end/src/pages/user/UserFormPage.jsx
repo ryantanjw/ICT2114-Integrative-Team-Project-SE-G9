@@ -40,6 +40,36 @@ export default function UserForm() {
     }
   };
 
+  // Handle deleting a form
+const handleDelete = async (formId) => {
+  console.log(`Deleting form with ID: ${formId}`);
+  
+  // Show confirmation dialog
+  if (!window.confirm('Are you sure you want to delete this form? This action cannot be undone.')) {
+    return;
+  }
+
+  try {
+    const response = await axios.delete(`/api/admin/deleteForm/${formId}`, {
+      withCredentials: true
+    });
+
+    if (response.data.success) {
+      console.log('Form deleted successfully');
+      // Refresh the forms list
+      // fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
+      // fetchUserForms(pagination.current_page);
+      fetchUserForms();
+    } else {
+      console.error('Failed to delete form:', response.data.error);
+      alert('Failed to delete form: ' + response.data.error);
+    }
+  } catch (error) {
+    console.error('Error deleting form:', error);
+    alert('Error deleting form. Please try again.');
+  }
+};
+
   // Check session when component mounts
   useEffect(() => {
     const checkSession = async () => {
