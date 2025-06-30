@@ -3,6 +3,7 @@ import Header from "../../components/Header.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../../components/SearchBar.jsx";
 import axios from "axios";
+import FormCardA from "../../components/FormCardA.jsx"; // Add this import
 
 export default function UserForm() {
   const location = useLocation();
@@ -10,6 +11,34 @@ export default function UserForm() {
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
   const [forms, setForms] = useState([]);
+  const [filteredForms, setFilteredForms] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "No date";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+  };
+
+   // Function to fetch user's forms
+  const fetchUserForms = async () => {
+    try {
+      console.log("Fetching user forms...");
+      const response = await axios.get("/api/user/retrieveForms", {
+        withCredentials: true
+      });
+      
+      console.log("Forms fetched:", response.data);
+      setForms(response.data);
+      // setFilteredForms(response.data);
+    } catch (error) {
+      console.error("Error fetching forms:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      // Handle error appropriately - maybe show a toast notification
+    }
+  };
 
   // Check session when component mounts
   useEffect(() => {
@@ -41,12 +70,15 @@ export default function UserForm() {
         // Store user data for display
         setUserData(response.data);
         
+        console.log("user data has been set:", response.data);
         // Here you would typically fetch the user's forms
         // For example:
         // const formsResponse = await axios.get("/api/user/forms", {
         //   withCredentials: true
         // });
         // setForms(formsResponse.data);
+
+        await fetchUserForms();
         
         setIsLoading(false);
       } catch (error) {
@@ -60,7 +92,7 @@ export default function UserForm() {
   }, [navigate]);
 
   // Show loading indicator while checking session
-  if (isLoading) {
+  if (isLoading) {  
     return (
       <div className="flex items-center justify-center h-screen bg-[#F7FAFC]">
         <div className="text-center">
@@ -80,6 +112,7 @@ export default function UserForm() {
         </h3>
         <SearchBar />
         <div className="mt-6">
+          {/* Set forms.length === 1 temporarily so that i can see the UI --> RESET Back to 0 After */}
           {forms.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-sm text-center">
               <p className="text-gray-600">No forms found. Create a new form to get started.</p>
@@ -92,11 +125,26 @@ export default function UserForm() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
-              {/* Forms would be mapped and displayed here */}
-            </div>
+              {forms.map((form) => (
+                <FormCardA
+                  key={form.id}
+                  date={formatDate(form.created_at || form.last_access_date)}
+                  title={form.title || "Untitled Form"}
+                  owner={form.owner || "Unknown User"}
+                  tags={form.tags || [form.status] || ["Unknown"]}
+                  // tags={createTags(form)}
+                  onShare={() => handleShare(form.id)}
+                  onDownload={() => handleDownload(form.id, form.title)}
+                  onDelete={() => handleDelete(form.id)}
+                />
+              ))}
+              </div>
           )}
         </div>
       </div>
     </div>
   );
 }
+
+
+      

@@ -10,8 +10,18 @@ const tabs = [
   { label: "Confirmation Details", icon: <FaCheckCircle /> },
 ];
 
-export default function FormTabs({ onTabChange }) {
+export default function FormTabs({ onTabChange, currentTab: externalTab }) {
   const [activeTab, setActiveTab] = useState(0);
+  
+  // Use external tab state if provided, otherwise use local state
+  const currentTab = externalTab !== undefined ? externalTab : activeTab;
+
+  const handleNext = () => {
+    if (currentTab < tabs.length - 1) {
+      setActiveTab(currentTab + 1);
+      onTabChange?.(currentTab + 1);
+    }
+  };
 
   return (
     <div className="w-full mb-4">
@@ -26,12 +36,12 @@ export default function FormTabs({ onTabChange }) {
                 onTabChange?.(index);
               }}
               className={`relative flex items-center space-x-2 cursor-pointer pb-2 ${
-                index === activeTab ? "text-black font-semibold" : "text-gray-400"
+                index === currentTab ? "text-black font-semibold" : "text-gray-400"
               }`}
             >
               <span className="text-xl">{tab.icon}</span>
               <span>{tab.label}</span>
-              {index === activeTab && (
+              {index === currentTab && (
                 <span className="absolute bottom-0 left-0 w-full h-[2px] bg-black rounded-sm" />
               )}
             </div>
@@ -41,30 +51,18 @@ export default function FormTabs({ onTabChange }) {
 
       <div className="mt-4 flex justify-between">
         <button
-          onClick={() => {
-            if (activeTab > 0) {
-              setActiveTab(activeTab - 1);
-              onTabChange?.(activeTab - 1);
-            }
-          }}
-          disabled={activeTab <= 0}
-          className="px-10 py-3 bg-gray-200 text-black rounded-lg disabled:opacity-50"
+          onClick={() => onTabChange(currentTab - 1)}
+          disabled={currentTab === 0}
+          className="back-button"
         >
           Back
         </button>
         <button
-          onClick={() => {
-            if (activeTab < tabs.length - 1) {
-              // if on “Overall Details” (second-to-last), jump to Confirmation Details
-              const next = activeTab === tabs.length - 2 ? tabs.length - 1 : activeTab + 1;
-              setActiveTab(next);
-              onTabChange?.(next);
-            }
-          }}
-          disabled={activeTab >= tabs.length - 1}
-          className="px-10 py-3 bg-black text-white rounded-lg disabled:opacity-50"
+          onClick={handleNext}
+          disabled={currentTab === tabs.length - 1}
+          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
         >
-          {activeTab === tabs.length - 2 ? "Complete Form" : "Next"}
+          {currentTab >= tabs.length - 1 ? "Complete Form" : "Next"}
         </button>
       </div>
     </div>
