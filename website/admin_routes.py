@@ -1,7 +1,7 @@
 # Fix the import statements
 from flask import Blueprint, jsonify, request, session, make_response
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity, Process
+from models import User, Form, Activity, Process, Hazard, Risk
 from . import db
 import random
 import string
@@ -471,3 +471,48 @@ def retrieve_forms():
     except Exception as e:
         print(f"Error retrieving forms: {e}")
         return jsonify({'error': 'Failed to retrieve forms'}), 500
+    
+
+@admin.route('/deleteForm/<int:form_id>', methods=['DELETE'])
+def delete_form(form_id):
+    try:
+        # Find the process
+        form = Form.query.get(form_id)
+        print(f"form process to be deleted found:", form)
+        if not form:
+            return jsonify({'error': 'Form not found'}), 404
+        
+        # Delete all processes and activities associated with the form
+        processes = Process.query.filter_by(process_form_id=form_id).all()
+        for process in processes:
+            # Delete all activities associated with this process
+            activities = Activity.query.filter_by(activity_process_id=process.process_id).all()
+        
+            for activity in activities:
+                # Delete hazards associated with this activity
+                hazards = Hazard.query.filter_by(hazard_activity_id=activity.activity_id).all()
+            
+                for hazard in hazards:
+                    # Delete risks associated with this hazard
+                    Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).delete()
+                
+                # Delete the hazards
+                Hazard.query.filter_by(hazard_activity_id=activity.activity_id).delete()
+            
+            # Delete the activities
+            Activity.query.filter_by(activity_process_id=process.process_id).delete()
+        
+            # Finally, delete the process
+            db.session.delete(process)
+        db.session.delete(form)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Form {form_id} and all associated data deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting form {form_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete process'}), 500

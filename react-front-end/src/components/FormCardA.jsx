@@ -34,7 +34,7 @@ export default function FormCardA({
             <div className="text-sm text-green-600">{date}</div>
           </div>
         </div>
-        <BsThreeDotsVertical className="text-black text-lg cursor-pointer" />
+        {/* <BsThreeDotsVertical className="text-black text-lg cursor-pointer" /> */}
       </div>
 
       <div className="flex mt-0">
