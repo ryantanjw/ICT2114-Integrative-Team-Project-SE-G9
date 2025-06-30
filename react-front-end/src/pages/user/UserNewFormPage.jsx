@@ -2,23 +2,17 @@ import React, { useState, useEffect } from "react";
 import Header from "../../components/Header.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import FormTabs from "./components/FormTabs.jsx";
-<<<<<<< HEAD
-import { useState } from "react";
 import Form1 from "./components/Form1.jsx";
 import Form2 from "./components/Form2.jsx";
 import Form3 from "./components/Form3.jsx";
 import ConfirmForm from "./components/ConfirmForm.jsx"; // will be used for Confirmation Details
-
-
-=======
 import axios from "axios";
->>>>>>> 429fdbc29ffaffb2c04ab312f369bb32d9242acc
+
 
 export default function UserNewForm() {
   const location = useLocation();
   const navigate = useNavigate();
   const [currentTab, setCurrentTab] = useState(0);
-<<<<<<< HEAD
   // Shared sampleEntry for both forms
   // in UserNewFormPage.jsx, inside your component:
 const sampleEntry = {
@@ -393,7 +387,6 @@ const sampleEntry = {
     }
   ],
 };
-=======
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
 
@@ -448,7 +441,6 @@ const sampleEntry = {
       </div>
     );
   }
->>>>>>> 429fdbc29ffaffb2c04ab312f369bb32d9242acc
 
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
