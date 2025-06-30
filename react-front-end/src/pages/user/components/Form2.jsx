@@ -626,7 +626,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     scheduleBatchedUpdate();
   };
 
-  // Fixed: Toggle hazard type function to properly add/remove types instead of replacing
   const toggleHazardType = (processId, activityId, hazardId, type) => {
     setRaProcesses(
       raProcesses.map(proc =>
@@ -641,9 +640,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     h.id === hazardId
                       ? {
                         ...h,
-                        type: h.type.includes(type)
-                          ? h.type.filter(t => t !== type) // Remove if already present
-                          : [...h.type, type] // Add if not present
+                        // Replace array with single type instead of toggling
+                        type: h.type.includes(type) ? [] : [type]
                       }
                       : h
                   ),
@@ -657,7 +655,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // Schedule a batched update
     scheduleBatchedUpdate();
   };
-
   const addInjury = (processId, activityId, hazardId) => {
     setRaProcesses(
       raProcesses.map(proc =>
