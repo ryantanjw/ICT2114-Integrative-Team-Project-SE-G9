@@ -70,9 +70,18 @@ export default function FormCardC({
                     e.stopPropagation();
                     onApproveHazard();
                 }}
-                className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-1 rounded-full mt-2"
+                className="bg-green-600 hover:bg-green-600 text-white text-sm px-4 py-1 rounded-full mt-2"
                 >
                 Approve
+                </button>
+                <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onApproveHazard();
+                }}
+                className="bg-red-600 hover:bg-red-600 text-white text-sm px-4 py-1 rounded-full ml-2 mt-2"
+                >
+                Reject
                 </button>
             </div>
           </div>
@@ -102,9 +111,18 @@ export default function FormCardC({
                     e.stopPropagation();
                     onApproveHazard();
                 }}
-                className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-1 rounded-full mt-2"
+                className="bg-green-600 hover:bg-green-600 text-white text-sm px-4 py-1 rounded-full mt-2"
                 >
                 Approve
+                </button>
+                <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onApproveHazard();
+                }}
+                className="bg-red-600 hover:bg-red-600 text-white text-sm px-4 py-1 rounded-full ml-2 mt-2"
+                >
+                Reject
                 </button>
             </div>
           </div>
