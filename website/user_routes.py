@@ -407,6 +407,30 @@ def form2_save():
                 not data.get('processes')):
                 return jsonify({"success": False, "error": "Missing required fields"}), 400
         
+        new_hazard_types = set()
+        for proc_data in data.get('processes', []):
+            for act_data in proc_data.get('activities', []):
+                for haz_data in act_data.get('hazards', []):
+                    for hazard_type in haz_data.get('type', []):
+                        if hazard_type and hazard_type.strip():
+                            new_hazard_types.add(hazard_type.strip())
+        
+        # Check which types need to be added to the database
+        for type_name in new_hazard_types:
+            # Check if this type already exists
+            existing_type = HazardType.query.filter_by(hazard_type=type_name).first()
+            if not existing_type:
+                print(f"Creating new hazard type: {type_name}")
+                new_type = HazardType(
+                    hazard_type=type_name,
+                    hazard_approval=0,  # Default to no approval needed
+                    hazard_approval_by=None  # No approver by default
+                )
+                db.session.add(new_type)
+        
+        # Flush session to get IDs for the new hazard types
+        db.session.flush()
+        
         # Check if updating existing form
         form_id = data.get('form_id')
         
@@ -613,8 +637,7 @@ def form2_save():
         import traceback
         print(f"Error saving form2: {str(e)}")
         print(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
-  
+        return jsonify({"error": str(e)}), 500  
 @user.route('/clear_form_id', methods=['POST'])
 def clear_form_id():
     """Clear the form_id from session when the page reloads"""
@@ -849,3 +872,4 @@ def ai_generate():
     except Exception as e:
         print(f"Error generating hazard data: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
