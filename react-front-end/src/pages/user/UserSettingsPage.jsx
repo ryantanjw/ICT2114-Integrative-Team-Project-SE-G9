@@ -6,6 +6,8 @@ import { MdPeople } from "react-icons/md";
 import { BiSolidUserAccount } from "react-icons/bi";
 import { IoMdDocument } from "react-icons/io";
 import axios from "axios";
+import AccordionArea from "../../components/AccordianArea.jsx";
+import InputGroup from "../../components/InputGroup.jsx";
 
 export default function UserSetting() {
   const location = useLocation();

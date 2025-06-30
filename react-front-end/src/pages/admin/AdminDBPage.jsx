@@ -15,6 +15,9 @@ export default function AdminDB() {
   const [isLoading, setIsLoading] = useState(true);
   const [adminData, setAdminData] = useState(null);
 
+  const [currentTab, setCurrentTab] = useState(0);
+  const [expandedCardIndex, setExpandedCardIndex] = useState(null);
+  
   // Check session when component mounts
   useEffect(() => {
     const checkSession = async () => {
