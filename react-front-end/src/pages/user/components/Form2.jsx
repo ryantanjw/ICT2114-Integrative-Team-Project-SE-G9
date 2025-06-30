@@ -58,10 +58,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       hazard_id: hazard.hazard_id || hazard.id,
       description: hazard.description || "",
       // Fix: Ensure type and injuries are properly preserved
-      type: Array.isArray(hazard.type) ? [...hazard.type] : 
-            (hazard.type ? [hazard.type] : []),
-      injuries: Array.isArray(hazard.injuries) ? [...hazard.injuries] : 
-                (hazard.injury ? [hazard.injury] : []),
+      type: Array.isArray(hazard.type) ? [...hazard.type] :
+        (hazard.type ? [hazard.type] : []),
+      injuries: Array.isArray(hazard.injuries) ? [...hazard.injuries] :
+        (hazard.injury ? [hazard.injury] : []),
       existingControls: hazard.existingControls || "",
       additionalControls: hazard.additionalControls || "",
       severity: hazard.severity || 1,
@@ -135,35 +135,35 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       console.log('No form ID provided, skipping data fetch');
       return;
     }
-  
+
     try {
       setIsLoading(true);
       console.log(`Fetching form data for ID: ${id}`);
-  
+
       // First fetch basic form data
       const response = await fetch(`/api/user/get_form/${id}`);
-  
+
       if (!response.ok) {
         throw new Error(`Failed to fetch form data: ${response.statusText}`);
       }
-  
+
       const basicData = await response.json();
       console.log('Basic form data loaded:', basicData);
-  
+
       // Set basic form data
       setTitle(basicData.title || "");
       setDivision(basicData.division || "");
-  
+
       // Then fetch complete hazard data for this form
       const hazardResponse = await fetch(`/api/user/get_form2_data/${id}`);
-      
+
       if (!hazardResponse.ok) {
         throw new Error(`Failed to fetch hazard data: ${hazardResponse.statusText}`);
       }
-  
+
       const hazardData = await hazardResponse.json();
       console.log('Hazard data loaded:', hazardData);
-  
+
       // Load hazard types if we haven't already
       if (hazardTypesList.length === 0) {
         await fetchHazardTypes();
@@ -183,7 +183,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             hazards: initializeHazards(act.hazards)
           }))
         }));
-  
+
         setRaProcesses(processesWithHazards);
       } else if (basicData.processes && basicData.processes.length > 0) {
         // If no hazard data yet, initialize from basic data
@@ -199,17 +199,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             hazards: initializeHazards([]) // Initialize with empty hazards
           }))
         }));
-  
+
         setRaProcesses(processesWithEmptyHazards);
       }
-  
+
       updateFormId(id);
-  
+
       // Also fetch hazard types list if needed
       if (hazardData.hazardTypesList && hazardData.hazardTypesList.length > 0) {
         setHazardTypesList(hazardData.hazardTypesList);
       }
-  
+
       // Store form ID in session
       await storeFormIdInSession(id);
       setDataLoaded(true);
@@ -226,22 +226,22 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // If we have formData passed from parent, use that
       if (formData && Object.keys(formData).length > 0 && formData.form_id) {
         console.log('Initializing from formData prop:', formData);
-  
+
         setTitle(formData.title || "");
         setDivision(formData.division || "");
         updateFormId(formData.form_id);
-  
+
         // Check localStorage for cached Form2 data for this form_id
         try {
           const cachedData = localStorage.getItem(`form2_data_${formData.form_id}`);
           if (cachedData) {
             const parsedData = JSON.parse(cachedData);
-            
+
             // Only use cache if it's less than 1 hour old
             const cacheAge = new Date() - new Date(parsedData.lastUpdated || 0);
             if (cacheAge < 3600000) { // 1 hour in milliseconds
               console.log('Using cached Form2 data');
-              
+
               if (parsedData.processes && parsedData.processes.length > 0) {
                 setRaProcesses(parsedData.processes);
                 setDataLoaded(true);
@@ -255,7 +255,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         } catch (err) {
           console.error('Error reading from cache:', err);
         }
-  
+
         // If we have processes with hazards, initialize them
         if (formData.processes && formData.processes.length > 0) {
           const processesWithHazards = formData.processes.map(proc => ({
@@ -270,20 +270,20 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               hazards: initializeHazards(act.hazards || [])
             }))
           }));
-  
+
           setRaProcesses(processesWithHazards);
         }
-  
+
         setDataLoaded(true);
         return true;
       }
-  
+
       return false;
     };
-  
+
     // Try to initialize from props first
     const initialized = initializeFormData();
-  
+
     // If not initialized from props, try to get from session
     if (!initialized && !dataLoaded && sessionData?.current_form_id) {
       console.log('Form ID found in session:', sessionData.current_form_id);
@@ -460,33 +460,33 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       prev.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: [
-                        ...a.hazards,
-                        {
-                          id: uuidv4(), // ctrl f tag AI (changed this from date.Now() to uuidv4())
-                          description: "",
-                          type: [],
-                          injuries: [],
-                          newInjury: "",
-                          newType: "",
-                          showTypeInput: false,
-                          showInjuryInput: false,
-                          existingControls: "",
-                          additionalControls: "",
-                          severity: 1,
-                          likelihood: 1,
-                          rpn: 1,
-                        },
-                      ],
-                    }
-                  : a
-              ),
-            }
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: [
+                    ...a.hazards,
+                    {
+                      id: uuidv4(), // ctrl f tag AI (changed this from date.Now() to uuidv4())
+                      description: "",
+                      type: [],
+                      injuries: [],
+                      newInjury: "",
+                      newType: "",
+                      showTypeInput: false,
+                      showInjuryInput: false,
+                      existingControls: "",
+                      additionalControls: "",
+                      severity: 1,
+                      likelihood: 1,
+                      rpn: 1,
+                    },
+                  ],
+                }
+                : a
+            ),
+          }
           : proc
       )
     );
@@ -496,6 +496,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const handleConfirmNewType = (processId, activityId, hazardId) => {
+    // Get the new hazard type value
+    const newTypeValue = raProcesses.find(p => p.id === processId)
+      ?.activities.find(a => a.id === activityId)
+      ?.hazards.find(h => h.id === hazardId)?.newType.trim();
+
+    if (newTypeValue) {
+      // Also add to the hazardTypesList so it persists on the page
+      if (!hazardTypesList.includes(newTypeValue)) {
+        setHazardTypesList(prev => [...prev, newTypeValue]);
+      }
+    }
+
     setRaProcesses(
       raProcesses.map(proc =>
         proc.id === processId
@@ -626,13 +638,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 ? {
                   ...a,
                   hazards: a.hazards.map(h =>
-                    h.id === hazardId 
-                      ? { 
-                        ...h, 
-                        type: h.type.includes(type) 
+                    h.id === hazardId
+                      ? {
+                        ...h,
+                        type: h.type.includes(type)
                           ? h.type.filter(t => t !== type) // Remove if already present
                           : [...h.type, type] // Add if not present
-                      } 
+                      }
                       : h
                   ),
                 }
@@ -719,13 +731,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Save handler  
   const handleSave = async () => {
     if (isLoading) return false; // Prevent saving while already saving
-  
+
     setIsLoading(true);
-  
+
     const currentFormId = formIdRef.current;
-  
+
     console.log("Form2 data:", { formId: currentFormId, title, division, processes: raProcesses });
-  
+
     try {
       // Cache the data in localStorage first for redundancy
       try {
@@ -739,7 +751,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       } catch (err) {
         console.warn('Unable to cache data in localStorage:', err);
       }
-  
+
       const requestBody = {
         title,
         division,
@@ -763,14 +775,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         })),
         userId: sessionData?.user_id
       };
-  
+
       if (currentFormId) {
         requestBody.form_id = currentFormId;
         console.log('Including form_id in request:', currentFormId);
       } else {
         console.log('No Form ID, creating new form');
       }
-  
+
       const response = await fetch('/api/user/form2', {
         method: 'POST',
         headers: {
@@ -778,22 +790,22 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         },
         body: JSON.stringify(requestBody)
       });
-  
+
       if (response.ok) {
         const result = await response.json();
         console.log('Success:', result);
-  
+
         if (result.form_id) {
           updateFormId(result.form_id);
           console.log('Form ID stored:', result.form_id);
-  
+
           // Also store the form_id in session for cross-tab access
           await storeFormIdInSession(result.form_id);
         }
-  
+
         // Force update to parent after successful save
         triggerUpdateToParent(true);
-  
+
         setIsLoading(false);
         return true; // Indicate success
       } else {
@@ -807,7 +819,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       return false; // Indicate failure
     }
   };
-    // Determine dropdown background based on value
+  // Determine dropdown background based on value
   const getDropdownColor = (key, value) => {
     if (key === "severity" || key === "likelihood") {
       if (value >= 4) return "bg-red-600";
@@ -823,30 +835,30 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   // ctrl f tag AI
-    const createNewHazard = ({
-      description = "",
-      type = [],
-      injuries = [],
-      existingControls = "",
-      severity = 1,
-      likelihood = 1,
-      rpn = 1
-    } = {}) => ({
-      id: uuidv4(),
-      hazard_id: uuidv4(),
-      description,
-      type,
-      injuries,
-      newInjury: "",
-      newType: "",
-      showTypeInput: false,
-      showInjuryInput: false,
-      existingControls,
-      additionalControls: "",
-      severity,
-      likelihood,
-      rpn
-    });
+  const createNewHazard = ({
+    description = "",
+    type = [],
+    injuries = [],
+    existingControls = "",
+    severity = 1,
+    likelihood = 1,
+    rpn = 1
+  } = {}) => ({
+    id: uuidv4(),
+    hazard_id: uuidv4(),
+    description,
+    type,
+    injuries,
+    newInjury: "",
+    newType: "",
+    showTypeInput: false,
+    showInjuryInput: false,
+    existingControls,
+    additionalControls: "",
+    severity,
+    likelihood,
+    rpn
+  });
 
   const addHazardsToProcess = async (targetProcessId) => {
     // Find the process by id
@@ -912,7 +924,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     );
   };
 
-// end of ctrl f tag AI
+  // end of ctrl f tag AI
 
   // Show loading state
   if (isLoading) {
@@ -969,7 +981,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             <CTAButton
               text="Generate"
               /* ctrl f tag AI Generate button */
-                onClick={async () => await addHazardsToProcess(proc.id)}
+              onClick={async () => await addHazardsToProcess(proc.id)}
               className="ml-auto bg-gray-100 text-black"
             />
           </div>
