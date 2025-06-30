@@ -1,7 +1,23 @@
 from flask_sqlalchemy import SQLAlchemy
 from website import db
 
+
 # Define the db models here 
+
+class KnownData(db.Model):
+    __tablename__ = 'known_data'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    activity_name = db.Column(db.Text, nullable=True)
+    hazard_type = db.Column(db.String(225), nullable=True)
+    hazard_des = db.Column(db.Text, nullable=True)
+    injury = db.Column(db.Text, nullable=True)
+    control = db.Column(db.Text, nullable=True)
+    severity = db.Column(db.Integer, nullable=True)
+    likelihood = db.Column(db.Integer, nullable=True)
+    rpn = db.Column(db.Integer, nullable=True)
+
+
 class User(db.Model):
     __tablename__ = 'user'  
 

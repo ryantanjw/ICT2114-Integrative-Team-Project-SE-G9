@@ -1,13 +1,14 @@
 from flask import Blueprint, jsonify, request, session
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity, Process, Hazard, Risk, HazardType
+from models import User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData
 from . import db
 import random
 import string
 from flask_cors import CORS, cross_origin
 from datetime import datetime
 import json
+from .rag import *
 
 # Create a new blueprint for user routes
 user = Blueprint('user', __name__,static_folder='static')
@@ -406,6 +407,30 @@ def form2_save():
                 not data.get('processes')):
                 return jsonify({"success": False, "error": "Missing required fields"}), 400
         
+        new_hazard_types = set()
+        for proc_data in data.get('processes', []):
+            for act_data in proc_data.get('activities', []):
+                for haz_data in act_data.get('hazards', []):
+                    for hazard_type in haz_data.get('type', []):
+                        if hazard_type and hazard_type.strip():
+                            new_hazard_types.add(hazard_type.strip())
+        
+        # Check which types need to be added to the database
+        for type_name in new_hazard_types:
+            # Check if this type already exists
+            existing_type = HazardType.query.filter_by(hazard_type=type_name).first()
+            if not existing_type:
+                print(f"Creating new hazard type: {type_name}")
+                new_type = HazardType(
+                    hazard_type=type_name,
+                    hazard_approval=0,  # Default to no approval needed
+                    hazard_approval_by=None  # No approver by default
+                )
+                db.session.add(new_type)
+        
+        # Flush session to get IDs for the new hazard types
+        db.session.flush()
+        
         # Check if updating existing form
         form_id = data.get('form_id')
         
@@ -612,8 +637,7 @@ def form2_save():
         import traceback
         print(f"Error saving form2: {str(e)}")
         print(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
-  
+        return jsonify({"error": str(e)}), 500  
 @user.route('/clear_form_id', methods=['POST'])
 def clear_form_id():
     """Clear the form_id from session when the page reloads"""
@@ -723,9 +747,6 @@ def get_form(form_id):
     
     except Exception as e:
         import traceback
-        print(f"Error fetching form: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
   
 @user.route('/check_session', methods=['GET'])
 def check_session():
@@ -879,3 +900,24 @@ def delete_form(form_id):
         db.session.rollback()
         print(f"Error deleting form {form_id}: {str(e)}")
         return jsonify({'error': 'Failed to delete process'}), 500
+# ctrl f tag AI
+@user.route('/ai_generate', methods=['POST'])
+def ai_generate():
+    """Generate hazard data using AI or query known_data"""
+    try:
+        data = request.get_json()
+        user_input = data.get('input')
+        
+        if not user_input:
+            return jsonify({"error": "No input provided"}), 400
+
+        hazard_data = ai_function(str(user_input)) # Call RAG.py function
+        return jsonify({
+            "success": True,
+            "hazard_data": hazard_data
+        }), 200
+
+    except Exception as e:
+        print(f"Error generating hazard data: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+

@@ -7,3 +7,15 @@ website/__pycache__/admin_routes.cpython-311.pyc
 /website/__pycache__
 /__pycache__
 /__pycache__
+
+# Ignore Python bytecode
+*.pyc
+__pycache__/
+
+# Ignore virtual environments
+venv/
+.env
+
+# (Optional) Ignore IDE/project files
+.vscode/
+*.log
