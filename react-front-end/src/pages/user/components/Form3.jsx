@@ -429,18 +429,21 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="approved-by"
           value={approvedBy}
           onChange={(e) => setApprovedBy(e.target.value)}
+          disabled
         />
         <InputGroup
           label="Signature"
           id="signature"
           value={signature}
           onChange={(e) => setSignature(e.target.value)}
+          disabled
         />
         <InputGroup
           label="Designation"
           id="designation"
           value={designation}
           onChange={(e) => setDesignation(e.target.value)}
+          disabled
         />
       </div>
 

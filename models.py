@@ -36,7 +36,7 @@ class Form(db.Model):
 
     # Define fields
     form_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    form_reference_number = db.Column(db.Integer, nullable=True)
+    form_reference_number = db.Column(db.String(255), nullable=True)
     form_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     form_RA_team_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     approved_by = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)

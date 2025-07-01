@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, session
 from flask_cors import CORS
+from rich import _console
 from werkzeug.security import generate_password_hash
 from models import RA_team, RA_team_member, User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData
 from . import db
@@ -702,7 +703,7 @@ def get_form3_data(form_id):
                     "leader": None,
                     "members": []
                 }
-                
+                            
                 # Always set leader to current user
                 if current_user:
                     team_data["leader"] = {
@@ -712,8 +713,8 @@ def get_form3_data(form_id):
                         "user_designation": current_user.user_designation
                     }
                 # Fallback to stored leader if needed
-                elif ra_team.RA_team_leader_id:
-                    leader = User.query.get(ra_team.RA_team_leader_id)
+                elif ra_team.RA_leader:  # This is the correct column name in your model
+                    leader = User.query.get(ra_team.RA_leader)
                     if leader:
                         team_data["leader"] = {
                             "user_id": leader.user_id,
@@ -721,30 +722,29 @@ def get_form3_data(form_id):
                             "user_email": leader.user_email,
                             "user_designation": leader.user_designation
                         }
-                
+                                
                 # Get team members
                 team_members = RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).all()
                 for member_record in team_members:
-                    member = User.query.get(member_record.user_id)
+                    # This should match how you save it in form3_save
+                    member = User.query.get(member_record.RA_team_member)  
                     if member:
                         team_data["members"].append({
                             "user_id": member.user_id,
                             "user_name": member.user_name,
                             "user_email": member.user_email,
                             "user_designation": member.user_designation
-                        })
-                
+                        }) 
                 form_data["team_data"] = team_data
+                print(f"RA Team data: {form_data['team_data']}")
         else:
             # If no RA team exists yet, still provide current user as leader
             if current_user:
                 form_data["team_data"] = {
                     "team_id": None,
                     "leader": {
-                        "user_id": current_user.user_id,
-                        "user_name": current_user.user_name,
-                        "user_email": current_user.user_email,
-                        "user_designation": current_user.user_designation
+                        "RA_team_member": current_user.user_id,
+                       
                     },
                     "members": []
                 }
@@ -808,27 +808,27 @@ def form3_save():
         # Handle RA Team
         ra_team_members = data.get('raTeam', [])
         
-        # Find or create RA Team
+        # First, handle the RA Team creation and leader assignment
         if not form.form_RA_team_id:
-            # Create new RA Team
-            ra_team = RA_team()
+            # Create new RA Team with the current user as leader
+            ra_team = RA_team(RA_leader=current_user.user_id)
             db.session.add(ra_team)
-            db.session.flush()  # Get the team ID
+            db.session.flush()  # Flush to get the team ID
             form.form_RA_team_id = ra_team.RA_team_id
         else:
             # Use existing RA Team
             ra_team = RA_team.query.get(form.form_RA_team_id)
             if not ra_team:
                 # Create new if missing
-                ra_team = RA_team()
+                ra_team = RA_team(RA_leader=current_user.user_id)
                 db.session.add(ra_team)
                 db.session.flush()
                 form.form_RA_team_id = ra_team.RA_team_id
+            else:
+                # Update the leader to the current user
+                ra_team.RA_leader = current_user.user_id
         
-        # Set RA Leader to current user from session
-        ra_team.RA_team_leader_id = current_user.user_id
-        
-        # Update RA Team members
+        # Now that we have a valid RA team with a leader, handle team members
         if ra_team_members:
             # Remove existing team members
             RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
@@ -838,11 +838,13 @@ def form3_save():
                 if member_name.strip():
                     member = User.query.filter_by(user_name=member_name.strip()).first()
                     if member:
-                        team_member = RA_team_member(
-                            RA_team_id=ra_team.RA_team_id,
-                            user_id=member.user_id
-                        )
-                        db.session.add(team_member)
+                        # Avoid adding the leader as a team member (they're already the leader)
+                        if member.user_id != current_user.user_id:
+                            team_member = RA_team_member(
+                                RA_team_id=ra_team.RA_team_id,
+                                RA_team_member=member.user_id
+                            )
+                            db.session.add(team_member)
         
         # Handle approval information
         if 'approvedBy' in data and data.get('approvedBy'):
@@ -879,50 +881,7 @@ def form3_save():
         import traceback
         print(f"Error saving form3: {str(e)}")
         print(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500@user.route('/ra_team/<int:team_id>', methods=['GET'])
-def get_ra_team(team_id):
-    """Get RA Team details including leader and members"""
-    try:
-        ra_team = RA_team.query.get(team_id)
-        if not ra_team:
-            return jsonify({"error": "RA Team not found"}), 404
-            
-        # Get leader information
-        leader = None
-        if ra_team.RA_team_leader_id:
-            leader_user = User.query.get(ra_team.RA_team_leader_id)
-            if leader_user:
-                leader = {
-                    "user_id": leader_user.user_id,
-                    "user_name": leader_user.user_name,
-                    "user_email": leader_user.user_email,
-                    "user_designation": leader_user.user_designation
-                }
-                
-        # Get team members
-        members = []
-        team_members = RA_team_member.query.filter_by(RA_team_id=team_id).all()
-        
-        for member in team_members:
-            user = User.query.get(member.user_id)
-            if user:
-                members.append({
-                    "user_id": user.user_id,
-                    "user_name": user.user_name,
-                    "user_email": user.user_email,
-                    "user_designation": user.user_designation
-                })
-                
-        return jsonify({
-            "team_id": ra_team.RA_team_id,
-            "leader": leader,
-            "members": members
-        }), 200
-        
-    except Exception as e:
-        print(f"Error fetching RA team: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 @user.route('/users', methods=['GET'])
 def get_users():
     """Get list of users for dropdown selection"""
@@ -964,7 +923,7 @@ def get_user(user_id):
         print(f"Error fetching user: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@user.route('/user/current', methods=['GET'])
+@user.route('/current', methods=['GET'])
 def get_current_user():
     """Get current logged-in user details"""
     try:
