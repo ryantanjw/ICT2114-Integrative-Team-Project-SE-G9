@@ -4,8 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { IoMdRefresh } from "react-icons/io";
 import CTAButton from "../../components/CTAButton.jsx";
 import SearchBar from "../../components/SearchBar.jsx";
-import FormCardA from "../../components/FormCardA.jsx";
-import FormCardB from "../../components/FormCardB.jsx";
 import axios from "axios";
 import FormCardA2 from "../../components/FormCardA2.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
@@ -327,9 +325,8 @@ const handleDelete = async (formId) => {
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="pending approval">Pending Approval</option>
-              <option value="approved">Approved</option>
+              <option value="Incomplete">Incomplete</option>
+              <option value="Completed">Completed</option>
               <option value="review due">Review Due</option>
             </select>
         

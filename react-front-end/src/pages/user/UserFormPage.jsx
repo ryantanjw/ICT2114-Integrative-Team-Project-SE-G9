@@ -32,6 +32,20 @@ export default function UserForm() {
       });
       
       console.log("Forms fetched:", response.data);
+
+      //Used to get the response data of each form
+      const formsArray = response.data.forms || [];
+
+      formsArray.forEach((form, index) => {
+      console.log(`Form ${index + 1}:`, {
+        id: form.id,
+        title: form.title,
+        status: form.status,
+        approval: form.approval, // Add this to see the raw approval value
+        statusType: typeof form.status,
+        statusLength: form.status?.length
+      });
+    });
       setForms(response.data);
       // setFilteredForms(response.data);
     } catch (error) {
@@ -183,6 +197,7 @@ const handleDelete = async (formId) => {
                   title={form.title || "Untitled Form"}
                   owner={form.owner || "Unknown User"}
                   tags={form.tags || [form.status] || ["Unknown"]}
+                  status={form.status}
                   // tags={createTags(form)}
                   onView={() => handleView(form.id)}
                   onShare={() => handleShare(form.id)}

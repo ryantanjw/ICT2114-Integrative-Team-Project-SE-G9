@@ -44,11 +44,10 @@ def retrieve_forms():
                 return date_obj.isoformat() if date_obj else None
             
             # Create status based on approval and dates
-            status = "Draft"
+            status = "Incomplete"
             if form.approval == 1:
-                status = "Approved"
-            elif form.approval == 0:
-                status = "Pending Approval"
+                status = "Completed"
+
 
             # Check if review is due
             if form.next_review_date:
