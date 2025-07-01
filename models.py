@@ -45,6 +45,7 @@ class Form(db.Model):
     division = db.Column(db.String(124), nullable=True)
     process = db.Column(db.Text, nullable=True) # to be removed after done
     approval = db.Column(db.Integer, default=False, nullable=True)
+    signature = db.Column(db.String(255), nullable=True)  
     last_access_date = db.Column(db.DateTime, nullable=True)
     last_review_date = db.Column(db.DateTime, nullable=True)
     next_review_date = db.Column(db.DateTime, nullable=True)
