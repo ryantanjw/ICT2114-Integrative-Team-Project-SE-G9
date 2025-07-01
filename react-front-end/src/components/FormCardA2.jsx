@@ -5,7 +5,7 @@ import { FiDownload, FiCopy, FiEye } from "react-icons/fi";
 import { RiDeleteBin6Line } from "react-icons/ri";
 
 export default function FormCardA2({
-  status = "Ongoing",
+  status = "Incomplete",
   date = "19/05/2025",
   title = "Form Title",
   owner = "Form Owner",
@@ -16,10 +16,12 @@ export default function FormCardA2({
   onDownload,
   onDelete,
 }) {
+
   const tagColorMap = {
-    Ongoing: "bg-blue-500 text-white",
-    Pending: "bg-yellow-400 text-black",
+    Incomplete: "bg-blue-500 text-white",
     Completed: "bg-green-700 text-white",
+    "review due": "bg-red-500 text-white",
+
   };
 
   return (
@@ -36,7 +38,7 @@ export default function FormCardA2({
             {/* Status pill */}
             <div className="mt-1"> {/* This div is the flex item, contains the pill */}
                     <div className={`inline-block px-3 py-1 rounded-full text-sm ${ // Pill itself, now correctly inline-block within its parent
-                        status === "Ongoing"
+                        status === "Incomplete"
                         ? "bg-blue-500 text-white"
                         : status === "Completed"
                         ? "bg-green-700 text-white"

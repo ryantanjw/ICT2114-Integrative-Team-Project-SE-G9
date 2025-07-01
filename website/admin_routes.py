@@ -365,11 +365,10 @@ def retrieve_forms():
         filtered_forms = []
         for form, user in all_forms_with_users:
             # Create status based on approval and dates
-            status = "draft"  # Default status
+            status = "Incomplete"  # Default status
             if form.approval == 1:
-                status = "approved"
-            elif form.approval == 0:
-                status = "pending approval"
+                status = "Completed"
+                print(f"status:", status)
 
             # Check if review is due
             if form.next_review_date:

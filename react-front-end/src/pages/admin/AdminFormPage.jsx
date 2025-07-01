@@ -71,6 +71,20 @@ export default function AdminForm() {
       });
       
       console.log("Forms fetched:", response.data);
+
+    // Used to get the response data of each form
+    //   const formsArray = response.data.forms || [];
+
+    //   formsArray.forEach((form, index) => {
+    //   console.log(`Form ${index + 1}:`, {
+    //     id: form.id,
+    //     title: form.title,
+    //     status: form.status,
+    //     approval: form.approval, // Add this to see the raw approval value
+    //     statusType: typeof form.status,
+    //     statusLength: form.status?.length
+    //   });
+    // });
       
       if (response.data.forms) {
         setForms(response.data.forms);
@@ -319,7 +333,7 @@ const handleDelete = async (formId) => {
               <option value="review due">Review Due</option>
             </select>
 
-        {/* Style A2 */}
+        {/* Style A2
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full">
               <FormCardA2
                 status="Ongoing"
@@ -357,7 +371,7 @@ const handleDelete = async (formId) => {
                 onDownload={() => console.log("Download")}
                 onDelete={() => console.log("Delete")}
               />
-        </div>
+        </div> */}
         
             {/* Division Filter */}
             {availableFilters.divisions.length > 0 && (
@@ -422,6 +436,7 @@ const handleDelete = async (formId) => {
                     title={form.title || "Untitled Form"}
                     owner={form.owner || "Unknown User"}
                     tags={form.tags || [form.status] || ["Unknown"]}
+                    status={form.status}
                     onView={() => handleView(form.id)}
                     onShare={() => handleShare(form.id)}
                     onDownload={() => handleDownload(form.id, form.title)}

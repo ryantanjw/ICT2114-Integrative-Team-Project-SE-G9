@@ -48,6 +48,7 @@ class Form(db.Model):
     last_access_date = db.Column(db.DateTime, nullable=True)
     last_review_date = db.Column(db.DateTime, nullable=True)
     next_review_date = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.Integer, default=False, nullable=True)
     
 class Process(db.Model):
     __tablename__ = 'process'
