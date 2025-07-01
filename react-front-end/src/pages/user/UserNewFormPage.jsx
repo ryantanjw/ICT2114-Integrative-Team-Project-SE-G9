@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Header from "../../components/Header.jsx";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import FormTabs from "./components/FormTabs.jsx";
 import Form1 from "./components/Form1.jsx";
 import Form2 from "./components/Form2.jsx";
@@ -11,6 +11,7 @@ import axios from "axios";
 export default function UserNewForm() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { formId } = useParams();
   const form1Ref = useRef(null);
   const form2Ref = useRef(null);
   const form3Ref = useRef(null);
@@ -31,6 +32,7 @@ export default function UserNewForm() {
   const [isForm2Valid, setIsForm2Valid] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false); 
 
   // Function to validate Form 1
   const validateForm1 = useCallback((data) => {
@@ -82,6 +84,65 @@ export default function UserNewForm() {
     setIsForm2Valid(isValid);
     return isValid;
   }, []);
+
+  const loadExistingForm = useCallback(async (targetFormId) => {
+    if (!targetFormId) return false;
+
+    try {
+      console.log(`Loading existing form with ID: ${targetFormId}`);
+      setIsLoading(true);
+
+      const response = await axios.get(`/api/user/get_form/${targetFormId}`);
+
+      console.log("response data:", response.data);
+
+      console.log("remarks:", response.data.activity_remarks || response.data.remarks);
+
+      if (response.data) {
+        const loadedFormData = {
+          title: response.data.title || "",
+          division: response.data.division || "",
+          processes: response.data.processes || [],
+          form_id: response.data.form_id,
+          remarks: response.data.activity_remarks || response.data.remarks || "",
+        };
+
+        console.log("Successfully loaded existing form data:", loadedFormData);
+        setFormData(loadedFormData);
+        setIsEditMode(true);
+
+        // Validate the loaded form
+        validateForm1(loadedFormData);
+        validateForm2(loadedFormData);
+
+        // Store form ID in session
+        await storeFormIdInSession(loadedFormData.form_id);
+
+        return true;
+      } else {
+        console.error("No form data received from server");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error loading existing form:", error);
+      
+      // If form not found or access denied, show appropriate message
+      if (error.response?.status === 404) {
+        alert("Form not found. It may have been deleted or you don't have access to it.");
+        navigate("/user/dashboard");
+      } else if (error.response?.status === 403) {
+        alert("You don't have permission to access this form.");
+        navigate("/user/dashboard");
+      } else {
+        alert("Error loading form. Please try again.");
+      }
+      
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [validateForm1, validateForm2, navigate]);
+  
 
   // Debounced function to store form ID in session
   const storeFormIdInSession = useCallback(async (form_id) => {
@@ -214,20 +275,22 @@ export default function UserNewForm() {
       
       initialLoadRef.current = false;
       
-      try {
-        console.log('Clearing form ID from session on page load');
-        
-        // Clear from session using API
-        await fetch('/api/user/clear_form_id', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-        
-        console.log('Form ID cleared from session on page load');
-      } catch (error) {
-        console.error('Error clearing form ID from session:', error);
+      if (!formId) {
+        try {
+          console.log('Clearing form ID from session on page load');
+          
+          // Clear from session using API
+          await fetch('/api/user/clear_form_id', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          console.log('Form ID cleared from session on page load');
+        } catch (error) {
+          console.error('Error clearing form ID from session:', error);
+        }
       }
     };
     
@@ -235,17 +298,20 @@ export default function UserNewForm() {
     
     // Set up beforeunload handler to clear form ID when navigating away from page
     const handleBeforeUnload = () => {
+      
+      if (!isEditMode) {
       // Use synchronous localStorage for unload event
       localStorage.removeItem('current_form_id');
       
       // For modern browsers, we can try to make a synchronous request
-      try {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/user/clear_form_id', false); // false = synchronous
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.send();
-      } catch (e) {
-        console.error('Error sending synchronous XHR:', e);
+        try {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/api/user/clear_form_id', false); // false = synchronous
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.send();
+        } catch (e) {
+          console.error('Error sending synchronous XHR:', e);
+        }
       }
     };
     
@@ -256,7 +322,7 @@ export default function UserNewForm() {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [formId, isEditMode]);
 
   // Update the handleTabChange function to be more resilient to server errors
   const handleTabChange = async (tabIndex) => {
@@ -426,38 +492,52 @@ export default function UserNewForm() {
         // Store user data for display
         setUserData(response.data);
 
-        // Check for form ID in localStorage first (preserved during tab navigation)
-        const localFormId = localStorage.getItem('current_form_id');
+        // // Check for form ID in localStorage first (preserved during tab navigation)
+        // const localFormId = localStorage.getItem('current_form_id');
         
-        // If not in localStorage, check session
-        const formIdToUse = localFormId || response.data.current_form_id;
+        // // If not in localStorage, check session
+        // const formIdToUse = localFormId || response.data.current_form_id;
         
-        if (formIdToUse) {
-          console.log("Found form ID to continue with:", formIdToUse);
+        //may change 497 to if formId
+        if (formId) {
+          console.log("Found form ID to continue with:", formId);
+          const loadSuccess = await loadExistingForm(formId);
 
-          // Fetch the form data to continue
-          try {
-            const formResponse = await axios.get(`/api/user/get_form/${formIdToUse}`);
-
-            if (formResponse.data) {
-              // Update the form data
-              const loadedFormData = {
-                title: formResponse.data.title || "",
-                division: formResponse.data.division || "",
-                processes: formResponse.data.processes || [],
-                form_id: formResponse.data.form_id
-              };
-
-              console.log("Loading existing form data:", loadedFormData);
-              setFormData(loadedFormData);
-
-              // Validate forms with the loaded data
-              validateForm1(loadedFormData);
-              validateForm2(loadedFormData);
-            }
+          if (!loadSuccess) {
+            console.error("Failed to load form");
+            return;
           }
-          catch (formError) {
-            console.error("Error loading form data:", formError);
+        } else {
+           // Check for form ID in localStorage or session (for new forms)
+          const localFormId = localStorage.getItem('current_form_id');
+          const formIdToUse = localFormId || response.data.current_form_id;
+          
+          if (formIdToUse) {
+            console.log("Found form ID to continue with:", formIdToUse);
+          // Fetch the form data to continue
+            try {
+              const formResponse = await axios.get(`/api/user/get_form/${formIdToUse}`);
+
+              if (formResponse.data) {
+                // Update the form data
+                const loadedFormData = {
+                  title: formResponse.data.title || "",
+                  division: formResponse.data.division || "",
+                  processes: formResponse.data.processes || [],
+                  form_id: formResponse.data.form_id
+                };
+
+                console.log("Loading existing form data:", loadedFormData);
+                setFormData(loadedFormData);
+
+                // Validate forms with the loaded data
+                validateForm1(loadedFormData);
+                validateForm2(loadedFormData);
+              }
+            }
+            catch (formError) {
+              console.error("Error loading form data:", formError);
+            }         
           }
         }
 

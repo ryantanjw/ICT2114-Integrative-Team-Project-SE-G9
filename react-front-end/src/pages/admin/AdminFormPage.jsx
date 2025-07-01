@@ -167,6 +167,18 @@ const handleDownload = (formId, formTitle) => {
   }
 };
 
+
+// Handle viewing a form --> allows user to edit form --> redirect to form 1
+const handleView = async (formId) => {
+  console.log(`Redirecting user to form with ID: ${formId}`);
+  try {
+    // Example: Navigate to view form1 endpoint
+    window.open(`/api/admin/downloadForm/${formId}`, '_blank');
+  } catch (error) {
+    console.error('Error downloading form:', error);
+  }
+}
+
 // Handle deleting a form
 const handleDelete = async (formId) => {
   console.log(`Deleting form with ID: ${formId}`);
@@ -307,37 +319,6 @@ const handleDelete = async (formId) => {
               <option value="review due">Review Due</option>
             </select>
 
-        {/* Style A */}
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6 w-full">
-              <FormCardA
-                date="19/05/2025"
-                title="Comprehensive Utilization of Z-Ray Machines in Advanced Medical Imaging and Enhanced Safety Protocols for Diagnostic Accuracy and Patient Protection"
-                owner="Dave Timothy Johnson"
-                tags={["Ongoing"]}
-                onShare={() => console.log("Share")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-              <FormCardA
-                date="20/05/2025"
-                title="Comprehensive Radiation Safety Training for Medical Staff"
-                owner="Alice Smith"
-                tags={["Completed", "Expires 20/06/2025"]}
-                onShare={() => console.log("Share")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-              <FormCardA
-                date="21/05/2025"
-                title="Routine and Emergency Maintenance Procedures for Radiation Equipment"
-                owner="John Doe"
-                tags={["Pending"]}
-                onShare={() => console.log("Share")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-        </div>
-
         {/* Style A2 */}
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full">
               <FormCardA2
@@ -435,12 +416,13 @@ const handleDelete = async (formId) => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
                 {forms.map((form) => (
-                  <FormCardA
+                  <FormCardA2
                     key={form.id}
                     date={formatDate(form.created_at || form.last_access_date)}
                     title={form.title || "Untitled Form"}
                     owner={form.owner || "Unknown User"}
                     tags={form.tags || [form.status] || ["Unknown"]}
+                    onView={() => handleView(form.id)}
                     onShare={() => handleShare(form.id)}
                     onDownload={() => handleDownload(form.id, form.title)}
                     onDelete={() => handleDelete(form.id)}

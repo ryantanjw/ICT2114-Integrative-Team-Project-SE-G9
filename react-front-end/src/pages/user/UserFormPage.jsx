@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../../components/SearchBar.jsx";
 import axios from "axios";
 import FormCardA from "../../components/FormCardA.jsx"; // Add this import
+import FormCardA2 from "../../components/FormCardA2.jsx";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 export default function UserForm() {
   const location = useLocation();
@@ -52,6 +54,12 @@ const handleDownload = (formId, formTitle) => {
     console.error('Error downloading form:', error);
   }
 };
+
+const handleView = async (formId) => {
+  console.log(`Redirecting user to form with ID: ${formId}`);
+
+  navigate(`/user/new/${formId}`);
+}
 
   // Handle deleting a form
 const handleDelete = async (formId) => {
@@ -169,13 +177,14 @@ const handleDelete = async (formId) => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
               {forms.map((form) => (
-                <FormCardA
+                <FormCardA2
                   key={form.id}
                   date={formatDate(form.created_at || form.last_access_date)}
                   title={form.title || "Untitled Form"}
                   owner={form.owner || "Unknown User"}
                   tags={form.tags || [form.status] || ["Unknown"]}
                   // tags={createTags(form)}
+                  onView={() => handleView(form.id)}
                   onShare={() => handleShare(form.id)}
                   onDownload={() => handleDownload(form.id, form.title)}
                   onDelete={() => handleDelete(form.id)}

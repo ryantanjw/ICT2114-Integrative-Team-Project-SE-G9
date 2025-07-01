@@ -43,6 +43,7 @@ function AppRoutes() {
         <Route path="/home" element={<UserHome />} />
         <Route path="/user/form" element={<UserForm />} />
         <Route path="/user/new" element={<UserNewForm />} />
+        <Route path="/user/new/:formId" element={<UserNewForm />} />
         <Route path="/user/setting" element={<UserSetting />} />
 
         {/* Admin-specific routes */}

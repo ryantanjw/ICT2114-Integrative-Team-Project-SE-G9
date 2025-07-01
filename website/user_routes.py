@@ -638,6 +638,7 @@ def form2_save():
         print(f"Error saving form2: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500  
+    
 @user.route('/clear_form_id', methods=['POST'])
 def clear_form_id():
     """Clear the form_id from session when the page reloads"""
@@ -731,7 +732,7 @@ def get_form(form_id):
                     "activity_id": activity.activity_id, # Include both formats
                     "description": activity.work_activity,
                     "activityNumber": activity.activity_number,
-                    "remarks": activity.remarks if hasattr(activity, 'remarks') else "",
+                    "remarks": activity.activity_remarks if hasattr(activity, 'activity_remarks') else "",
                 }
                 
                 process_data["activities"].append(activity_data)
