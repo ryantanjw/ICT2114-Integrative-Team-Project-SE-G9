@@ -332,46 +332,6 @@ const handleDelete = async (formId) => {
               <option value="approved">Approved</option>
               <option value="review due">Review Due</option>
             </select>
-
-        {/* Style A2
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full">
-              <FormCardA2
-                status="Ongoing"
-                date="19/05/2025"
-                title="Advanced Techniques in Radiation Therapy for Oncology Patients"
-                owner="Jane Doe"
-                expiryDate="-"
-                onView={() => console.log("View")}
-                onShare={() => console.log("Share")}
-                onDuplicate={() => console.log("Duplicate")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-              <FormCardA2
-                status="Pending"
-                date="20/05/2025"
-                title="Innovative Approaches to Radiation Dose Optimization in Pediatric Imaging"
-                owner="Emily Johnson"         
-                expiryDate="-"
-                onView={() => console.log("View")}
-                onShare={() => console.log("Share")}
-                onDuplicate={() => console.log("Duplicate")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-              <FormCardA2
-                status="Completed"
-                date="21/05/2025"   
-                title="Radiation Safety Protocols for Interventional Radiology Procedures"
-                owner="Michael Brown"
-                expiryDate="24/06/2025"
-                onView={() => console.log("View")}
-                onShare={() => console.log("Share")}
-                onDuplicate={() => console.log("Duplicate")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-        </div> */}
         
             {/* Division Filter */}
             {availableFilters.divisions.length > 0 && (
