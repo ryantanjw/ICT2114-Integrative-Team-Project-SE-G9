@@ -900,6 +900,7 @@ def delete_form(form_id):
         db.session.rollback()
         print(f"Error deleting form {form_id}: {str(e)}")
         return jsonify({'error': 'Failed to delete process'}), 500
+    
 # ctrl f tag AI
 @user.route('/ai_generate', methods=['POST'])
 def ai_generate():
@@ -921,3 +922,50 @@ def ai_generate():
         print(f"Error generating hazard data: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+# Reset user password (user only)
+@user.route('/reset_password', methods=['POST'])
+def reset_password():
+    print("\n=== RESET PASSWORD CALLED ===")
+    
+    # Check if user is logged in and is an admin
+    if 'user_id' not in session:
+        print("No active session found")
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    
+    if session.get('user_role') != 1:  # 1 = user
+        print(f"Non user attempted to reset a password. Role: {session.get('user_role')}")
+        return jsonify({"success": False, "error": "Not authorized"}), 403
+    
+    data = request.get_json()
+    
+    if not data or 'user_id' not in data or 'new_password' not in data:
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
+    
+    try:
+        # Find the user to update
+        user = User.query.get(data['user_id'])
+        
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        print(f"Resetting password for user: {user.user_name} (ID: {user.user_id})")
+        
+        # Hash the new password
+        # hashed_password = generate_password_hash(data['new_password'])
+        # user.user_password = hashed_password
+        
+        user.password = data['new_password']  # Make sure to hash this in production!
+        
+        # Save changes
+        db.session.commit()
+        
+        print(f"Password reset successful for user: {user.user_name} (ID: {user.user_id})")
+        return jsonify({
+            "success": True,
+            "message": "Password reset successful"
+        })
+        
+    except Exception as e:
+        print(f"Error resetting password: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500

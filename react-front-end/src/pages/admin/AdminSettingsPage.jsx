@@ -75,6 +75,45 @@ export default function AdminSetting() {
     checkSession();
   }, [navigate]);
 
+  const handlePasswordReset = async () => {
+  if (!adminData || !adminData.user_id) {
+    alert("Admin session not loaded yet.");
+    return;
+  }
+
+  if (newPasswordError || reverifyError) {
+    alert("Please fix password validation errors first.");
+    return;
+  }
+
+  try {
+    const response = await axios.post(
+      "/api/admin/reset_password",
+      {
+        user_id: adminData.user_id,
+        new_password: newPassword,
+      },
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    if (response.data.success) {
+      alert("Password has been reset successfully.");
+      // Optionally reset inputs
+      setExistingPassword("");
+      setNewPassword("");
+      setReverifyPassword("");
+    } else {
+      alert("Failed to reset password: " + (response.data.error || "Unknown error"));
+    }
+  } catch (error) {
+    console.error("API error:", error);
+    alert("An error occurred while resetting password.");
+  }
+};
+
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
@@ -107,8 +146,11 @@ export default function AdminSetting() {
                   error={reverifyPassword && reverifyPassword !== newPassword ? "Passwords do not match" : ""}
                 />
                 <div className="flex justify-end">
-                  <button className="bg-black text-white px-6 py-2 rounded">
-                    Save
+                  <button
+                    onClick={handlePasswordReset}
+                    className="bg-black text-white px-6 py-2 rounded"
+                  >
+                  Save
                   </button>
                 </div>
               </AccordionArea>
