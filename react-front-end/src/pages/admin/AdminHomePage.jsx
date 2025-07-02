@@ -10,6 +10,7 @@ import RegisterForm from "./components/RegisterForm.jsx";
 import CTAButton from "../../components/CTAButton.jsx";
 import { FaPlus } from "react-icons/fa";
 import FormCardA2 from "../../components/FormCardA2.jsx";
+import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 
@@ -158,7 +159,7 @@ const handleView = async (formId) => {
   console.log(`Redirecting user to form with ID: ${formId}`);
   try {
     // Example: Navigate to view form1 endpoint
-    window.open(`/api/admin/downloadForm/${formId}`, '_blank');
+    // window.open(`/api/admin/downloadForm/${formId}`, '_blank');
   } catch (error) {
     console.error('Error downloading form:', error);
   }
@@ -226,7 +227,7 @@ useEffect(() => {
         // Fetch initial data
         await Promise.all([
           fetchRecentlyCompletedForms(),
-          fetchFilterOptions()
+        //   fetchFilterOptions()
         ]);
 
         setIsLoading(false);
@@ -312,7 +313,7 @@ useEffect(() => {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
                       {forms.map((form) => (
-                        <FormCardA2
+                        <FormCardA2Admin
                           key={form.id}
                           date={formatDate(form.created_at || form.last_access_date)}
                           title={form.title || "Untitled Form"}
@@ -320,7 +321,7 @@ useEffect(() => {
                           tags={form.tags || [form.status] || ["Unknown"]}
                           status={form.status}
                           onView={() => handleView(form.id)}
-                          onShare={() => handleShare(form.id)}
+                        //   onShare={() => handleShare(form.id)}
                           onDownload={() => handleDownload(form.id, form.title)}
                           onDelete={() => handleDelete(form.id)}
                         />

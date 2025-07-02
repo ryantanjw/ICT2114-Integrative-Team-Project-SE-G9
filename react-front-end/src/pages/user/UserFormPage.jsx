@@ -75,6 +75,46 @@ const handleView = async (formId) => {
   navigate(`/user/new/${formId}`);
 }
 
+const handleDuplicate = async (formId) => {
+  console.log(`Duplicating form with ID: ${formId}`);
+  
+  // Show confirmation dialog
+  if (!window.confirm('Are you sure you want to duplicate this form? This will create a copy with all existing data.')) {
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+
+    const response = await axios.post(`/api/user/duplicateForm/${formId}`, {}, {
+      withCredentials: true
+    });
+
+    if (response.data.success) {
+      console.log('Form duplicated successfully:', response.data);
+      
+      // Show success message
+      alert(`Form duplicated successfully! New form: "${response.data.new_form_title}"`);
+      
+      // Refresh the forms list to show the new duplicated form
+      await fetchUserForms();
+      
+      // Optionally navigate to the new form for editing
+      // navigate(`/user/new/${response.data.new_form_id}`);
+      
+    } else {
+      console.error('Failed to duplicate form:', response.data.error);
+      alert('Failed to duplicate form: ' + response.data.error);
+    }
+  } catch (error) {
+    console.error('Error duplicating form:', error);
+  } finally {
+    setIsLoading(false);
+  }
+
+
+}
+
   // Handle deleting a form
 const handleDelete = async (formId) => {
   console.log(`Deleting form with ID: ${formId}`);
@@ -199,6 +239,7 @@ const handleDelete = async (formId) => {
                   tags={form.tags || [form.status] || ["Unknown"]}
                   status={form.status}
                   // tags={createTags(form)}
+                  onDuplicate={() => handleDuplicate(form.id)}
                   onView={() => handleView(form.id)}
                   onShare={() => handleShare(form.id)}
                   onDownload={() => handleDownload(form.id, form.title)}

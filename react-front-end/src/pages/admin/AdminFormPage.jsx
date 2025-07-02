@@ -5,7 +5,7 @@ import { IoMdRefresh } from "react-icons/io";
 import CTAButton from "../../components/CTAButton.jsx";
 import SearchBar from "../../components/SearchBar.jsx";
 import axios from "axios";
-import FormCardA2 from "../../components/FormCardA2.jsx";
+import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 
@@ -185,7 +185,7 @@ const handleView = async (formId) => {
   console.log(`Redirecting user to form with ID: ${formId}`);
   try {
     // Example: Navigate to view form1 endpoint
-    window.open(`/api/admin/downloadForm/${formId}`, '_blank');
+    // window.open(`/api/admin/downloadForm/${formId}`, '_blank');
   } catch (error) {
     console.error('Error downloading form:', error);
   }
@@ -387,7 +387,7 @@ const handleDelete = async (formId) => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
                 {forms.map((form) => (
-                  <FormCardA2
+                  <FormCardA2Admin
                     key={form.id}
                     date={formatDate(form.created_at || form.last_access_date)}
                     title={form.title || "Untitled Form"}
@@ -395,7 +395,6 @@ const handleDelete = async (formId) => {
                     tags={form.tags || [form.status] || ["Unknown"]}
                     status={form.status}
                     onView={() => handleView(form.id)}
-                    onShare={() => handleShare(form.id)}
                     onDownload={() => handleDownload(form.id, form.title)}
                     onDelete={() => handleDelete(form.id)}
                   />
