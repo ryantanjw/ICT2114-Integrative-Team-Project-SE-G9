@@ -34,11 +34,36 @@ export default function ResetUserPasswordForm({ isOpen, user, onClose, onPasswor
         setPassword(newPassword);
     };
 
+    const newPasswordError = password
+  ? (() => {
+      const errs = [];
+      if (password.length < 10)
+        errs.push("at least 10 characters");
+      if ((password.match(/[^A-Za-z0-9]/g) || []).length < 1)
+        errs.push("1 symbol");
+      if ((password.match(/[A-Z]/g) || []).length < 2)
+        errs.push("2 uppercase letters");
+      if ((password.match(/[a-z]/g) || []).length < 3)
+        errs.push("3 lowercase letters");
+      if ((password.match(/[0-9]/g) || []).length < 4)
+        errs.push("4 numbers");
+      return errs.length > 0
+        ? `Password must have ${errs.join(", ")}`
+        : "";
+    })()
+  : "";
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!password) {
             setError("Password is required");
+            return;
+        }
+
+        if (newPasswordError) {
+            setError(newPasswordError);  
             return;
         }
 
