@@ -93,6 +93,11 @@ export default function UserSetting() {
     return;
   }
 
+  if (existingPassword === newPassword) {
+    alert("New password must be different from the existing password.");
+    return;
+  }
+  
   try {
     const response = await axios.post(
       "/api/user/reset_password",
@@ -144,7 +149,11 @@ return (
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  error={newPasswordError}
+                  error={
+                    newPassword === existingPassword
+                      ? "New password must be different from the existing password"
+                      : newPasswordError
+                  }
                 />
                 <InputGroup
                   label="Reverify New Password"
