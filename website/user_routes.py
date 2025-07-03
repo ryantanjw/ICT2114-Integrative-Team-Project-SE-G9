@@ -124,6 +124,331 @@ def delete_process(process_id):
         print(f"Error deleting process {process_id}: {str(e)}")
         return jsonify({'error': 'Failed to delete process'}), 500
 
+# @user.route('/shareForm/<int:formId>', methods=['POST'])
+# def share_form(formId):
+#     try:
+#         userId = session.get('user_id')
+#         print(f"User {userId} attempting to share form {formId}")
+        
+#         # Get request data
+#         data = request.get_json()
+#         target_user_id = data.get('target_user_id')
+#         share_type = data.get('share_type', 'copy')  # Default to 'copy'
+#         permissions = data.get('permissions', 'view')  # Default to 'view'
+        
+#         if not target_user_id:
+#             return jsonify({'error': 'Target user ID is required'}), 400
+        
+#         # Verify the original form exists and belongs to the current user
+#         original_form = Form.query.get(formId)
+#         if not original_form:
+#             return jsonify({'error': 'Original form not found'}), 404
+        
+#         # Check if current user has permission to share this form
+#         if original_form.form_user_id != userId:
+#             return jsonify({'error': 'Permission denied. You can only share forms you own.'}), 403
+        
+#         # Verify target user exists
+#         from models import User  # Assuming you have a User model
+#         target_user = User.query.get(target_user_id)
+#         if not target_user:
+#             return jsonify({'error': 'Target user not found'}), 404
+        
+#         # Check if target user already has a copy of this form
+#         existing_shared_form = Form.query.filter_by(
+#             form_user_id=target_user_id,
+#             title=f"{original_form.title} (Shared)"
+#         ).first()
+        
+#         if existing_shared_form:
+#             return jsonify({'error': 'Form already shared with this user'}), 409
+        
+#         # Create new form (shared copy)
+#         new_form = Form(
+#             title=f"{original_form.title} (Shared)",
+#             division=original_form.division,
+#             location=original_form.location,
+#             process=original_form.process,
+#             form_reference_number=None,
+#             form_user_id=target_user_id,  # Assign to target user
+#             form_RA_team_id=original_form.form_RA_team_id,
+#             approval=0,  # Reset approval status
+#             approved_by=None,
+#             last_access_date=datetime.now(),
+#             last_review_date=None,  # Reset review dates
+#             next_review_date=None
+#         )
+        
+#         db.session.add(new_form)
+#         db.session.flush()  # Get the new form ID
+        
+#         print(f"Created shared form with ID: {new_form.form_id} for user: {target_user_id}")
+
+#         # Get all processes from the original form
+#         original_processes = Process.query.filter_by(process_form_id=formId).all()
+        
+#         # Dictionary to map old process IDs to new process IDs
+#         process_id_mapping = {}
+        
+#         for original_process in original_processes:
+#             # Create new process
+#             new_process = Process(
+#                 process_form_id=new_form.form_id,
+#                 process_number=original_process.process_number,
+#                 process_title=original_process.process_title,
+#                 process_location=original_process.process_location
+#             )
+            
+#             db.session.add(new_process)
+#             db.session.flush()  # Get the new process ID
+            
+#             # Store mapping for reference
+#             process_id_mapping[original_process.process_id] = new_process.process_id
+            
+#             print(f"Created new process: {original_process.process_id} -> {new_process.process_id}")
+            
+#             # Get all activities for this process
+#             original_activities = Activity.query.filter_by(
+#                 activity_process_id=original_process.process_id
+#             ).all()
+            
+#             # Dictionary to map old activity IDs to new activity IDs
+#             activity_id_mapping = {}
+            
+#             for original_activity in original_activities:
+#                 # Create new activity
+#                 new_activity = Activity(
+#                     activity_process_id=new_process.process_id,
+#                     work_activity=original_activity.work_activity,
+#                     activity_number=original_activity.activity_number,
+#                     activity_remarks=getattr(original_activity, 'activity_remarks', None)
+#                 )
+                
+#                 db.session.add(new_activity)
+#                 db.session.flush()  # Get the new activity ID
+                
+#                 # Store mapping for reference
+#                 activity_id_mapping[original_activity.activity_id] = new_activity.activity_id
+                
+#                 print(f"Created new activity: {original_activity.activity_id} -> {new_activity.activity_id}")
+                
+#                 # Get all hazards for this activity
+#                 original_hazards = Hazard.query.filter_by(
+#                     hazard_activity_id=original_activity.activity_id
+#                 ).all()
+                
+#                 for original_hazard in original_hazards:
+#                     # Create new hazard
+#                     new_hazard = Hazard(
+#                         hazard_activity_id=new_activity.activity_id,
+#                         hazard=original_hazard.hazard,
+#                         hazard_type_id=original_hazard.hazard_type_id,
+#                         injury=original_hazard.injury
+#                     )
+                    
+#                     db.session.add(new_hazard)
+#                     db.session.flush()  # Get the new hazard ID
+                    
+#                     print(f"Created new hazard: {original_hazard.hazard_id} -> {new_hazard.hazard_id}")
+                    
+#                     # Get the risk associated with this hazard
+#                     original_risk = Risk.query.filter_by(
+#                         risk_hazard_id=original_hazard.hazard_id
+#                     ).first()
+                    
+#                     if original_risk:
+#                         # Create new risk
+#                         new_risk = Risk(
+#                             risk_hazard_id=new_hazard.hazard_id,
+#                             existing_risk_control=original_risk.existing_risk_control,
+#                             additional_risk_control=original_risk.additional_risk_control,
+#                             severity=original_risk.severity,
+#                             likelihood=original_risk.likelihood,
+#                             RPN=original_risk.RPN,
+#                         )
+                        
+#                         db.session.add(new_risk)
+#                         print(f"Created new risk for hazard: {new_hazard.hazard_id}")
+        
+#         # Commit all changes
+#         db.session.commit()
+        
+#         print(f"Successfully shared form {formId} -> {new_form.form_id} with user {target_user_id}")
+
+#         return jsonify({
+#             'success': True,
+#             'message': f'Form shared successfully with {target_user.name}',
+#             'original_form_id': formId,
+#             'shared_form_id': new_form.form_id,
+#             'shared_form_title': new_form.title,
+#             'shared_with': target_user.name,
+#             'shared_with_id': target_user_id,
+#             'share_type': share_type,
+#             'permissions': permissions
+#         }), 200
+
+#     except Exception as e:
+#         db.session.rollback()
+#         print(f"Error sharing form {formId}: {str(e)}")
+#         import traceback
+#         print(traceback.format_exc())
+#         return jsonify({'error': f'Failed to share form: {str(e)}'}), 500
+
+@user.route('/shareForm/<int:formId>', methods=['POST'])
+def share_form(formId):
+    try:
+        userId = session.get('user_id')
+        print(f"User {userId} sharing form {formId}")
+
+        # Get request data
+        data = request.get_json()
+        target_user_id = data.get('target_user_id')
+        
+        if not target_user_id:
+            return jsonify({'error': 'Target user ID is required'}), 400
+
+        # Get the original form
+        original_form = Form.query.get(formId)
+        if not original_form:
+            return jsonify({'error': 'Original form not found'}), 404
+        
+        # Generate unique title for shared form
+        base_title = f"{original_form.title} (Shared)"
+        shared_title = base_title
+        counter = 1
+        
+        # Check if a form with this title already exists for the target user
+        while Form.query.filter_by(form_user_id=target_user_id, title=shared_title).first():
+            shared_title = f"{base_title} ({counter})"
+            counter += 1
+        
+        # Create new form (shared copy) - using the same structure as duplicate
+        new_form = Form(
+            title=shared_title,
+            division=original_form.division,
+            location=original_form.location,
+            process=original_form.process,
+            form_reference_number=None,  
+            form_user_id=target_user_id,  # Assign to target user instead of current user
+            form_RA_team_id=original_form.form_RA_team_id, 
+            approval=0,  
+            approved_by=None,  
+            last_access_date=datetime.now(),
+            last_review_date=None,  
+            next_review_date=None
+        )
+        
+        db.session.add(new_form)
+        db.session.flush()  # Get the new form ID
+        
+        print(f"Created new shared form with ID: {new_form.form_id}")
+
+        # Get all processes from the original form
+        original_processes = Process.query.filter_by(process_form_id=formId).all()
+        
+        # Dictionary to map old process IDs to new process IDs
+        process_id_mapping = {}
+        
+        for original_process in original_processes:
+            # Create new process
+            new_process = Process(
+                process_form_id=new_form.form_id,
+                process_number=original_process.process_number,
+                process_title=original_process.process_title,
+                process_location=original_process.process_location
+            )
+            
+            db.session.add(new_process)
+            db.session.flush()  # Get the new process ID
+            
+            # Store mapping for reference
+            process_id_mapping[original_process.process_id] = new_process.process_id
+            
+            print(f"Created new process: {original_process.process_id} -> {new_process.process_id}")
+            
+             # Get all activities for this process
+            original_activities = Activity.query.filter_by(
+                activity_process_id=original_process.process_id
+            ).all()
+            
+            # Dictionary to map old activity IDs to new activity IDs
+            activity_id_mapping = {}
+            
+            for original_activity in original_activities:
+                # Create new activity
+                new_activity = Activity(
+                    activity_process_id=new_process.process_id,
+                    work_activity=original_activity.work_activity,
+                    activity_number=original_activity.activity_number,
+                    activity_remarks=getattr(original_activity, 'activity_remarks', None)
+                )
+                
+                db.session.add(new_activity)
+                db.session.flush()  # Get the new activity ID
+                
+                # Store mapping for reference
+                activity_id_mapping[original_activity.activity_id] = new_activity.activity_id
+                
+                print(f"Created new activity: {original_activity.activity_id} -> {new_activity.activity_id}")
+                
+                # Get all hazards for this activity
+                original_hazards = Hazard.query.filter_by(
+                    hazard_activity_id=original_activity.activity_id
+                ).all()
+                
+                for original_hazard in original_hazards:
+                    # Create new hazard
+                    new_hazard = Hazard(
+                        hazard_activity_id=new_activity.activity_id,
+                        hazard=original_hazard.hazard,
+                        hazard_type_id=original_hazard.hazard_type_id,
+                        injury=original_hazard.injury
+                    )
+                    
+                    db.session.add(new_hazard)
+                    db.session.flush()  # Get the new hazard ID
+                    
+                    print(f"Created new hazard: {original_hazard.hazard_id} -> {new_hazard.hazard_id}")
+                    
+                    # Get the risk associated with this hazard
+                    original_risk = Risk.query.filter_by(
+                        risk_hazard_id=original_hazard.hazard_id
+                    ).first()
+                    
+                    if original_risk:
+                        # Create new risk
+                        new_risk = Risk(
+                            risk_hazard_id=new_hazard.hazard_id,
+                            existing_risk_control=original_risk.existing_risk_control,
+                            additional_risk_control=original_risk.additional_risk_control,
+                            severity=original_risk.severity,
+                            likelihood=original_risk.likelihood,
+                            RPN=original_risk.RPN,
+                        )
+                        
+                        db.session.add(new_risk)
+                        print(f"Created new risk for hazard: {new_hazard.hazard_id}")
+        
+        # Commit all changes
+        db.session.commit()
+        
+        print(f"Successfully shared form {formId} -> {new_form.form_id} with user {target_user_id}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Form shared successfully',
+            'original_form_id': formId,
+            'shared_form_id': new_form.form_id,
+            'shared_form_title': new_form.title
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error sharing form {formId}: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': f'Failed to share form: {str(e)}'}), 500
+    
 @user.route('/duplicateForm/<int:formId>', methods=['POST'])
 def duplicate_form(formId):
     try:

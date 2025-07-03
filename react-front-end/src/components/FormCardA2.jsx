@@ -18,8 +18,6 @@ export default function FormCardA2({
   onDelete,
 }) {
 
-  const [isShareOpen, setShareOpen] = useState(false);
-
   const tagColorMap = {
     Incomplete: "bg-blue-500 text-white",
     Completed: "bg-green-700 text-white",
@@ -77,7 +75,7 @@ export default function FormCardA2({
         <button onClick={onView} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
           <FiEye className="text-lg" />
         </button>
-        <button onClick={() => setShareOpen(true)} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+        <button onClick={onShare} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
           <IoMdShareAlt className="text-lg" />
         </button>
         <button onClick={onDuplicate} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
@@ -90,7 +88,6 @@ export default function FormCardA2({
           <RiDeleteBin6Line className="text-lg" />
         </button>
       </div>
-        <ShareDialogue isOpen={isShareOpen} onClose={() => setShareOpen(false)} />
     </div>
   );
 }

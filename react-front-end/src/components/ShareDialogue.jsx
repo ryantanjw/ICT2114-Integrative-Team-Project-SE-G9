@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { IoMdClose } from "react-icons/io";
 import axios from "axios";
 
-export default function ShareDialogue({ isOpen, onClose, formId, currentUser }) {
+export default function ShareDialogue({ isOpen, onClose, formId, currentUser, onShare }) {
   const [search, setSearch] = useState("");
   // const [teamMembers, setTeamMembers] = useState([
   //   {
@@ -31,6 +31,7 @@ export default function ShareDialogue({ isOpen, onClose, formId, currentUser }) 
   const [allUsers, setAllUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Fetch all users for suggestions
   useEffect(() => {
@@ -58,124 +59,161 @@ export default function ShareDialogue({ isOpen, onClose, formId, currentUser }) 
   }, [isOpen]);
 
   // Fetch existing team members for the form
-  useEffect(() => {
-    const fetchFormTeamMembers = async () => {
-      if (!isOpen || !formId) return;
+  // useEffect(() => {
+  //   const fetchFormTeamMembers = async () => {
+  //     if (!isOpen || !formId) return;
       
-      try {
-        setIsLoading(true);
-        const response = await axios.get(`/api/user/getFormTeam/${formId}`, {
-          withCredentials: true
-        });
+  //     try {
+  //       setIsLoading(true);
+  //       const response = await axios.get(`/api/user/getFormTeam/${formId}`, {
+  //         withCredentials: true
+  //       });
         
-        if (response.data && response.data.team_data) {
-          const members = [];
+  //       if (response.data && response.data.team_data) {
+  //         const members = [];
           
-          // Add leader if exists
-          if (response.data.team_data.leader) {
-            members.push({
-              id: response.data.team_data.leader.user_id || response.data.team_data.leader.id,
-              name: response.data.team_data.leader.user_name || response.data.team_data.leader.name,
-              email: response.data.team_data.leader.email || `${response.data.team_data.leader.user_name}`,
-              avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
-              role: "Owner",
-            });
-          }
+  //         // Add leader if exists
+  //         if (response.data.team_data.leader) {
+  //           members.push({
+  //             id: response.data.team_data.leader.user_id || response.data.team_data.leader.id,
+  //             name: response.data.team_data.leader.user_name || response.data.team_data.leader.name,
+  //             email: response.data.team_data.leader.email || `${response.data.team_data.leader.user_name}`,
+  //             avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+  //             role: "Owner",
+  //           });
+  //         }
           
-          // Add team members if exist
-          if (response.data.team_data.members && Array.isArray(response.data.team_data.members)) {
-            response.data.team_data.members.forEach(member => {
-              members.push({
-                id: member.user_id || member.id,
-                name: member.user_name || member.name,
-                email: member.email || `${member.user_name}`,
-                avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
-                role: "Editor",
-              });
-            });
-          }
+  //         // Add team members if exist
+  //         if (response.data.team_data.members && Array.isArray(response.data.team_data.members)) {
+  //           response.data.team_data.members.forEach(member => {
+  //             members.push({
+  //               id: member.user_id || member.id,
+  //               name: member.user_name || member.name,
+  //               email: member.email || `${member.user_name}`,
+  //               avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+  //               role: "Editor",
+  //             });
+  //           });
+  //         }
           
-          setTeamMembers(members);
-        } else {
-          // If no existing team, add current user as owner
-          if (currentUser) {
-            setTeamMembers([{
-              id: currentUser.user_id || currentUser.id,
-              name: currentUser.user_name || currentUser.name,
-              email: currentUser.user_email || `${currentUser.user_name}`,
-              avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
-              role: "Owner",
-            }]);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching form team members:", error);
-        // If error, add current user as owner
-        if (currentUser) {
-          setTeamMembers([{
-            id: currentUser.user_id || currentUser.id,
-            name: currentUser.user_name || currentUser.name,
-            email: currentUser.user_email || `${currentUser.user_name}`,
-            avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
-            role: "Owner",
-          }]);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  //         setTeamMembers(members);
+  //       } else {
+  //         // If no existing team, add current user as owner
+  //         if (currentUser) {
+  //           setTeamMembers([{
+  //             id: currentUser.user_id || currentUser.id,
+  //             name: currentUser.user_name || currentUser.name,
+  //             email: currentUser.user_email || `${currentUser.user_name}`,
+  //             avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+  //             role: "Owner",
+  //           }]);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching form team members:", error);
+  //       // If error, add current user as owner
+  //       if (currentUser) {
+  //         setTeamMembers([{
+  //           id: currentUser.user_id || currentUser.id,
+  //           name: currentUser.user_name || currentUser.name,
+  //           email: currentUser.user_email || `${currentUser.user_name}`,
+  //           avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+  //           role: "Owner",
+  //         }]);
+  //       }
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
 
-    fetchFormTeamMembers();
-  }, [isOpen, formId, currentUser]);
+  //   fetchFormTeamMembers();
+  // }, [isOpen, formId, currentUser]);
 
 
-const handleAdd = async (user) => {
+  // const handleShareForm = async () => {
+  //   if (!onShare) return;
+    
+  //   // Get only the users that were added (exclude owner)
+  //   // const usersToShare = teamMembers.filter(member => member.role !== "Owner");
+
+
+  //   const usersToShare = teamMembers;
+    
+  //   if (usersToShare.length === 0) {
+  //     alert("Please add at least one user to share the form with.");
+  //     return;
+  //   }
+    
+  //   setIsSharing(true);
+  //   console.log("set is sharing to true at 148");
+  //   try {
+  //     await onShare(formId, usersToShare);
+  //     console.log("Awaiting onShare");
+  //   } catch (error) {
+  //     console.error("Error sharing form:", error);
+  //   } finally {
+  //     setIsSharing(false);
+  //   }
+  // };
+
+  
+const handleShareForm = async () => {
+  console.log("=== handleShareForm called ===");
+  console.log("onShare prop:", onShare);
+  console.log("formId:", formId);
+  console.log("teamMembers:", teamMembers);
+  
+  if (!onShare) {
+    console.log("No onShare function provided!");
+    return;
+  }
+  
+  const usersToShare = teamMembers;
+  console.log("usersToShare:", usersToShare);
+  console.log("usersToShare length:", usersToShare.length);
+  
+  if (usersToShare.length === 0) {
+    console.log("No users to share with - showing alert");
+    alert("Please add at least one user to share the form with.");
+    return;
+  }
+  
+  console.log("About to call onShare with:", formId, usersToShare);
+  setIsSharing(true);
+  
+  try {
+    await onShare(formId, usersToShare);
+    console.log("onShare completed successfully");
+  } catch (error) {
+    console.error("Error in onShare:", error);
+  } finally {
+    setIsSharing(false);
+    console.log("setIsSharing set to false");
+  }
+};
+ const handleAdd = async (user) => {
     try {
-      console.log(user.user_email);
-      // Add user to team members list
       const newMember = {
         id: user.user_id || user.id,
         name: user.user_name || user.name,
-        email: user.user_email,
+        email: user.email || `${user.user_name}@sit.singaporetech.edu.sg`,
         avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
         role: "Viewer",
       };
       
       setTeamMembers(prev => [...prev, newMember]);
+      setSearch(""); // Clear search after adding
       
-      // Optional: Send API request to update form team in backend
-      if (formId) {
-        try {
-          await axios.post(`/api/user/addFormTeamMember/${formId}`, {
-            user_id: user.user_id || user.id,
-            role: "Viewer"
-          }, {
-            withCredentials: true
-          });
-        } catch (error) {
-          console.error("Error adding team member to form:", error);
-        }
-      }
     } catch (error) {
       console.error("Error adding user to team:", error);
     }
   };
-  
+
   const handleRemoveMember = async (memberId) => {
     try {
       // Remove from local state
       setTeamMembers(prev => prev.filter(member => member.id !== memberId));
       
-      // Optional: Send API request to remove from backend
-      if (formId) {
-        try {
-          await axios.delete(`/api/user/removeFormTeamMember/${formId}/${memberId}`, {
-            withCredentials: true
-          });
-        } catch (error) {
-          console.error("Error removing team member:", error);
-        }
-      }
     } catch (error) {
       console.error("Error removing team member:", error);
     }
@@ -200,13 +238,6 @@ const handleAdd = async (user) => {
   });
 
   if (!isOpen) return null;
-
-
-  // const suggestionMembers = [
-  //   { id: "s1", name: "Joanna Wilcox", email: "joanna.wilcox@sit.singaporetech.edu.sg" },
-  //   { id: "s2", name: "Joseph Ray",   email: "joseph.ray@sit.singaporetech.edu.sg" },
-  //   { id: "s3", name: "Joy Malone",    email: "joy.malone@sit.singaporetech.edu.sg" },
-  // ];
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -283,6 +314,14 @@ const handleAdd = async (user) => {
                     <span className="text-gray-500 text-sm">{member.email}</span>
                   </div>
                 </div>
+                  {member.role !== "Owner" && (
+                    <button
+                      onClick={() => handleRemoveMember(member.id)}
+                      className="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      Remove
+                    </button>
+                  )}
               </div>
             ))
           ) : (
@@ -290,6 +329,29 @@ const handleAdd = async (user) => {
               No team members found
             </div>
           )}
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4 border-t">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleShareForm}
+            disabled={isSharing}
+            className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+          >
+            {isSharing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                <span>Sharing...</span>
+              </>
+            ) : (
+              <span>Share Form</span>
+            )}
+          </button>
         </div>
       </div>
     </div>

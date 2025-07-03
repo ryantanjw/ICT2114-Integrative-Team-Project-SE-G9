@@ -8,6 +8,7 @@ import { IoMdDocument } from "react-icons/io";
 import { MdNoteAdd } from "react-icons/md";
 import axios from "axios";
 import FormCardA2 from "../../components/FormCardA2.jsx";
+import ShareDialogue from "../../components/ShareDialogue.jsx";
 
 export default function UserHome() {
   const location = useLocation();
@@ -19,11 +20,15 @@ export default function UserHome() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoadingForms, setIsLoadingForms] = useState(false);
 
-   // User search functionality
+  // User search functionality
   const [usersList, setUsersList] = useState([]);
   const [activeTeamMemberIndex, setActiveTeamMemberIndex] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+
+  // Share form functionality
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [selectedFormId, setSelectedFormId] = useState(null);
 
   const formatDate = (dateString) => {
     if (!dateString) return "No date";
@@ -92,8 +97,87 @@ const handleView = async (formId) => {
 }
 
 const handleShare = (formId) => {
-  console.log(`Sharing form with ID: ${formId}`);
-  // Add your share logic here
+  console.log("=== handleShare called ===");
+  console.log("Received formId:", formId);
+  console.log("Setting selectedFormId to:", formId);
+  
+  setSelectedFormId(formId);
+  setIsShareDialogOpen(true);
+  
+  console.log("Dialog should now be open");
+  console.log("selectedFormId state:", selectedFormId); // Note: This might still show old value due to async state
+};
+
+const handleShareSubmit = async (formId, sharedUsers) => {
+
+  if (!formId || formId === null) {
+    console.error('No form ID provided for sharing');
+    alert('Error: No form selected for sharing');
+    return;
+  }
+  
+  console.log(`Sharing form with ID: ${formId} to ${sharedUsers.length} user(s)`);
+  
+  if (!window.confirm(`Are you sure you want to share this form with ${sharedUsers.length} user(s)? This will create a copy for each selected user.`)) {
+    return;
+  }
+  
+  try {
+    setIsLoadingForms(true);
+
+     const sharePromises = sharedUsers.map(async (user) => {
+      try {
+        const response = await axios.post(`/api/user/shareForm/${formId}`, {
+          target_user_id: user.id,
+          share_type: 'copy',
+          permissions: 'view'
+        }, {
+          withCredentials: true
+        });
+        
+        return {
+          success: response.data.success,
+          user: user.name,
+          response: response.data
+        };
+      } catch (error) {
+        console.error(`Error sharing form with ${user.name}:`, error);
+        return {
+          success: false,
+          user: user.name,
+          error: error.response?.data?.error || error.message
+        };
+      }
+    });
+    
+    const results = await Promise.all(sharePromises);
+
+    const successResults = results.filter(r => r.success);
+    const failedResults = results.filter(r => !r.success);
+    
+    if (successResults.length > 0) {
+      console.log('Forms shared successfully:', successResults);
+      alert(`Form shared successfully with ${successResults.length} user(s)!`);
+    }
+    
+    if (failedResults.length > 0) {
+      const failedUsers = failedResults.map(r => r.user);
+      console.error('Failed to share form with:', failedUsers);
+      alert('Failed to share form with: ' + failedUsers.join(', '));
+    }
+
+       // Close dialog and refresh forms list
+    setIsShareDialogOpen(false);
+    setSelectedFormId(null);
+    await fetchRecentUserForms();
+    
+  } catch (error) {
+    console.error('Error in share process:', error);
+    alert('Error sharing form. Please try again.');
+  } finally {
+    setIsLoadingForms(false);
+  }
+
 };
 
 const handleDuplicate = async (formId) => {
@@ -293,6 +377,19 @@ const handleDelete = async (formId) => {
           )}
         </div>
       </div>
+
+      {isShareDialogOpen && (
+        <ShareDialogue
+          isOpen={isShareDialogOpen}
+          onClose={() => {
+            setIsShareDialogOpen(false);
+            setSelectedFormId(null);
+          }}
+          formId={selectedFormId}
+          currentUser={userData}
+          onShare={handleShareSubmit}
+        />
+      )}
     </div>
   );
 }
