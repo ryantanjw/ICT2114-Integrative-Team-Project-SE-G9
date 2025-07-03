@@ -15,7 +15,7 @@ export default function ConfirmForm({ onCancel }) {
       {/* PDF Preview */}
       <div className="mb-6 border border-gray-300 rounded-lg overflow-hidden">
         <iframe
-          src="/pdf/test_lta.pdf"
+          src="/form/Risk_Assessment_Form_Template.docx"
           className="w-full h-screen"
           title="Reference PDF"
         />

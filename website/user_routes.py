@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request, session
+from sqlalchemy import text
 from flask_cors import CORS
 from rich import _console
 from werkzeug.security import generate_password_hash
@@ -722,19 +723,50 @@ def get_form3_data(form_id):
                             "user_email": leader.user_email,
                             "user_designation": leader.user_designation
                         }
-                                
-                # Get team members
-                team_members = RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).all()
-                for member_record in team_members:
-                    # This should match how you save it in form3_save
-                    member = User.query.get(member_record.RA_team_member)  
-                    if member:
-                        team_data["members"].append({
-                            "user_id": member.user_id,
-                            "user_name": member.user_name,
-                            "user_email": member.user_email,
-                            "user_designation": member.user_designation
-                        }) 
+                                        
+                # Get team members                
+                team_members_query = text(f"SELECT * FROM risk_database.RA_team_member WHERE RA_team_id = {ra_team.RA_team_id}")
+                team_members_result = db.session.execute(team_members_query)
+                print(f"Executing SQL: SELECT * FROM risk_database.RA_team_member WHERE RA_team_id = {ra_team.RA_team_id}")
+                
+                # Clear the members array before populating
+                team_data["members"] = []
+                
+                # Process each row from the SQL query
+                for member_row in team_members_result:
+                    print(f"Raw team member row: {member_row}")
+                    
+                    # Get the user_id from the RA_team_member column - safer access
+                    try:
+                        # Try dictionary access first
+                        if hasattr(member_row, 'keys') and 'RA_team_member' in member_row.keys():
+                            member_id = member_row['RA_team_member']
+                        # Try indexed access - only use index 1 (second column) as fallback
+                        elif len(member_row) > 1:
+                            member_id = member_row[1]  # Changed from index 2 to index 1
+                        else:
+                            print(f"Could not extract member ID from row: {member_row}")
+                            continue
+                            
+                        print(f"Extracted member ID: {member_id}")
+                        
+                        if member_id:
+                            member = User.query.get(member_id)
+                            if member:
+                                print(f"Found user: {member.user_name}")
+                                team_data["members"].append({
+                                    "user_id": member.user_id,
+                                    "user_name": member.user_name,
+                                    "user_email": member.user_email,
+                                    "user_designation": member.user_designation
+                                })
+                            else:
+                                print(f"No user found with ID: {member_id}")
+                    except Exception as e:
+                        print(f"Error processing team member row: {e}")
+                        continue
+                
+                print(f"Final members list: {team_data['members']}")
                 form_data["team_data"] = team_data
                 print(f"RA Team data: {form_data['team_data']}")
         else:
