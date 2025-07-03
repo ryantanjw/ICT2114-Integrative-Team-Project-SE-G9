@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, request, session
 from sqlalchemy import text
 from flask_cors import CORS
-from rich import _console
 from werkzeug.security import generate_password_hash
 from models import RA_team, RA_team_member, User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData
 from . import db
