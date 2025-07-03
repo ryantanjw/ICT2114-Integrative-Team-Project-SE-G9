@@ -620,7 +620,7 @@ export default function UserNewForm() {
       </div>
     );
   }
-
+  
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <Header activePage={location.pathname} />
@@ -658,6 +658,13 @@ export default function UserNewForm() {
           {currentTab === 2 && (
             <Form3
               ref={form3Ref}
+              formData={formData}
+              sessionData={userData}
+              updateFormData={updateFormData}
+            />
+          )}
+          {currentTab === 3 && (
+            <ConfirmForm
               formData={formData}
               sessionData={userData}
               updateFormData={updateFormData}
