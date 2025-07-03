@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request, session
+from sqlalchemy import text
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData
+from models import RA_team, RA_team_member, User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData
 from . import db
 import random
 import string
@@ -638,6 +639,386 @@ def form2_save():
         print(f"Error saving form2: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500  
+    
+@user.route('/get_form3_data/<int:form_id>', methods=['GET'])
+def get_form3_data(form_id):
+    """Get specific Form3 data including RA team and approval info"""
+    try:
+        form = Form.query.get(form_id)
+        
+        if not form:
+            return jsonify({"error": "Form not found"}), 404
+        
+        # Get current user from session
+        current_user_id = session.get('user_id')
+        current_user = None
+        if current_user_id:
+            current_user = User.query.get(current_user_id)
+        
+        # Get all process locations for this form
+        process_locations = []
+        processes = Process.query.filter_by(process_form_id=form_id).all()
+        for process in processes:
+            if process.process_location and process.process_location.strip():
+                process_locations.append(process.process_location.strip())
+        
+        # Join unique locations with commas
+        combined_location = ", ".join(list(dict.fromkeys(process_locations)))
+        
+        # Prepare basic form data
+        form_data = {
+            "form_id": form.form_id,
+            "title": form.title,
+            "division": form.division,
+            "location": combined_location,  # Use combined process locations
+            "form_reference_number": form.form_reference_number,
+            "approved_by": None,
+            "last_review_date": None,
+            "team_data": None
+        }
+        
+        # Format dates if they exist
+        if form.last_review_date:
+            form_data["last_review_date"] = form.last_review_date.isoformat()
+        
+        if form.next_review_date:
+            form_data["next_review_date"] = form.next_review_date.isoformat()
+            
+        # Get approver information
+        if form.approved_by:
+            approver = User.query.get(form.approved_by)
+            if approver:
+                form_data["approved_by"] = {
+                    "user_id": approver.user_id,
+                    "user_name": approver.user_name,
+                    "user_designation": approver.user_designation
+                }
+        
+        # Get RA Team info if available
+        if form.form_RA_team_id:
+            ra_team = RA_team.query.get(form.form_RA_team_id)
+            if ra_team:
+                team_data = {
+                    "team_id": ra_team.RA_team_id,
+                    "leader": None,
+                    "members": []
+                }
+                            
+                # Always set leader to current user
+                if current_user:
+                    team_data["leader"] = {
+                        "user_id": current_user.user_id,
+                        "user_name": current_user.user_name,
+                        "user_email": current_user.user_email,
+                        "user_designation": current_user.user_designation
+                    }
+                # Fallback to stored leader if needed
+                elif ra_team.RA_leader:  # This is the correct column name in your model
+                    leader = User.query.get(ra_team.RA_leader)
+                    if leader:
+                        team_data["leader"] = {
+                            "user_id": leader.user_id,
+                            "user_name": leader.user_name,
+                            "user_email": leader.user_email,
+                            "user_designation": leader.user_designation
+                        }
+                                        
+                # Get team members                
+                team_members_query = text(f"SELECT * FROM risk_database.RA_team_member WHERE RA_team_id = {ra_team.RA_team_id}")
+                team_members_result = db.session.execute(team_members_query)
+                print(f"Executing SQL: SELECT * FROM risk_database.RA_team_member WHERE RA_team_id = {ra_team.RA_team_id}")
+                
+                # Clear the members array before populating
+                team_data["members"] = []
+                
+                # Process each row from the SQL query
+                for member_row in team_members_result:
+                    print(f"Raw team member row: {member_row}")
+                    
+                    # Get the user_id from the RA_team_member column - safer access
+                    try:
+                        # Try dictionary access first
+                        if hasattr(member_row, 'keys') and 'RA_team_member' in member_row.keys():
+                            member_id = member_row['RA_team_member']
+                        # Try indexed access - only use index 1 (second column) as fallback
+                        elif len(member_row) > 1:
+                            member_id = member_row[1]  # Changed from index 2 to index 1
+                        else:
+                            print(f"Could not extract member ID from row: {member_row}")
+                            continue
+                            
+                        print(f"Extracted member ID: {member_id}")
+                        
+                        if member_id:
+                            member = User.query.get(member_id)
+                            if member:
+                                print(f"Found user: {member.user_name}")
+                                team_data["members"].append({
+                                    "user_id": member.user_id,
+                                    "user_name": member.user_name,
+                                    "user_email": member.user_email,
+                                    "user_designation": member.user_designation
+                                })
+                            else:
+                                print(f"No user found with ID: {member_id}")
+                    except Exception as e:
+                        print(f"Error processing team member row: {e}")
+                        continue
+                
+                print(f"Final members list: {team_data['members']}")
+                form_data["team_data"] = team_data
+                print(f"RA Team data: {form_data['team_data']}")
+        else:
+            # If no RA team exists yet, still provide current user as leader
+            if current_user:
+                form_data["team_data"] = {
+                    "team_id": None,
+                    "leader": {
+                        "RA_team_member": current_user.user_id,
+                       
+                    },
+                    "members": []
+                }
+        
+        return jsonify(form_data), 200
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching form3 data: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+    
+@user.route('/form3', methods=['POST'])
+def form3_save():
+    print("\nSAVE FORM 3 CALLED")
+    
+    try:
+        data = request.get_json()
+        print(f"Received form3 data: {data}")
+        
+        # Get user ID
+        userid = session.get('user_id')
+        if not userid:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        # Get current user
+        current_user = User.query.get(userid)
+        if not current_user:
+            return jsonify({"error": "Current user not found"}), 400
+            
+        # Validate required fields
+        if (not data or 
+                not data.get('form_id')):
+                return jsonify({"success": False, "error": "Missing required fields"}), 400
+        
+        form_id = data.get('form_id')
+        form = Form.query.get(form_id)
+        
+        if not form:
+            return jsonify({"error": "Form not found"}), 404
+        
+        # Update form fields
+        if 'form_reference_number' in data:
+            form.form_reference_number = data.get('form_reference_number')
+            
+        if 'location' in data:
+            form.location = data.get('location')
+            
+        if 'last_review_date' in data and data.get('last_review_date'):
+            try:
+                form.last_review_date = datetime.fromisoformat(data.get('last_review_date'))
+            except ValueError:
+                print(f"Invalid last_review_date format: {data.get('last_review_date')}")
+                
+        if 'next_review_date' in data and data.get('next_review_date'):
+            try:
+                form.next_review_date = datetime.fromisoformat(data.get('next_review_date'))
+            except ValueError:
+                print(f"Invalid next_review_date format: {data.get('next_review_date')}")
+        
+        # Handle RA Team
+        ra_team_members = data.get('raTeam', [])
+        
+        # First, handle the RA Team creation and leader assignment
+        if not form.form_RA_team_id:
+            # Create new RA Team with the current user as leader
+            ra_team = RA_team(RA_leader=current_user.user_id)
+            db.session.add(ra_team)
+            db.session.flush()  # Flush to get the team ID
+            form.form_RA_team_id = ra_team.RA_team_id
+        else:
+            # Use existing RA Team
+            ra_team = RA_team.query.get(form.form_RA_team_id)
+            if not ra_team:
+                # Create new if missing
+                ra_team = RA_team(RA_leader=current_user.user_id)
+                db.session.add(ra_team)
+                db.session.flush()
+                form.form_RA_team_id = ra_team.RA_team_id
+            else:
+                # Update the leader to the current user
+                ra_team.RA_leader = current_user.user_id
+        
+        # Now that we have a valid RA team with a leader, handle team members
+        if ra_team_members:
+            # Remove existing team members
+            RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
+            
+            # Add new team members
+            for member_name in ra_team_members:
+                if member_name.strip():
+                    member = User.query.filter_by(user_name=member_name.strip()).first()
+                    if member:
+                        # Avoid adding the leader as a team member (they're already the leader)
+                        if member.user_id != current_user.user_id:
+                            team_member = RA_team_member(
+                                RA_team_id=ra_team.RA_team_id,
+                                RA_team_member=member.user_id
+                            )
+                            db.session.add(team_member)
+        
+        # Handle approval information
+        if 'approvedBy' in data and data.get('approvedBy'):
+            approver_name = data.get('approvedBy')
+            approver = User.query.filter_by(user_name=approver_name).first()
+            if approver:
+                form.approved_by = approver.user_id
+                form.approval = 1  # Mark as approved
+                
+                # Handle approval date
+                if 'last_review_date' in data and data.get('last_review_date'):
+                    try:
+                        form.last_review_date = datetime.fromisoformat(data.get('last_review_date'))
+                    except ValueError:
+                        # Default to current date if invalid
+                        form.last_review_date = datetime.now()
+                else:
+                    form.last_review_date = datetime.now()
+            else:
+                # If approver name is provided but user not found, store as pending
+                form.approval = 0  # Pending approval
+        
+        # Commit changes
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "form_id": form.form_id,
+            "message": "Form 3 saved successfully"
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"Error saving form3: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+    
+@user.route('/users', methods=['GET'])
+def get_users():
+    """Get list of users for dropdown selection"""
+    try:
+        # Get current user ID from session
+        current_user_id = session.get('user_id')
+        
+        # Get form ID from query params if available (for excluding team members)
+        form_id = request.args.get('form_id')
+        
+        # Get all users
+        users = User.query.all()
+        
+        # Initialize list to hold excluded user IDs
+        excluded_user_ids = []
+        
+        # Always exclude current user
+        if current_user_id:
+            excluded_user_ids.append(current_user_id)
+        
+        # If form_id is provided, also exclude existing team members
+        if form_id:
+            form = Form.query.get(form_id)
+            if form and form.form_RA_team_id:
+                # Get RA team members using raw SQL query for consistency
+                team_members_query = text(f"SELECT * FROM risk_database.RA_team_member WHERE RA_team_id = {form.form_RA_team_id}")
+                team_members_result = db.session.execute(team_members_query)
+                
+                # Process each row from the SQL query
+                for member_row in team_members_result:
+                    print(f"Excluding team member: {member_row}")
+                    # Try to get member ID from the second column (index 1)
+                    if len(member_row) > 1:
+                        member_id = member_row[1]
+                        excluded_user_ids.append(member_id)
+        
+        # Print the excluded users for debugging
+        print(f"Excluded user IDs: {excluded_user_ids}")
+        
+        # Filter users to exclude current user and team members
+        filtered_users = [user for user in users if user.user_id not in excluded_user_ids]
+        
+        # Format the response
+        users_list = [{
+            "user_id": user.user_id,
+            "user_name": user.user_name,
+            "user_email": user.user_email,
+            "user_designation": user.user_designation,
+            "user_role": user.user_role,
+            "user_cluster": user.user_cluster
+        } for user in filtered_users]
+        
+        print(f"Returning {len(users_list)} users for dropdown")
+        
+        return jsonify(users_list), 200
+        
+    except Exception as e:
+        print(f"Error fetching users: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+        
+@user.route('/user/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    """Get user details by ID"""
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        return jsonify({
+            "user_id": user.user_id,
+            "user_name": user.user_name,
+            "user_email": user.user_email,
+            "user_designation": user.user_designation,
+            "user_role": user.user_role,
+            "user_cluster": user.user_cluster
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching user: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@user.route('/current', methods=['GET'])
+def get_current_user():
+    """Get current logged-in user details"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"error": "Not logged in"}), 401
+            
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        return jsonify({
+            "user_id": user.user_id,
+            "user_name": user.user_name,
+            "user_email": user.user_email,
+            "user_designation": user.user_designation,
+            "user_role": user.user_role,
+            "user_cluster": user.user_cluster
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching current user: {str(e)}")
+        return jsonify({"error": str(e)}), 500
     
 @user.route('/clear_form_id', methods=['POST'])
 def clear_form_id():
