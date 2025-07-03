@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, forwardRef } from "react";
 import Header from "../../components/Header.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import ActionCard from "../../components/ActionCard.jsx";
@@ -18,6 +18,12 @@ export default function UserHome() {
   const [filteredForms, setFilteredForms] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoadingForms, setIsLoadingForms] = useState(false);
+
+   // User search functionality
+  const [usersList, setUsersList] = useState([]);
+  const [activeTeamMemberIndex, setActiveTeamMemberIndex] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
   const formatDate = (dateString) => {
     if (!dateString) return "No date";
@@ -148,6 +154,23 @@ const handleDelete = async (formId) => {
   }
 };
 
+  // Fetch users for the dropdown search
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/user/users');
+        if (response.ok) {
+          const data = await response.json();
+          setUsersList(data);
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
   // Check session when component mounts
   useEffect(() => {
     const checkSession = async () => {
@@ -252,6 +275,8 @@ const handleDelete = async (formId) => {
               {forms.map((form) => (
                 <FormCardA2
                   key={form.id}
+                  formId={form.id}
+                  currentUser={userData}
                   date={formatDate(form.last_access_date || form.created_at)}
                   title={form.title || "Untitled Form"}
                   owner={form.owner || "Unknown User"}

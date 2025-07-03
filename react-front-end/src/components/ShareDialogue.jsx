@@ -1,128 +1,295 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { IoMdClose } from "react-icons/io";
+import axios from "axios";
 
-export default function ShareDialogue({ isOpen, onClose }) {
+export default function ShareDialogue({ isOpen, onClose, formId, currentUser }) {
   const [search, setSearch] = useState("");
-  const [teamMembers, setTeamMembers] = useState([
-    {
-      id: 1,
-      name: "Wei Chen",
-      email: "wei.chen@sit.singaporetech.edu.sg",
-      avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
-      role: "Owner",
-    },
-    {
-      id: 2,
-      name: "Alicia Tan",
-      email: "alicia.tan@sit.singaporetech.edu.sg",
-      avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
-      role: "Editor",
-    },
-    {
-      id: 3,
-      name: "Devi Kumar",
-      email: "devi.kumar@sit.singaporetech.edu.sg",
-      avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
-      role: "Editor",
-    },
-  ]);
+  // const [teamMembers, setTeamMembers] = useState([
+  //   {
+  //     id: 1,
+  //     name: "Wei Chen",
+  //     email: "wei.chen@sit.singaporetech.edu.sg",
+  //     avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+  //     role: "Owner",
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Alicia Tan",
+  //     email: "alicia.tan@sit.singaporetech.edu.sg",
+  //     avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+  //     role: "Editor",
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "Devi Kumar",
+  //     email: "devi.kumar@sit.singaporetech.edu.sg",
+  //     avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+  //     role: "Editor",
+  //   },
+  // ]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
-  const handleAdd = (sugg) => {
-    setTeamMembers(prev => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: sugg.name,
-        email: sugg.email,
+  // Fetch all users for suggestions
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (!isOpen) return;
+      
+      try {
+        setIsLoadingUsers(true);
+        const response = await axios.get('/api/user/users', {
+          withCredentials: true
+        });
+        
+        if (response.data && Array.isArray(response.data)) {
+          setAllUsers(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        setAllUsers([]);
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, [isOpen]);
+
+  // Fetch existing team members for the form
+  useEffect(() => {
+    const fetchFormTeamMembers = async () => {
+      if (!isOpen || !formId) return;
+      
+      try {
+        setIsLoading(true);
+        const response = await axios.get(`/api/user/getFormTeam/${formId}`, {
+          withCredentials: true
+        });
+        
+        if (response.data && response.data.team_data) {
+          const members = [];
+          
+          // Add leader if exists
+          if (response.data.team_data.leader) {
+            members.push({
+              id: response.data.team_data.leader.user_id || response.data.team_data.leader.id,
+              name: response.data.team_data.leader.user_name || response.data.team_data.leader.name,
+              email: response.data.team_data.leader.email || `${response.data.team_data.leader.user_name}`,
+              avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+              role: "Owner",
+            });
+          }
+          
+          // Add team members if exist
+          if (response.data.team_data.members && Array.isArray(response.data.team_data.members)) {
+            response.data.team_data.members.forEach(member => {
+              members.push({
+                id: member.user_id || member.id,
+                name: member.user_name || member.name,
+                email: member.email || `${member.user_name}`,
+                avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+                role: "Editor",
+              });
+            });
+          }
+          
+          setTeamMembers(members);
+        } else {
+          // If no existing team, add current user as owner
+          if (currentUser) {
+            setTeamMembers([{
+              id: currentUser.user_id || currentUser.id,
+              name: currentUser.user_name || currentUser.name,
+              email: currentUser.user_email || `${currentUser.user_name}`,
+              avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+              role: "Owner",
+            }]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching form team members:", error);
+        // If error, add current user as owner
+        if (currentUser) {
+          setTeamMembers([{
+            id: currentUser.user_id || currentUser.id,
+            name: currentUser.user_name || currentUser.name,
+            email: currentUser.user_email || `${currentUser.user_name}`,
+            avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
+            role: "Owner",
+          }]);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFormTeamMembers();
+  }, [isOpen, formId, currentUser]);
+
+
+const handleAdd = async (user) => {
+    try {
+      console.log(user.user_email);
+      // Add user to team members list
+      const newMember = {
+        id: user.user_id || user.id,
+        name: user.user_name || user.name,
+        email: user.user_email,
         avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/340px-Default_pfp.svg.png",
         role: "Viewer",
-      },
-    ]);
+      };
+      
+      setTeamMembers(prev => [...prev, newMember]);
+      
+      // Optional: Send API request to update form team in backend
+      if (formId) {
+        try {
+          await axios.post(`/api/user/addFormTeamMember/${formId}`, {
+            user_id: user.user_id || user.id,
+            role: "Viewer"
+          }, {
+            withCredentials: true
+          });
+        } catch (error) {
+          console.error("Error adding team member to form:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error adding user to team:", error);
+    }
+  };
+  
+  const handleRemoveMember = async (memberId) => {
+    try {
+      // Remove from local state
+      setTeamMembers(prev => prev.filter(member => member.id !== memberId));
+      
+      // Optional: Send API request to remove from backend
+      if (formId) {
+        try {
+          await axios.delete(`/api/user/removeFormTeamMember/${formId}/${memberId}`, {
+            withCredentials: true
+          });
+        } catch (error) {
+          console.error("Error removing team member:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error removing team member:", error);
+    }
   };
 
-  const suggestionMembers = [
-    { id: "s1", name: "Joanna Wilcox", email: "joanna.wilcox@sit.singaporetech.edu.sg" },
-    { id: "s2", name: "Joseph Ray",   email: "joseph.ray@sit.singaporetech.edu.sg" },
-    { id: "s3", name: "Joy Malone",    email: "joy.malone@sit.singaporetech.edu.sg" },
-  ];
+  // Filter users for suggestions (exclude current team members)
+  const filteredUsers = allUsers.filter(user => {
+    const searchLower = search.toLowerCase();
+    const matchesSearch = 
+      (user.user_name && user.user_name.toLowerCase().includes(searchLower)) ||
+      (user.name && user.name.toLowerCase().includes(searchLower)) ||
+      (user.user_email && user.user_email.toLowerCase().includes(searchLower));
+    
+    const notInTeam = !teamMembers.some(member => 
+      member.id === (user.user_id || user.id)
+    );
+
+    const isNormalUser = user.user_role === 1;
+
+    
+    return matchesSearch && notInTeam && isNormalUser;
+  });
 
   if (!isOpen) return null;
+
+
+  // const suggestionMembers = [
+  //   { id: "s1", name: "Joanna Wilcox", email: "joanna.wilcox@sit.singaporetech.edu.sg" },
+  //   { id: "s2", name: "Joseph Ray",   email: "joseph.ray@sit.singaporetech.edu.sg" },
+  //   { id: "s3", name: "Joy Malone",    email: "joy.malone@sit.singaporetech.edu.sg" },
+  // ];
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl p-8 w-full max-w-xl max-h-[80vh] overflow-hidden flex flex-col space-y-6">
         <div className="flex justify-between items-start">
-          <h2 className="text-2xl font-bold">Share this project</h2>
+          <h2 className="text-2xl font-bold">Share this form</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <IoMdClose size={24} />
           </button>
         </div>
         <p className="text-gray-600">
-          Invite your team to review and collaborate.
+          Sharing this form will create a copy of the form for the added users.
         </p>
+        
         <div className="relative">
           <input
             type="text"
-            placeholder="Add team member"
+            placeholder="Search users by name or email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring focus:ring-blue-200"
           />
+          
           {search && (
             <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-sm max-h-48 overflow-y-auto z-20">
-              {suggestionMembers
-                .filter((s) =>
-                  s.email.toLowerCase().includes(search.toLowerCase())
-                )
-                .map((sugg) => (
+              {isLoadingUsers ? (
+                <div className="px-4 py-2 text-center text-gray-500">Loading users...</div>
+              ) : filteredUsers.length > 0 ? (
+                filteredUsers.map((user) => (
                   <div
-                    key={sugg.id}
+                    key={user.user_id || user.id}
                     className="flex justify-between items-center px-4 py-2 cursor-pointer hover:bg-gray-100"
                   >
                     <div className="flex flex-col">
-                      <span className="text-sm text-gray-800">{sugg.email}</span>
-                      <span className="text-xs text-gray-500">{sugg.name}</span>
+                      <span className="text-sm text-gray-800">
+                        {user.user_email || `${user.user_name || user.name}`}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {user.user_name || user.name}
+                      </span>
                     </div>
-                    {teamMembers.some((m) => m.email === sugg.email) ? (
-                      <span className="text-sm text-gray-500">In team</span>
-                    ) : (
-                      <button
-                        className="text-sm text-blue-500"
-                        onClick={() => handleAdd(sugg)}
-                      >
-                        Add
-                      </button>
-                    )}
+                    <button
+                      className="text-sm text-blue-500 hover:text-blue-700"
+                      onClick={() => handleAdd(user)}
+                    >
+                      Add
+                    </button>
                   </div>
-                ))}
+                ))
+              ) : (
+                <div className="px-4 py-2 text-center text-gray-500">No users found</div>
+              )}
             </div>
           )}
         </div>
+        
         <div className="flex-1 overflow-y-auto space-y-4">
-          {teamMembers.map((member) => (
-            <div key={member.id} className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={member.avatar}
-                  alt={member.name}
-                  className="w-8 h-8 rounded-full"
-                />
-                <div className="flex flex-col">
-                  <span className="font-medium text-gray-800">{member.name}</span>
-                  <span className="text-gray-500 text-sm">{member.email}</span>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-gray-900"></div>
+              <span className="ml-3 text-gray-600">Loading team members...</span>
+            </div>
+          ) : teamMembers.length > 0 ? (
+            teamMembers.map((member) => (
+              <div key={member.id} className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <img
+                    src={member.avatar}
+                    alt={member.name}
+                    className="w-8 h-8 rounded-full"
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-800">{member.name}</span>
+                    <span className="text-gray-500 text-sm">{member.email}</span>
+                  </div>
                 </div>
               </div>
-              <select
-                value={member.role}
-                onChange={() => {}}
-                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none"
-              >
-                <option>Owner</option>
-                <option>Editor</option>
-                <option>Viewer</option>
-              </select>
+            ))
+          ) : (
+            <div className="text-center text-gray-500 py-4">
+              No team members found
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
