@@ -44,7 +44,7 @@ export default function UserHome() {
       // Add parameters for recent forms - sorted by last access or creation date
       const params = new URLSearchParams({
         limit: "9",
-        sort_by: "last_access_date", // or "created_at" depending on your preference
+        sort_by: "last_access_date", // "can be created_at or last_access_date for this param"
         sort_order: "desc" // Most recent first
       });
 
@@ -84,6 +84,7 @@ export default function UserHome() {
 
   const handleDownload = (formId, formTitle) => {
   console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
+  //Show a user a preview of the form to be downloaded
   try {
     window.open(`/api/user/downloadForm/${formId}`, '_blank');
   } catch (error) {
@@ -115,7 +116,7 @@ const handleShareSubmit = async (formId, sharedUsers) => {
     alert('Error: No form selected for sharing');
     return;
   }
-  
+
   console.log(`Sharing form with ID: ${formId} to ${sharedUsers.length} user(s)`);
   
   if (!window.confirm(`Are you sure you want to share this form with ${sharedUsers.length} user(s)? This will create a copy for each selected user.`)) {
