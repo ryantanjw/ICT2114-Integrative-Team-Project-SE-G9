@@ -10,6 +10,13 @@ from flask_cors import CORS, cross_origin
 from datetime import datetime
 import json
 from .rag import *
+import os
+import uuid
+from PyPDF2 import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from io import BytesIO
+from flask import send_file
 
 # Create a new blueprint for user routes
 user = Blueprint('user', __name__,static_folder='static')
@@ -1303,3 +1310,178 @@ def ai_generate():
         print(f"Error generating hazard data: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@user.route('/generate_pdf', methods=['POST'])
+def generate_pdf():
+    try:
+        # Get form ID from request body
+        data = request.get_json()
+        form_id = data.get('form_id')
+        
+        if not form_id:
+            return jsonify({'error': 'Form ID is required'}), 400
+        
+        # Get form data
+        form = Form.query.get(form_id)
+        if not form:
+            return jsonify({'error': 'Form not found'}), 404
+            
+        # Get user data
+        user = User.query.get(form.form_user_id)
+        user_name = user.user_name if user else "Unknown"
+            
+        # Get processes, activities, hazards, and risks
+        processes = Process.query.filter_by(process_form_id=form_id).all()
+        
+        # Create directory for generated PDFs if it doesn't exist
+        upload_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'generated_pdfs')
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+            
+        # Generate a unique filename
+        output_filename = f"risk_assessment_{form_id}_{uuid.uuid4().hex[:8]}.pdf"
+        output_path = os.path.join(upload_folder, output_filename)
+        
+        # Path to template PDF
+        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'forms', 'Risk_Assessment_Form_Template.pdf')
+        
+        # Create PDF with form data
+        packet = BytesIO()
+        can = canvas.Canvas(packet, pagesize=letter)
+        
+        # Set font
+        can.setFont("Helvetica", 10)
+        
+        # Add form data to PDF - these coordinates need to be adjusted for your template
+        # Header information
+        can.drawString(100, 700, f"Title: {form.title}")
+        can.drawString(100, 680, f"Division: {form.division}")
+        can.drawString(100, 660, f"Reference: {form.form_reference_number or 'N/A'}")
+        can.drawString(100, 640, f"Location: {form.location or 'N/A'}")
+        can.drawString(100, 620, f"Created by: {user_name}")
+        
+        # Add review dates
+        if form.last_review_date:
+            can.drawString(100, 600, f"Last Review: {form.last_review_date.strftime('%d/%m/%Y')}")
+        if form.next_review_date:
+            can.drawString(100, 580, f"Next Review: {form.next_review_date.strftime('%d/%m/%Y')}")
+            
+        # Add process and activity information
+        y_position = 540
+        for i, process in enumerate(processes):
+            can.drawString(80, y_position, f"Process {i+1}: {process.process_title}")
+            can.drawString(80, y_position - 20, f"Location: {process.process_location}")
+            
+            y_position -= 40
+            
+            # Get activities for this process
+            activities = Activity.query.filter_by(activity_process_id=process.process_id).all()
+            
+            for j, activity in enumerate(activities):
+                can.drawString(100, y_position, f"Activity {j+1}: {activity.work_activity}")
+                
+                y_position -= 20
+                
+                # Get hazards for this activity
+                hazards = Hazard.query.filter_by(hazard_activity_id=activity.activity_id).all()
+                
+                for k, hazard in enumerate(hazards):
+                    # Get hazard type
+                    hazard_type = HazardType.query.get(hazard.hazard_type_id)
+                    hazard_type_name = hazard_type.hazard_type if hazard_type else "Unknown"
+                    
+                    # Get risk
+                    risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first()
+                    
+                    can.drawString(120, y_position, f"Hazard {k+1}: {hazard.hazard}")
+                    can.drawString(120, y_position - 15, f"Type: {hazard_type_name}")
+                    can.drawString(120, y_position - 30, f"Injury: {hazard.injury or 'N/A'}")
+                    
+                    if risk:
+                        can.drawString(120, y_position - 45, f"Existing Controls: {risk.existing_risk_control or 'N/A'}")
+                        can.drawString(120, y_position - 60, f"Additional Controls: {risk.additional_risk_control or 'N/A'}")
+                        can.drawString(120, y_position - 75, f"Severity: {risk.severity}, Likelihood: {risk.likelihood}, RPN: {risk.RPN}")
+                    
+                    y_position -= 90
+                    
+                    # If we're running out of space, start a new page
+                    if y_position < 100:
+                        can.showPage()
+                        can.setFont("Helvetica", 10)
+                        y_position = 700
+                
+                y_position -= 20
+                
+                # If we're running out of space, start a new page
+                if y_position < 100:
+                    can.showPage()
+                    can.setFont("Helvetica", 10)
+                    y_position = 700
+            
+            y_position -= 30
+            
+            # If we're running out of space, start a new page
+            if y_position < 100:
+                can.showPage()
+                can.setFont("Helvetica", 10)
+                y_position = 700
+        
+        # Add approval information at the end
+        if form.approved_by:
+            approver = User.query.get(form.approved_by)
+            if approver:
+                can.drawString(100, y_position, f"Approved by: {approver.user_name}")
+                can.drawString(100, y_position - 20, f"Designation: {approver.user_designation}")
+        
+        can.save()
+        
+        # Move to the beginning of the BytesIO buffer
+        packet.seek(0)
+        
+        # Create new PDF with Reportlab
+        new_pdf = PdfReader(packet)
+        
+        # Read existing PDF
+        existing_pdf = PdfReader(open(template_path, "rb"))
+        output = PdfWriter()
+        
+        # Add the overlay (new_pdf) on the existing page
+        for i in range(len(existing_pdf.pages)):
+            page = existing_pdf.pages[i]
+            if i < len(new_pdf.pages):
+                page.merge_page(new_pdf.pages[i])
+            output.add_page(page)
+        
+        # Write the merged PDF to file
+        with open(output_path, "wb") as output_stream:
+            output.write(output_stream)
+        
+        # Create URL for the generated PDF
+        pdf_url = f"/static/generated_pdfs/{output_filename}"
+        
+        return jsonify({
+            'success': True,
+            'pdf_url': pdf_url,
+            'message': 'PDF generated successfully'
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error generating PDF: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+# To serve the generated PDFs
+@user.route('/download_generated_pdf/<filename>', methods=['GET'])
+def download_generated_pdf(filename):
+    """Download a generated PDF"""
+    try:
+        upload_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'generated_pdfs')
+        return send_file(
+            os.path.join(upload_folder, filename),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        print(f"Error downloading PDF: {str(e)}")
+        return jsonify({'error': str(e)}), 500
