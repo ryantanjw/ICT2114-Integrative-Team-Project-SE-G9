@@ -914,11 +914,50 @@ def form3_save():
         print(f"Error saving form3: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+    
 @user.route('/users', methods=['GET'])
 def get_users():
     """Get list of users for dropdown selection"""
     try:
+        # Get current user ID from session
+        current_user_id = session.get('user_id')
+        
+        # Get form ID from query params if available (for excluding team members)
+        form_id = request.args.get('form_id')
+        
+        # Get all users
         users = User.query.all()
+        
+        # Initialize list to hold excluded user IDs
+        excluded_user_ids = []
+        
+        # Always exclude current user
+        if current_user_id:
+            excluded_user_ids.append(current_user_id)
+        
+        # If form_id is provided, also exclude existing team members
+        if form_id:
+            form = Form.query.get(form_id)
+            if form and form.form_RA_team_id:
+                # Get RA team members using raw SQL query for consistency
+                team_members_query = text(f"SELECT * FROM risk_database.RA_team_member WHERE RA_team_id = {form.form_RA_team_id}")
+                team_members_result = db.session.execute(team_members_query)
+                
+                # Process each row from the SQL query
+                for member_row in team_members_result:
+                    print(f"Excluding team member: {member_row}")
+                    # Try to get member ID from the second column (index 1)
+                    if len(member_row) > 1:
+                        member_id = member_row[1]
+                        excluded_user_ids.append(member_id)
+        
+        # Print the excluded users for debugging
+        print(f"Excluded user IDs: {excluded_user_ids}")
+        
+        # Filter users to exclude current user and team members
+        filtered_users = [user for user in users if user.user_id not in excluded_user_ids]
+        
+        # Format the response
         users_list = [{
             "user_id": user.user_id,
             "user_name": user.user_name,
@@ -926,14 +965,16 @@ def get_users():
             "user_designation": user.user_designation,
             "user_role": user.user_role,
             "user_cluster": user.user_cluster
-        } for user in users]
+        } for user in filtered_users]
+        
+        print(f"Returning {len(users_list)} users for dropdown")
         
         return jsonify(users_list), 200
         
     except Exception as e:
         print(f"Error fetching users: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
+        
 @user.route('/user/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     """Get user details by ID"""

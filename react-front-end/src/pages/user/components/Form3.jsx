@@ -81,7 +81,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
     fetchCurrentUser();
   }, []);
-  
+
   // Load form data from API if formId exists
   useEffect(() => {
     const fetchFormData = async (id) => {
@@ -90,44 +90,44 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         const response = await fetch(`/api/user/get_form3_data/${id}`);
         if (response.ok) {
           const data = await response.json();
-          
+
           // Update form fields
           setTitle(data.title || "");
           setDivision(data.division || "");
           setLocation(data.location || "");
           setReferenceNumber(data.form_reference_number || "");
           setFormId(data.form_id);
-          
+
           // Format dates if they exist
           if (data.last_review_date) {
             const lastDate = new Date(data.last_review_date);
             setLastReviewDate(lastDate.toISOString().split('T')[0]);
           }
-          
+
           if (data.next_review_date) {
             const nextDate = new Date(data.next_review_date);
             setNextReviewDate(nextDate.toISOString().split('T')[0]);
           }
-          
+
           // Set RA Team information
           if (data.team_data) {
             // Set leader
             if (data.team_data.leader) {
               setRaLeader(data.team_data.leader.user_name);
             }
-            
+
             // Set team members
             if (data.team_data.members && data.team_data.members.length > 0) {
               setRaTeam(data.team_data.members.map(member => member.user_name));
             }
           }
-          
+
           // Set approval information
           if (data.approved_by) {
             setApprovedBy(data.approved_by.user_name || "");
             setDesignation(data.approved_by.user_designation || "");
           }
-          
+
           setDataLoaded(true);
         }
       } catch (error) {
@@ -136,7 +136,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         setIsLoading(false);
       }
     };
-    
+
     // Initialize data from either formData prop or session
     if (formData && formData.form_id) {
       setFormId(formData.form_id);
@@ -146,7 +146,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       fetchFormData(sessionData.current_form_id);
     }
   }, [formData, sessionData]);
-  
+
   // Fetch RA Team members from RA_team and RA_team_member tables
   const fetchRATeam = async (teamId) => {
     try {
@@ -225,9 +225,24 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     setShowDropdown(true);
   };
 
-  // Handle save
+  const hasDuplicateMembers = (members) => {
+    // Remove empty values
+    const nonEmptyMembers = members.filter(member => member.trim() !== "");
+
+    // Check for duplicates
+    const uniqueMembers = new Set(nonEmptyMembers);
+    return uniqueMembers.size !== nonEmptyMembers.length;
+  };
+
+  // Then modify the handleSave function:
   const handleSave = async () => {
     try {
+      // Check for duplicate team members
+      if (hasDuplicateMembers(raTeam)) {
+        alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
+        return;
+      }
+
       setIsLoading(true);
 
       // Prepare form data
@@ -246,7 +261,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         designation
       };
 
-      // Send to API
+      // Rest of the function remains unchanged
       const response = await fetch('/api/user/form3', {
         method: 'POST',
         headers: {
@@ -273,16 +288,24 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
   };
 
+
   // Expose save method to parent component via ref
   useEffect(() => {
     if (ref) {
       ref.current = {
         saveData: handleSave,
         validate: () => {
+          // Check for duplicate team members
+          if (hasDuplicateMembers(raTeam)) {
+            alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
+            return false;
+          }
+
           // Basic validation - ensure RA team has at least one member
           return raTeam.some(member => member.trim() !== "");
         },
         getData: () => ({
+          // Unchanged
           form_id: formId,
           title,
           division,
@@ -303,7 +326,6 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     lastReviewDate, nextReviewDate, raLeader, raTeam,
     approvedBy, signature, designation
   ]);
-
   return (
     <div className="space-y-6">
       {/* Top row */}
@@ -405,9 +427,8 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               type="button"
               onClick={() => removeTeamMember(idx)}
               disabled={raTeam.length === 1}
-              className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center ${
-                raTeam.length === 1 ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center ${raTeam.length === 1 ? "opacity-50 cursor-not-allowed" : ""
+                }`}
             >
               <MdDelete />
             </button>
