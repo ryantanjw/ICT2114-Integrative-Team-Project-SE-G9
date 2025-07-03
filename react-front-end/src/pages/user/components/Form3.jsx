@@ -32,6 +32,21 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Current user data
   const [currentUser, setCurrentUser] = useState(null);
 
+  useEffect(() => {
+    // This effect runs when the component is about to unmount
+    // or when it's navigating away (like when hitting Next)
+    return () => {
+      // Save form data before unmounting if the form is valid
+      if (
+        ref?.current?.validate &&
+        ref.current.validate() &&
+        ref.current.saveData
+      ) {
+        ref.current.saveData();
+      }
+    };
+  }, []); // Empty dependency array means this only runs on mount/unmount
+
   // Fetch users for the dropdown search
   useEffect(() => {
     const fetchUsers = async () => {
