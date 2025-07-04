@@ -19,3 +19,4 @@ venv/
 # (Optional) Ignore IDE/project files
 .vscode/
 *.log
+/website/__pycache__

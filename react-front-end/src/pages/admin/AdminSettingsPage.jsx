@@ -17,6 +17,7 @@ export default function AdminSetting() {
 
   const [existingPassword, setExistingPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
   const [reverifyPassword, setReverifyPassword] = useState("");
 
   // Validate new password complexity (reuse logic)
@@ -147,11 +148,17 @@ export default function AdminSetting() {
                   id="new-password"
                   type="password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (!newPasswordTouched) setNewPasswordTouched(true);
+                  }}
+                  onBlur={() => setNewPasswordTouched(true)}
                   error={
-                    newPassword === existingPassword
-                      ? "New password must be different from the existing password"
-                      : newPasswordError
+                    newPasswordTouched
+                      ? newPassword === existingPassword
+                        ? "New password must be different from the existing password"
+                        : newPasswordError
+                      : ""
                   }
                 />
                 <InputGroup
