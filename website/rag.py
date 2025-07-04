@@ -18,7 +18,7 @@ embedding_hazard_cache_path = os.path.join(base_dir, "kbhazard_embeddings.npy")
 def load_knowledge_base_from_file(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
-        return [phrase.strip() for phrase in content.split(",") if phrase.strip()]
+        return [phrase.strip() for phrase in content.split(f"%%") if phrase.strip()]
 
 # this is to save the embeddings to a file so the next time you run the code, it will not have to generate the embeddings again UNLESS the kb.txt file is changed
 def save_embeddings(filepath, embeddings):
@@ -205,6 +205,27 @@ def ai_function(activity):
 #         return True
 #     else:
 #         return False
+
+def reembed_kb():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_cache_path, kb_embeddings)
+
+    return True
+
+def reembed_kbhazard():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_hazard_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_hazard_cache_path, kb_embeddings)
+
+    return True
+
 
 def load_hazard_kb_and_embeddings():
     # Load KB

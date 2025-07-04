@@ -104,70 +104,109 @@ export default function AdminDB() {
         <DatabaseTabs onTabChange={setCurrentTab} />
       </div>
 
-      {/* Cards
-      {currentTab === 0 && (
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full items-start">
-          <FormCardC
-            status="Unapproved"
-            date="19/05/2025"
-            title="Usage of Z-ray Machines"
-            owner="Dave Timothy Johnson"
-            isExpanded={expandedCardIndex === 0}
-            onToggle={() =>
-              setExpandedCardIndex(expandedCardIndex === 0 ? null : 0)
-            }
-            onApproveHazard={() => console.log("Hazard approved: Z-ray")}
-            onApproveRisk={() => console.log("Risk approved: Z-ray")}
-          />
-
-          <FormCardC
-            status="Unapproved"
-            date="19/05/2025"
-            title="Usage of Z-ray Machines"
-            owner="Dave Timothy Johnson"
-            isExpanded={expandedCardIndex === 0}
-            onToggle={() =>
-              setExpandedCardIndex(expandedCardIndex === 0 ? null : 0)
-            }
-            onApproveHazard={() => console.log("Hazard approved: Z-ray")}
-            onApproveRisk={() => console.log("Risk approved: Z-ray")}
-          />
-
-          <FormCardC
-            status="Unapproved"
-            date="19/05/2025"
-            title="Usage of Z-ray Machines"
-            owner="Dave Timothy Johnson"
-            isExpanded={expandedCardIndex === 0}
-            onToggle={() =>
-              setExpandedCardIndex(expandedCardIndex === 0 ? null : 0)
-            }
-            onApproveHazard={() => console.log("Hazard approved: Z-ray")}
-            onApproveRisk={() => console.log("Risk approved: Z-ray")}
-          />
-        </div>
-      )} */}
-
       {currentTab === 0 && (
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full items-start">
           {hazards.map((hazard, index) => (
             <FormCardC
               key={hazard.hazard_id}
               status={hazard.approval ?? "Unapproved"}
-              date={hazard.form_date} // You can replace this with actual date if available
+              date={hazard.form_date}
               title={hazard.form_title}
               owner={hazard.owner}
-              activity ={hazard.work_activity}
-              hazard = {hazard.hazard}
+              activity={hazard.work_activity}
+              hazard={hazard.hazard}
               hazardType={hazard.hazard_type}
-              injury = {hazard.injury}
-              remarks = {hazard.remarks}
+              injury={hazard.injury}
+              remarks={hazard.remarks}
+              existingRiskControl={hazard.existing_risk_control}
+              additionalRiskControl={hazard.additional_risk_control}
+              severity={hazard.severity}
+              likelihood={hazard.likelihood}
+              RPN={hazard.RPN}
               isExpanded={expandedCardIndex === index}
               onExpand={() =>
                 setExpandedCardIndex(expandedCardIndex === index ? null : index)
               }
-              onApproveHazard={() => console.log(`Hazard approved: ${hazard.hazard}`)}
-              onApproveRisk={() => console.log(`Risk approved: ${hazard.hazard}`)}
+              // onApproveHazard={async () => {
+              //   try {
+              //     // Send the full hazard data to the backend
+              //     const res = await axios.post(
+              //       "/api/admin/approve_hazard",
+              //       { ...hazard },
+              //       { withCredentials: true }
+              //     );
+              //     // Optionally update UI by removing the approved hazard from the list
+              //     setHazards((prev) =>
+              //       prev.filter((h) => h.hazard_id !== hazard.hazard_id)
+              //     );
+                  
+              //     console.log("Hazard approved:", res.data);
+              //   } catch (err) {
+              //     console.error("Error approving hazard:", err);
+              //   }
+              // }}
+              onApproveHazard={async () => {
+                try {
+                  const res = await axios.post(
+                    "/api/admin/approve_hazard",
+                    hazard,
+                    { withCredentials: true }
+                  );
+
+                  // If the request was successful (status code 2xx), you can access the data:
+                  console.log("Hazard approved:", res.data);
+
+                  // Remove the approved hazard from the list
+                  setHazards((prev) =>
+                    prev.filter((h) => h.hazard_id !== hazard.hazard_id)
+                  );
+
+                } catch (err) {
+                  if (err.response) {
+                    // Server responded with a status other than 2xx
+                    console.error("Error approving hazard:", err.response.data);
+                  } else if (err.request) {
+                    // Request was made but no response received
+                    console.error("No response from server:", err.request);
+                  } else {
+                    // Something else happened
+                    console.error("Error:", err.message);
+                  }
+                }
+              }}
+
+
+
+              onRejectHazard={async () => {
+                try {
+                  const res = await axios.post(
+                    "/api/admin/reject_hazard",
+                    hazard,
+                    { withCredentials: true }
+                  );
+
+                  // If the request was successful (status code 2xx), you can access the data:
+                  console.log("Hazard rejected:", res.data);
+
+                  // Optionally update UI by removing the rejected hazard from the list
+                  setHazards((prev) =>
+                    prev.filter((h) => h.hazard_id !== hazard.hazard_id)
+                  );
+
+                } catch (err) {
+                  if (err.response) {
+                    // Server responded with a status other than 2xx
+                    console.error("Error rejecting hazard:", err.response.data);
+                  }
+                  else if (err.request) {
+                    // Request was made but no response received
+                    console.error("No response from server:", err.request);
+                  } else {
+                    // Something else happened
+                    console.error("Error:", err.message);
+                  }
+                }
+              }}
             />
           ))}
         </div>
