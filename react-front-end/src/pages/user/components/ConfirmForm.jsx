@@ -7,10 +7,10 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [useFallbackPdf, setUseFallbackPdf] = useState(false);
-  
+
   // Define fallback PDF URL
   const fallbackPdfUrl = "/forms/Risk_Assessment_Form_Template.pdf";
-  
+
   useEffect(() => {
     console.log("ConfirmForm is rendering!"); // Debug to verify component is rendering
   }, []);
@@ -25,11 +25,11 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
       setIsGeneratingPdf(true);
       setLoadError(false); // Reset any previous errors
       setUseFallbackPdf(false); // Reset fallback flag
-      
+
       console.log("Generating PDF for form ID:", formData.form_id);
-      
+
       // Try to generate PDF from backend
-      const response = await fetch('/user/generate_pdf', {
+      const response = await fetch('/api/user/generate_pdf', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -38,33 +38,30 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
           form_id: formData.form_id
         }),
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to generate PDF: ${response.status} ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       console.log("PDF generation response:", data);
-      
+
       if (data.success) {
-        // Important: Make sure to use the full URL to the PDF
-        const fullPdfUrl = data.pdf_url.startsWith('http') 
-          ? data.pdf_url 
-          : window.location.origin + data.pdf_url;
-          
-        console.log("Setting PDF URL to:", fullPdfUrl);
-        setGeneratedPdfUrl(fullPdfUrl);
+        // Simply use the PDF URL as returned from the server
+        // No prefixing with http or origin
+        console.log("Setting PDF URL to:", data.pdf_url);
+        setGeneratedPdfUrl(data.pdf_url);
       } else {
         throw new Error(data.error || 'Unknown error generating PDF');
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
       setLoadError(true);
-      
+
       // If generation fails, use fallback PDF
       console.log("Using fallback PDF template");
       setUseFallbackPdf(true);
-      setGeneratedPdfUrl(window.location.origin + fallbackPdfUrl);
+      setGeneratedPdfUrl(fallbackPdfUrl); // Don't add window.location.origin
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -74,12 +71,12 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   const handlePdfError = () => {
     console.error("Error displaying PDF");
     setLoadError(true);
-    
+
     // If displaying generated PDF fails, use fallback
     if (!useFallbackPdf) {
       console.log("Error displaying generated PDF, switching to fallback template");
       setUseFallbackPdf(true);
-      setGeneratedPdfUrl(window.location.origin + fallbackPdfUrl);
+      setGeneratedPdfUrl(fallbackPdfUrl); // Don't add window.location.origin
     }
   };
 
@@ -107,21 +104,27 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
               className="w-full h-full"
               title="PDF Document"
               onError={handlePdfError}
+              onLoad={() => console.log("PDF loaded successfully, URL:", generatedPdfUrl)}
             />
+            {!useFallbackPdf && (
+              <div className="p-2 bg-gray-100 text-xs text-gray-600 border-t border-gray-200">
+                <p>DEBUG - PDF URL: {generatedPdfUrl}</p>
+              </div>
+            )}
             {loadError && !useFallbackPdf && (
               <div className="p-4 bg-red-50 border border-red-200 rounded mb-4">
                 <p className="text-red-700 mb-2">Could not display the PDF directly.</p>
                 <div className="flex space-x-4">
-                  <a 
-                    href={generatedPdfUrl} 
+                  <a
+                    href={generatedPdfUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-blue-600 text-white rounded"
                   >
                     Open in new tab
                   </a>
-                  <a 
-                    href={generatedPdfUrl} 
+                  <a
+                    href={generatedPdfUrl}
                     download
                     className="px-4 py-2 bg-green-600 text-white rounded"
                   >
@@ -146,18 +149,18 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
           </div>
         )}
       </div>
-      
+
       <div className="p-4 bg-white rounded shadow border border-gray-200">
         {generatedPdfUrl && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded">
             <p className="text-green-800 mb-2">
-              {useFallbackPdf 
-                ? "Template PDF loaded successfully!" 
+              {useFallbackPdf
+                ? "Template PDF loaded successfully!"
                 : "Custom PDF generated successfully!"}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
-              <a 
-                href={generatedPdfUrl} 
+              <a
+                href={generatedPdfUrl}
                 download
                 className="px-4 py-2 bg-green-600 text-white rounded text-center"
               >
@@ -183,7 +186,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
             </div>
           </div>
         )}
-        
+
         <h2 className="text-xl font-semibold mb-4">Confirm Submission?</h2>
         <p className="mb-4">
           Please ensure all details filled are as accurate as possible for your current activity contexts.

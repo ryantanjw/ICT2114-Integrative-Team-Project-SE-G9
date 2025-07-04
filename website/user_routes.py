@@ -1332,8 +1332,9 @@ def generate_pdf():
         # Get processes, activities, hazards, and risks
         processes = Process.query.filter_by(process_form_id=form_id).all()
         
-        # Create directory for generated PDFs if it doesn't exist
-        upload_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'generated_pdfs')
+        # CHANGED: Create directory for generated PDFs in the react-front-end folder
+        upload_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                    'react-front-end', 'public', 'forms', 'generated_forms')
         if not os.path.exists(upload_folder):
             os.makedirs(upload_folder)
             
@@ -1341,8 +1342,9 @@ def generate_pdf():
         output_filename = f"risk_assessment_{form_id}_{uuid.uuid4().hex[:8]}.pdf"
         output_path = os.path.join(upload_folder, output_filename)
         
-        # Path to template PDF
-        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'forms', 'Risk_Assessment_Form_Template.pdf')
+        # CHANGED: Path to template PDF in the react-front-end folder
+        template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                    'react-front-end', 'public', 'forms', 'Risk_Assessment_Form_Template.pdf')
         
         # Create PDF with form data
         packet = BytesIO()
@@ -1455,8 +1457,11 @@ def generate_pdf():
         with open(output_path, "wb") as output_stream:
             output.write(output_stream)
         
-        # Create URL for the generated PDF
-        pdf_url = f"/static/generated_pdfs/{output_filename}"
+        # CHANGED: Update PDF URL to match React frontend path
+        pdf_url = f"/forms/generated_forms/{output_filename}"
+        
+        print(f"Generated PDF URL: {pdf_url}")
+        print(f"PDF saved to: {output_path}")
         
         return jsonify({
             'success': True,
@@ -1468,8 +1473,8 @@ def generate_pdf():
         import traceback
         print(f"Error generating PDF: {str(e)}")
         print(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
-
+        return jsonify({'error': str(e)}), 500    
+    
 # To serve the generated PDFs
 @user.route('/download_generated_pdf/<filename>', methods=['GET'])
 def download_generated_pdf(filename):
