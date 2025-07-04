@@ -17,6 +17,7 @@ export default function AdminDB() {
 
   const [currentTab, setCurrentTab] = useState(0);
   const [expandedCardIndex, setExpandedCardIndex] = useState(null);
+  const [hazards, setHazards] = useState([]);
   
   // Check session when component mounts
   useEffect(() => {
@@ -55,7 +56,19 @@ export default function AdminDB() {
       }
     };
 
+    const fetchHazards = async () => {
+      try {
+        const res = await axios.get("/api/admin/get_new_hazard"); 
+        setHazards(res.data.hazards);
+        console.log("successfully fetched hazards", res.data.hazards);
+      } catch (err) {
+        console.error("Error fetching hazards", err);
+      }
+    };
+
+  
     checkSession();
+    fetchHazards();
   }, [navigate]);
 
   // Show loading indicator while checking session
@@ -91,7 +104,7 @@ export default function AdminDB() {
         <DatabaseTabs onTabChange={setCurrentTab} />
       </div>
 
-      {/* Cards */}
+      {/* Cards
       {currentTab === 0 && (
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full items-start">
           <FormCardC
@@ -133,7 +146,33 @@ export default function AdminDB() {
             onApproveRisk={() => console.log("Risk approved: Z-ray")}
           />
         </div>
+      )} */}
+
+      {currentTab === 0 && (
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full items-start">
+          {hazards.map((hazard, index) => (
+            <FormCardC
+              key={hazard.hazard_id}
+              status={hazard.approval ?? "Unapproved"}
+              date={hazard.form_date} // You can replace this with actual date if available
+              title={hazard.form_title}
+              owner={hazard.owner}
+              activity ={hazard.work_activity}
+              hazard = {hazard.hazard}
+              hazardType={hazard.hazard_type}
+              injury = {hazard.injury}
+              remarks = {hazard.remarks}
+              isExpanded={expandedCardIndex === index}
+              onExpand={() =>
+                setExpandedCardIndex(expandedCardIndex === index ? null : index)
+              }
+              onApproveHazard={() => console.log(`Hazard approved: ${hazard.hazard}`)}
+              onApproveRisk={() => console.log(`Risk approved: ${hazard.hazard}`)}
+            />
+          ))}
+        </div>
       )}
+
     </div>
   );
 }

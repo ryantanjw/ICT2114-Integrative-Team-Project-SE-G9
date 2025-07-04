@@ -70,6 +70,7 @@ class Hazard(db.Model):
     injury = db.Column(db.String(124), nullable=False)
     hazard_type_id = db.Column(db.Integer, db.ForeignKey('hazard_type.hazard_type_id'), nullable=True)
     remarks = db.Column(db.Text, nullable=True)
+    approval = db.Column(db.Integer, nullable=True)  # 0 for no approval, 1 for approval required
     
 class HazardType(db.Model):
     __tablename__ = 'hazard_type'
