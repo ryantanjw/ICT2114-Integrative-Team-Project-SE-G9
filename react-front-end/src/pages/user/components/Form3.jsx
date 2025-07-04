@@ -249,17 +249,17 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     return uniqueMembers.size !== nonEmptyMembers.length;
   };
 
-  // Then modify the handleSave function:
   const handleSave = async () => {
     try {
-      // Check for duplicate team members
-      if (hasDuplicateMembers(raTeam)) {
+      // Only check for duplicates if there are non-empty team members
+      const nonEmptyTeamMembers = raTeam.filter(member => member.trim() !== "");
+      if (nonEmptyTeamMembers.length > 0 && hasDuplicateMembers(raTeam)) {
         alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
         return;
       }
-
+  
       setIsLoading(true);
-
+  
       // Prepare form data
       const formData = {
         form_id: formId,
@@ -304,23 +304,31 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
 
-  // Expose save method to parent component via ref
+  // Update the ref to properly expose save and validation methods
   useEffect(() => {
     if (ref) {
       ref.current = {
-        saveData: handleSave,
+        saveData: async () => {
+          try {
+            // Save form data
+            await handleSave();
+            return true;
+          } catch (error) {
+            console.error("Error saving Form 3:", error);
+            return false;
+          }
+        },
         validate: () => {
           // Check for duplicate team members
           if (hasDuplicateMembers(raTeam)) {
             alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
             return false;
           }
-
-          // Basic validation - ensure RA team has at least one member
-          return raTeam.some(member => member.trim() !== "");
+          
+          // Important: Always return true here for cases with no duplicates
+          return true;
         },
         getData: () => ({
-          // Unchanged
           form_id: formId,
           title,
           division,
@@ -334,13 +342,18 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           signature,
           designation
         }),
+        goBack: () => {
+          // No special handling needed for going back from Form 3
+          return true;
+        }
       };
     }
   }, [
     ref, formId, title, division, location, referenceNumber,
     lastReviewDate, nextReviewDate, raLeader, raTeam,
-    approvedBy, signature, designation
+    approvedBy, signature, designation, hasDuplicateMembers, handleSave
   ]);
+  
   return (
     <div className="space-y-6">
       {/* Top row */}
