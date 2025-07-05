@@ -80,7 +80,7 @@ def approve_hazard():
 
     # add activity name into kb.txt and reembed it
     try:
-        with open('kb.txt', 'a') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'kb.txt'), 'a') as f:
             f.write(f"%%{data.get('work_activity')}")
         print("Success: Activity name appended to kb.txt")
         reembed_kb()
@@ -91,7 +91,7 @@ def approve_hazard():
 
     # add hazard des into kbhazard.txt and reembed it
     try:
-        with open('kbhazard.txt', 'a') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'kbhazard.txt'), 'a') as f:
             f.write(f"%%{data.get('hazard')}")
         print("Success: Hazard description appended to kbhazard.txt")
         reembed_kbhazard()
