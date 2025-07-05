@@ -16,16 +16,19 @@ CORS(admin, supports_credentials=True)  # Enable credentials support for cookies
 
 @admin.route('/notification', methods=['GET'])
 def notification():
-    knowledge_base, kb_embeddings = load_hazard_kb_and_embeddings()
-    hazards = Hazard.query.filter(Hazard.approval == None).all()
-    for hazard in hazards:
-        if not hazard.hazard or not hazard.hazard.strip():
-            print(f"Skipping invalid hazard text: {hazard.hazard!r}")
-            continue
+    try:
+        knowledge_base, kb_embeddings = load_hazard_kb_and_embeddings()
+        hazards = Hazard.query.filter(Hazard.approval == None).all()
+        for hazard in hazards:
+            if not hazard.hazard or not hazard.hazard.strip():
+                continue
+            if get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings):
+                return jsonify(True)
+        return jsonify(False)
+    except Exception as e:
+        print("Error in /notification:", str(e))
+        return jsonify({"success": False, "error": str(e)}), 500
 
-        if get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings):
-            return True
-    return False
 
 @admin.route('/reject_hazard', methods=['POST'])
 def reject_hazard():

@@ -23,6 +23,7 @@ export default function AdminHome() {
     const [modalOpen, setModalOpen] = useState(false);
     const [isLoadingForms, setIsLoadingForms] = useState(false);
     const [forms, setForms] = useState([]);
+    const [showHazardAlert, setShowHazardAlert] = useState(false);
 
     // Pagination state
     const [pagination, setPagination] = useState({
@@ -194,6 +195,20 @@ const handleDelete = async (formId) => {
   }
 };
 
+// Check for any new Hazard notification
+const checkHazardNotification = async () => {
+  try {
+    const response = await axios.get("/api/admin/notification", {
+      withCredentials: true,
+    });
+    if (response.data === true) {
+      setShowHazardAlert(true);
+    }
+  } catch (err) {
+    console.error("Error checking hazard notification:", err);
+  }
+};
+
 // Check session when component mounts
 useEffect(() => {
     const checkSession = async () => {
@@ -227,6 +242,7 @@ useEffect(() => {
         // Fetch initial data
         await Promise.all([
           fetchRecentlyCompletedForms(),
+          checkHazardNotification(),
         //   fetchFilterOptions()
         ]);
 
@@ -242,93 +258,117 @@ useEffect(() => {
 }, [navigate]);
 
   return (
-    <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
+    <div className="relative bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
-        <div className="flex flex-col justify-start mb-5">
-            <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
-                Available Actions (Admin)
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
-                <ActionCard
-                    header="Account Enrolment"
-                    subtext="Grant new personnel access to risk assessments"
-                    onStart={() => {
-                        console.log("ActionCard clicked!"); // Debug line
-                        setModalOpen(true);
-                        console.log("Modal Opened");
-                    }}                                
-                    icon={<MdPeople className="text-3xl" />}
-                />
-                <ActionCard
-                    header="User Management"
-                    subtext="Manage personnel account information"
-                    onStart={() => navigate("/admin/user")}
-                    icon={<BiSolidUserAccount className="text-3xl" />}
-                    startText = "Manage"
-                />
-                <ActionCard
-                    header="View Forms"
-                    subtext="Manage risk assessment forms"
-                    onStart={() => navigate("/admin/form")}
-                    icon={<IoMdDocument className="text-3xl" />}
-                    startText = "View"
-                />
-            </div>
-            <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold mt-8">
-            Recent Forms
-            </h3>
-        </div>
-        <RegisterForm
-            isOpen={modalOpen}
-            onClose={() => setModalOpen(false)}
-        />
 
-         {/* Simplified Results Summary */}
-        {forms.length > 0 && (
-          <div className="mb-4 text-sm text-gray-600">
-            Showing {Math.min(9, forms.length)} latest completed forms
+      {showHazardAlert && (
+        <div className="fixed top-30 right-0 z-50 flex justify-end items-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2">New Hazards Detected</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              There are new hazards pending approval.
+            </p>
+            <div className="flex justify-end gap-9">
+              <button
+                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                onClick={() => setShowHazardAlert(false)}
+              >
+                Close
+              </button>
+              <button
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                onClick={() => navigate("/admin/db")}
+              >
+                Go to Database
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col justify-start mb-5">
+        <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
+          Available Actions (Admin)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
+          <ActionCard
+            header="Account Enrolment"
+            subtext="Grant new personnel access to risk assessments"
+            onStart={() => setModalOpen(true)}
+            icon={<MdPeople className="text-3xl" />}
+          />
+          <ActionCard
+            header="User Management"
+            subtext="Manage personnel account information"
+            onStart={() => navigate("/admin/user")}
+            icon={<BiSolidUserAccount className="text-3xl" />}
+            startText="Manage"
+          />
+          <ActionCard
+            header="View Forms"
+            subtext="Manage risk assessment forms"
+            onStart={() => navigate("/admin/form")}
+            icon={<IoMdDocument className="text-3xl" />}
+            startText="View"
+          />
+        </div>
+        <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold mt-8">
+          Recent Forms
+        </h3>
+      </div>
+
+      <RegisterForm isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+
+      {forms.length > 0 && (
+        <div className="mb-4 text-sm text-gray-600">
+          Showing {Math.min(9, forms.length)} latest completed forms
+        </div>
+      )}
+
+      <div className="mt-6">
+        {isLoadingForms ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+            <span className="ml-3 text-gray-600">Loading recent forms...</span>
+          </div>
+        ) : forms.length === 0 ? (
+          <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+            <p className="text-gray-600">No completed forms found.</p>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/form")}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              View All Forms
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+            {forms.map((form) => (
+              <FormCardA2Admin
+                key={form.id}
+                date={formatDate(form.created_at || form.last_access_date)}
+                title={form.title || "Untitled Form"}
+                owner={form.owner || "Unknown User"}
+                tags={form.tags || [form.status] || ["Unknown"]}
+                status={form.status}
+                onView={() => console.log("Viewing form", form.id)}
+                onDownload={() => window.open(`/api/admin/downloadForm/${form.id}`, "_blank")}
+                onDelete={async () => {
+                  if (!window.confirm("Are you sure you want to delete this form?")) return;
+                  try {
+                    const response = await axios.delete(`/api/admin/deleteForm/${form.id}`, { withCredentials: true });
+                    if (response.data.success) fetchRecentlyCompletedForms();
+                    else alert("Failed to delete form");
+                  } catch (error) {
+                    alert("Error deleting form");
+                  }
+                }}
+              />
+            ))}
           </div>
         )}
-
-                {/* Forms Grid - simplified since no pagination needed */}
-                <div className="mt-6">
-                  {isLoadingForms ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
-                      <span className="ml-3 text-gray-600">Loading recent forms...</span>
-                    </div>
-                  ) : forms.length === 0 ? (
-                    <div className="bg-white p-6 rounded-lg shadow-sm text-center">
-                      <p className="text-gray-600">
-                        No completed forms found.
-                      </p>
-                      <button 
-                        type="button"
-                        onClick={() => navigate("/admin/form")}
-                        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                      >
-                        View All Forms
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
-                      {forms.map((form) => (
-                        <FormCardA2Admin
-                          key={form.id}
-                          date={formatDate(form.created_at || form.last_access_date)}
-                          title={form.title || "Untitled Form"}
-                          owner={form.owner || "Unknown User"}
-                          tags={form.tags || [form.status] || ["Unknown"]}
-                          status={form.status}
-                          onView={() => handleView(form.id)}
-                        //   onShare={() => handleShare(form.id)}
-                          onDownload={() => handleDownload(form.id, form.title)}
-                          onDelete={() => handleDelete(form.id)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>  
+      </div>
     </div>
-    );
+  );
 }
