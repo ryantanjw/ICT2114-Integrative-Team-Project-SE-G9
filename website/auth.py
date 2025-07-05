@@ -139,6 +139,24 @@ def get_test_session():
     print(f"Get test session: {session}")
     return jsonify({"test_value": test_value})
 
+@auth.route('/forgot_password', methods=['POST'])
+def forgot_password():
+    data = request.get_json()
+    
+    if not data or 'email' not in data or 'new_password' not in data:
+        return jsonify({"success": False, "error": "Missing fields"}), 400
+
+    user = User.query.filter_by(user_email=data['email']).first()
+
+    if not user:
+        return jsonify({"success": False, "error": "Email not found"}), 404
+
+    # In production: verify email with token or OTP before allowing this
+    user.password = data['new_password']  # hash this in production
+    db.session.commit()
+
+    return jsonify({"success": True, "message": "Password reset successful"})
+
 
 # Example of connecting to the DB --> this example works [TO BE REMOVED AFTER TESTING]
 # @views.route('/')

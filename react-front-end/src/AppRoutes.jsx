@@ -5,12 +5,14 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import About from "./pages/About.jsx";
 import Login from "./pages/auth/LoginPage.jsx";
+import ForgotPassword from "./pages/auth/ForgotPasswordPage.jsx";
 
 // User pages
 import UserHome from "./pages/user/UserHomePage.jsx";
 import UserForm from "./pages/user/UserFormPage.jsx";
 import UserSetting from "./pages/user/UserSettingsPage.jsx";
 import UserNewForm from "./pages/user/UserNewFormPage.jsx";
+import UserForgotPassword from "./pages/user/UserForgotPasswordPage.jsx";
 
 // Admin pages
 import AdminHome from "./pages/admin/AdminHomePage.jsx";
@@ -18,6 +20,7 @@ import AdminUser from "./pages/admin/AdminUserPage.jsx";
 import AdminDB from "./pages/admin/AdminDBPage.jsx";
 import AdminForm from "./pages/admin/AdminFormPage.jsx";
 import AdminSetting from "./pages/admin/AdminSettingsPage.jsx";
+import AdminForgotPassword from "./pages/admin/AdminForgotPasswordPage.jsx"
 // import Logout from "./pages/auth/LogoutPage.jsx";
 
 function AppRoutes() {
@@ -33,6 +36,7 @@ function AppRoutes() {
         <Route path="/auth">
             <Route index element={<Navigate to="login" replace />} />
             <Route path="login" element={<Login />} />
+            <Route path="forgot-password" element={<ForgotPassword />} />
             {/* <Route path="logout" element={<Logout />} /> */}
         </Route>
 
@@ -45,6 +49,7 @@ function AppRoutes() {
         <Route path="/user/new" element={<UserNewForm />} />
         <Route path="/user/new/:formId" element={<UserNewForm />} />
         <Route path="/user/setting" element={<UserSetting />} />
+        <Route path="/user/forgot-password" element={<UserForgotPassword/>} />
 
         {/* Admin-specific routes */}
         <Route path="/admin" element={<AdminHome />} />       
@@ -52,6 +57,7 @@ function AppRoutes() {
         <Route path="/admin/form" element={<AdminForm />} />
         <Route path="/admin/setting" element={<AdminSetting />} />
         <Route path="/admin/db" element={<AdminDB />} />
+        <Route path="/admin/forgot-password"  element={<AdminForgotPassword />} />
       </Routes>
   );
 }
