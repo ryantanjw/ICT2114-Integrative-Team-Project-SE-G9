@@ -14,6 +14,19 @@ from .rag import *
 admin = Blueprint('admin', __name__)
 CORS(admin, supports_credentials=True)  # Enable credentials support for cookies
 
+@admin.route('/notification', methods=['GET'])
+def notification():
+    knowledge_base, kb_embeddings = load_hazard_kb_and_embeddings()
+    hazards = Hazard.query.filter(Hazard.approval == None).all()
+    for hazard in hazards:
+        if not hazard.hazard or not hazard.hazard.strip():
+            print(f"Skipping invalid hazard text: {hazard.hazard!r}")
+            continue
+
+        if get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings):
+            return True
+    return False
+
 @admin.route('/reject_hazard', methods=['POST'])
 def reject_hazard():
     print("=== Reject Hazard Called ===")
@@ -103,7 +116,7 @@ def approve_hazard():
     print("Hazard approval process completed successfully")
     return jsonify({"success": True, "message": "Hazard approved", "hazard_id": data.get("hazard_id")})
 
-@admin.route('/get_new_hazard', methods=['GET'])
+@admin.route('/get_new_hazard', methods=['GET', 'POST'])
 def get_new_hazard():
     # Query all hazards where approval is NULL
     knowledge_base, kb_embeddings = load_hazard_kb_and_embeddings()
@@ -116,7 +129,9 @@ def get_new_hazard():
 
         if get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings):
             matched_hazards.append(hazard)
-
+        else:
+            hazard.approval = 0
+            db.session.commit()
 
     results = []
     for hazard in matched_hazards:
