@@ -112,9 +112,9 @@ export default function AdminDB() {
             date="19/05/2025"
             title="Usage of Z-ray Machines"
             owner="Dave Timothy Johnson"
-            isExpanded={expandedCardIndex === 0}
+            isExpanded={expandedCardIndex === 1}
             onToggle={() =>
-              setExpandedCardIndex(expandedCardIndex === 0 ? null : 0)
+              setExpandedCardIndex(expandedCardIndex === 1 ? null : 0)
             }
             onApproveHazard={() => console.log("Hazard approved: Z-ray")}
             onApproveRisk={() => console.log("Risk approved: Z-ray")}
@@ -125,9 +125,9 @@ export default function AdminDB() {
             date="19/05/2025"
             title="Usage of Z-ray Machines"
             owner="Dave Timothy Johnson"
-            isExpanded={expandedCardIndex === 0}
+            isExpanded={expandedCardIndex === 2}
             onToggle={() =>
-              setExpandedCardIndex(expandedCardIndex === 0 ? null : 0)
+              setExpandedCardIndex(expandedCardIndex === 2 ? null : 0)
             }
             onApproveHazard={() => console.log("Hazard approved: Z-ray")}
             onApproveRisk={() => console.log("Risk approved: Z-ray")}
