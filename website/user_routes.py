@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request, session
+from math import ceil
+from flask import Blueprint, jsonify, request, session, make_response
 from sqlalchemy import text
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
@@ -29,33 +30,77 @@ def retrieve_forms():
         
         print(f"Form model: {Form}")
 
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 21, type=int)  # Default 21 per page
+        
+        search = request.args.get('search', '', type=str)
+        status_filter = request.args.get('status', '', type=str)
+        division_filter = request.args.get('division', '', type=str)
+
         user = User.query.filter_by(user_id=session_user_id).first()
         username = user.user_name if user else "Unknown User"
 
         print(f"username:", username)
 
-        forms = Form.query.filter_by(form_user_id=session_user_id).all()
+        query = Form.query.filter_by(form_user_id=session_user_id)
 
-        print(f"Forms:", forms)
+        # Apply filters if provided
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    Form.title.ilike(search_term),
+                    Form.form_reference_number.ilike(search_term),
+                    Form.location.ilike(search_term),
+                    Form.process.ilike(search_term)
+                )
+            )
 
-        forms_list = []
-        for form in forms:
+        if division_filter:
+            query = query.filter(Form.division == division_filter)
+
+        all_forms = query.all()
+
+        filtered_forms = []
+        for form in all_forms:
 
             def format_date(date_obj):
                 return date_obj.isoformat() if date_obj else None
             
             # Create status based on approval and dates
-            status = "Draft"
+            status = "Incomplete"
             if form.approval == 1:
-                status = "Approved"
-            elif form.approval == 0:
-                status = "Pending Approval"
+                status = "Completed"
+
 
             # Check if review is due
             if form.next_review_date:
                 from datetime import datetime
                 if form.next_review_date < datetime.now():
                     status = "Review Due"
+
+            if status_filter and status.lower() != status_filter.lower():
+                continue
+                
+            filtered_forms.append((form, status))
+
+        total_forms = len(filtered_forms)
+        total_pages = ceil(total_forms / per_page)
+        
+        # Calculate pagination bounds
+        start_index = (page - 1) * per_page
+        end_index = start_index + per_page
+        paginated_forms = filtered_forms[start_index:end_index]
+
+        print(f"Total forms after filtering: {total_forms}, Current page forms: {len(paginated_forms)}")
+
+        forms_list = []
+        for form, status in paginated_forms:
+
+            approved_by_username = None
+            if form.approved_by:
+                approved_by_user = User.query.filter_by(user_id=form.approved_by).first()
+                approved_by_username = approved_by_user.user_name if approved_by_user else f"User ID: {form.approved_by}"
 
 
             forms_list.append({
@@ -77,7 +122,41 @@ def retrieve_forms():
                 'owner': username  # Add username to the response
             })
 
-        return jsonify(forms_list)
+        has_next = page < total_pages
+        has_prev = page > 1
+
+        response_data = {
+            'forms': forms_list,
+            'pagination': {
+                'current_page': page,
+                'per_page': per_page,
+                'total_forms': total_forms,
+                'total_pages': total_pages,
+                'has_next': has_next,
+                'has_prev': has_prev,
+                'next_page': page + 1 if has_next else None,
+                'prev_page': page - 1 if has_prev else None,
+                'start_index': start_index + 1 if total_forms > 0 else 0,
+                'end_index': min(end_index, total_forms)
+            },
+            'filters': {
+                'search': search,
+                'status': status_filter,
+                'division': division_filter
+            }
+        }
+
+        print(f"Returning page {page} with {len(forms_list)} forms")
+        
+        # Create response with no-cache headers
+        response = make_response(jsonify(response_data))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+
+        return response
+        #return jsonify(forms_list)
+    
      
     except Exception as e:
         print(f"Error retrieving forms: {e}")
@@ -110,7 +189,7 @@ def delete_process(process_id):
         # Delete the activities
         Activity.query.filter_by(activity_process_id=process_id).delete()
         
-        # Finally, delete the process
+        # Delete the process
         db.session.delete(process)
         db.session.commit()
         
@@ -124,7 +203,298 @@ def delete_process(process_id):
         print(f"Error deleting process {process_id}: {str(e)}")
         return jsonify({'error': 'Failed to delete process'}), 500
 
-     
+@user.route('/shareForm/<int:formId>', methods=['POST'])
+def share_form(formId):
+    try:
+        userId = session.get('user_id')
+        print(f"User {userId} sharing form {formId}")
+
+        # Get request data
+        data = request.get_json()
+        target_user_id = data.get('target_user_id')
+        
+        if not target_user_id:
+            return jsonify({'error': 'Target user ID is required'}), 400
+
+        # Get the original form
+        original_form = Form.query.get(formId)
+        if not original_form:
+            return jsonify({'error': 'Original form not found'}), 404
+        
+        # Generate unique title for shared form
+        base_title = f"{original_form.title} (Shared)"
+        shared_title = base_title
+        counter = 1
+        
+        # Check if a form with this title already exists for the target user
+        while Form.query.filter_by(form_user_id=target_user_id, title=shared_title).first():
+            shared_title = f"{base_title} ({counter})"
+            counter += 1
+        
+        # Create new form (shared copy) - using the same structure as duplicate
+        new_form = Form(
+            title=shared_title,
+            division=original_form.division,
+            location=original_form.location,
+            process=original_form.process,
+            form_reference_number=None,  
+            form_user_id=target_user_id,  # Assign to target user instead of current user
+            form_RA_team_id=original_form.form_RA_team_id, 
+            approval=0,  
+            approved_by=None,  
+            last_access_date=datetime.now(),
+            last_review_date=None,  
+            next_review_date=None
+        )
+        
+        db.session.add(new_form)
+        db.session.flush()  # Get the new form ID
+        
+        print(f"Created new shared form with ID: {new_form.form_id}")
+
+        # Get all processes from the original form
+        original_processes = Process.query.filter_by(process_form_id=formId).all()
+        
+        # Dictionary to map old process IDs to new process IDs
+        process_id_mapping = {}
+        
+        for original_process in original_processes:
+            # Create new process
+            new_process = Process(
+                process_form_id=new_form.form_id,
+                process_number=original_process.process_number,
+                process_title=original_process.process_title,
+                process_location=original_process.process_location
+            )
+            
+            db.session.add(new_process)
+            db.session.flush()  # Get the new process ID
+            
+            # Store mapping for reference
+            process_id_mapping[original_process.process_id] = new_process.process_id
+            
+            print(f"Created new process: {original_process.process_id} -> {new_process.process_id}")
+            
+             # Get all activities for this process
+            original_activities = Activity.query.filter_by(
+                activity_process_id=original_process.process_id
+            ).all()
+            
+            # Dictionary to map old activity IDs to new activity IDs
+            activity_id_mapping = {}
+            
+            for original_activity in original_activities:
+                # Create new activity
+                new_activity = Activity(
+                    activity_process_id=new_process.process_id,
+                    work_activity=original_activity.work_activity,
+                    activity_number=original_activity.activity_number,
+                    activity_remarks=getattr(original_activity, 'activity_remarks', None)
+                )
+                
+                db.session.add(new_activity)
+                db.session.flush()  # Get the new activity ID
+                
+                # Store mapping for reference
+                activity_id_mapping[original_activity.activity_id] = new_activity.activity_id
+                
+                print(f"Created new activity: {original_activity.activity_id} -> {new_activity.activity_id}")
+                
+                # Get all hazards for this activity
+                original_hazards = Hazard.query.filter_by(
+                    hazard_activity_id=original_activity.activity_id
+                ).all()
+                
+                for original_hazard in original_hazards:
+                    # Create new hazard
+                    new_hazard = Hazard(
+                        hazard_activity_id=new_activity.activity_id,
+                        hazard=original_hazard.hazard,
+                        hazard_type_id=original_hazard.hazard_type_id,
+                        injury=original_hazard.injury
+                    )
+                    
+                    db.session.add(new_hazard)
+                    db.session.flush()  # Get the new hazard ID
+                    
+                    print(f"Created new hazard: {original_hazard.hazard_id} -> {new_hazard.hazard_id}")
+                    
+                    # Get the risk associated with this hazard
+                    original_risk = Risk.query.filter_by(
+                        risk_hazard_id=original_hazard.hazard_id
+                    ).first()
+                    
+                    if original_risk:
+                        # Create new risk
+                        new_risk = Risk(
+                            risk_hazard_id=new_hazard.hazard_id,
+                            existing_risk_control=original_risk.existing_risk_control,
+                            additional_risk_control=original_risk.additional_risk_control,
+                            severity=original_risk.severity,
+                            likelihood=original_risk.likelihood,
+                            RPN=original_risk.RPN,
+                        )
+                        
+                        db.session.add(new_risk)
+                        print(f"Created new risk for hazard: {new_hazard.hazard_id}")
+        
+        # Commit all changes
+        db.session.commit()
+        
+        print(f"Successfully shared form {formId} -> {new_form.form_id} with user {target_user_id}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Form shared successfully',
+            'original_form_id': formId,
+            'shared_form_id': new_form.form_id,
+            'shared_form_title': new_form.title
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error sharing form {formId}: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': f'Failed to share form: {str(e)}'}), 500
+    
+@user.route('/duplicateForm/<int:formId>', methods=['POST'])
+def duplicate_form(formId):
+    try:
+        userId = session.get('user_id')
+        print(userId)
+
+        original_form = Form.query.get(formId)
+        if not original_form:
+            return jsonify({'error': 'Original form not found'}), 404
+        
+        # Create new form (duplicate)
+        new_form = Form(
+            title=f"{original_form.title} (Copy)",  
+            division=original_form.division,
+            location=original_form.location,
+            process=original_form.process,
+            form_reference_number=None,  
+            form_user_id=userId,  
+            form_RA_team_id=original_form.form_RA_team_id, 
+            approval=0,  
+            approved_by=None,  
+            last_access_date=datetime.now(),
+            last_review_date=None,  # Reset review dates
+            next_review_date=None
+        )
+        
+        db.session.add(new_form)
+        db.session.flush()  # Get the new form ID
+        
+        print(f"Created new form with ID: {new_form.form_id}")
+
+        # Get all processes from the original form
+        original_processes = Process.query.filter_by(process_form_id=formId).all()
+        
+        # Dictionary to map old process IDs to new process IDs
+        process_id_mapping = {}
+        
+        for original_process in original_processes:
+            # Create new process
+            new_process = Process(
+                process_form_id=new_form.form_id,
+                process_number=original_process.process_number,
+                process_title=original_process.process_title,
+                process_location=original_process.process_location
+            )
+            
+            db.session.add(new_process)
+            db.session.flush()  # Get the new process ID
+            
+            # Store mapping for reference
+            process_id_mapping[original_process.process_id] = new_process.process_id
+            
+            print(f"Created new process: {original_process.process_id} -> {new_process.process_id}")
+            
+            # Get all activities for this process
+            original_activities = Activity.query.filter_by(
+                activity_process_id=original_process.process_id
+            ).all()
+            
+            # Dictionary to map old activity IDs to new activity IDs
+            activity_id_mapping = {}
+            
+            for original_activity in original_activities:
+                # Create new activity
+                new_activity = Activity(
+                    activity_process_id=new_process.process_id,
+                    work_activity=original_activity.work_activity,
+                    activity_number=original_activity.activity_number,
+                    activity_remarks=getattr(original_activity, 'activity_remarks', None)
+                )
+                
+                db.session.add(new_activity)
+                db.session.flush()  # Get the new activity ID
+                
+                # Store mapping for reference
+                activity_id_mapping[original_activity.activity_id] = new_activity.activity_id
+                
+                print(f"Created new activity: {original_activity.activity_id} -> {new_activity.activity_id}")
+                
+                # Get all hazards for this activity
+                original_hazards = Hazard.query.filter_by(
+                    hazard_activity_id=original_activity.activity_id
+                ).all()
+                
+                for original_hazard in original_hazards:
+                    # Create new hazard
+                    new_hazard = Hazard(
+                        hazard_activity_id=new_activity.activity_id,
+                        hazard=original_hazard.hazard,
+                        hazard_type_id=original_hazard.hazard_type_id,
+                        injury=original_hazard.injury
+                    )
+                    
+                    db.session.add(new_hazard)
+                    db.session.flush()  # Get the new hazard ID
+                    
+                    print(f"Created new hazard: {original_hazard.hazard_id} -> {new_hazard.hazard_id}")
+                    
+                    # Get the risk associated with this hazard
+                    original_risk = Risk.query.filter_by(
+                        risk_hazard_id=original_hazard.hazard_id
+                    ).first()
+                    
+                    if original_risk:
+                        # Create new risk
+                        new_risk = Risk(
+                            risk_hazard_id=new_hazard.hazard_id,
+                            existing_risk_control=original_risk.existing_risk_control,
+                            additional_risk_control=original_risk.additional_risk_control,
+                            severity=original_risk.severity,
+                            likelihood=original_risk.likelihood,
+                            RPN=original_risk.RPN,
+                        )
+                        
+                        db.session.add(new_risk)
+                        print(f"Created new risk for hazard: {new_hazard.hazard_id}")
+        
+        # Commit all changes
+        db.session.commit()
+        
+        print(f"Successfully duplicated form {formId} -> {new_form.form_id}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Form duplicated successfully',
+            'original_form_id': formId,
+            'new_form_id': new_form.form_id,
+            'new_form_title': new_form.title
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error duplicating form {formId}: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': f'Failed to duplicate form: {str(e)}'}), 500
+
 @user.route('/process', methods=['POST'])
 def save_process():
     try:
@@ -1282,6 +1652,7 @@ def delete_form(form_id):
         db.session.rollback()
         print(f"Error deleting form {form_id}: {str(e)}")
         return jsonify({'error': 'Failed to delete process'}), 500
+    
 # ctrl f tag AI
 @user.route('/ai_generate', methods=['POST'])
 def ai_generate():
@@ -1303,3 +1674,50 @@ def ai_generate():
         print(f"Error generating hazard data: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+# Reset user password (user only)
+@user.route('/reset_password', methods=['POST'])
+def reset_password():
+    print("\n=== RESET PASSWORD CALLED ===")
+    
+    # Check if user is logged in and is an admin
+    if 'user_id' not in session:
+        print("No active session found")
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    
+    if session.get('user_role') != 1:  # 1 = user
+        print(f"Non user attempted to reset a password. Role: {session.get('user_role')}")
+        return jsonify({"success": False, "error": "Not authorized"}), 403
+    
+    data = request.get_json()
+    
+    if not data or 'user_id' not in data or 'new_password' not in data:
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
+    
+    try:
+        # Find the user to update
+        user = User.query.get(data['user_id'])
+        
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        print(f"Resetting password for user: {user.user_name} (ID: {user.user_id})")
+        
+        # Hash the new password
+        # hashed_password = generate_password_hash(data['new_password'])
+        # user.user_password = hashed_password
+        
+        user.password = data['new_password']  # Make sure to hash this in production!
+        
+        # Save changes
+        db.session.commit()
+        
+        print(f"Password reset successful for user: {user.user_name} (ID: {user.user_id})")
+        return jsonify({
+            "success": True,
+            "message": "Password reset successful"
+        })
+        
+    except Exception as e:
+        print(f"Error resetting password: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500

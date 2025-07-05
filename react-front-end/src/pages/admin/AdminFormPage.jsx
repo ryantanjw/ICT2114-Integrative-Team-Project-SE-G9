@@ -4,10 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { IoMdRefresh } from "react-icons/io";
 import CTAButton from "../../components/CTAButton.jsx";
 import SearchBar from "../../components/SearchBar.jsx";
-import FormCardA from "../../components/FormCardA.jsx";
-import FormCardB from "../../components/FormCardB.jsx";
 import axios from "axios";
-import FormCardA2 from "../../components/FormCardA2.jsx";
+import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 
@@ -71,26 +69,11 @@ export default function AdminForm() {
       });
       
       console.log("Forms fetched:", response.data);
-
-    // Used to get the response data of each form
-    //   const formsArray = response.data.forms || [];
-
-    //   formsArray.forEach((form, index) => {
-    //   console.log(`Form ${index + 1}:`, {
-    //     id: form.id,
-    //     title: form.title,
-    //     status: form.status,
-    //     approval: form.approval, // Add this to see the raw approval value
-    //     statusType: typeof form.status,
-    //     statusLength: form.status?.length
-    //   });
-    // });
       
       if (response.data.forms) {
         setForms(response.data.forms);
         setPagination(response.data.pagination);
       } else {
-        // Handle old response format (if backend isn't updated yet)
         setForms(response.data);
       }
     } catch (error) {
@@ -107,22 +90,22 @@ export default function AdminForm() {
   };
 
     // Function to fetch filter options
-  const fetchFilterOptions = async () => {
-    try {
-      const response = await axios.get("/api/admin/formsStats", {
-        withCredentials: true
-      });
+  // const fetchFilterOptions = async () => {
+  //   try {
+  //     const response = await axios.get("/api/admin/formsStats", {
+  //       withCredentials: true
+  //     });
       
-      if (response.data.available_divisions || response.data.available_locations) {
-        setAvailableFilters({
-          divisions: response.data.available_divisions || [],
-          locations: response.data.available_locations || []
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching filter options:", error);
-    }
-  };
+  //     if (response.data.available_divisions || response.data.available_locations) {
+  //       setAvailableFilters({
+  //         divisions: response.data.available_divisions || [],
+  //         locations: response.data.available_locations || []
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching filter options:", error);
+  //   }
+  // };
 
   // Handle search
   const handleSearch = (query) => {
@@ -187,7 +170,7 @@ const handleView = async (formId) => {
   console.log(`Redirecting user to form with ID: ${formId}`);
   try {
     // Example: Navigate to view form1 endpoint
-    window.open(`/api/admin/downloadForm/${formId}`, '_blank');
+    // window.open(`/api/admin/downloadForm/${formId}`, '_blank');
   } catch (error) {
     console.error('Error downloading form:', error);
   }
@@ -255,7 +238,7 @@ const handleDelete = async (formId) => {
         // Fetch initial data
         await Promise.all([
           fetchUserForms(1),
-          fetchFilterOptions()
+          // fetchFilterOptions()
         ]);
 
         setIsLoading(false);
@@ -314,7 +297,7 @@ const handleDelete = async (formId) => {
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
           <SearchBar 
-            // onSearch={handleSearch} 
+            onSearch={handleSearch} 
             placeholder="Search forms, users, references..." 
             initialValue={searchQuery}
           />
@@ -327,51 +310,10 @@ const handleDelete = async (formId) => {
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="pending approval">Pending Approval</option>
-              <option value="approved">Approved</option>
+              <option value="Incomplete">Incomplete</option>
+              <option value="Completed">Completed</option>
               <option value="review due">Review Due</option>
             </select>
-
-        {/* Style A2
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full">
-              <FormCardA2
-                status="Ongoing"
-                date="19/05/2025"
-                title="Advanced Techniques in Radiation Therapy for Oncology Patients"
-                owner="Jane Doe"
-                expiryDate="-"
-                onView={() => console.log("View")}
-                onShare={() => console.log("Share")}
-                onDuplicate={() => console.log("Duplicate")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-              <FormCardA2
-                status="Pending"
-                date="20/05/2025"
-                title="Innovative Approaches to Radiation Dose Optimization in Pediatric Imaging"
-                owner="Emily Johnson"         
-                expiryDate="-"
-                onView={() => console.log("View")}
-                onShare={() => console.log("Share")}
-                onDuplicate={() => console.log("Duplicate")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-              <FormCardA2
-                status="Completed"
-                date="21/05/2025"   
-                title="Radiation Safety Protocols for Interventional Radiology Procedures"
-                owner="Michael Brown"
-                expiryDate="24/06/2025"
-                onView={() => console.log("View")}
-                onShare={() => console.log("Share")}
-                onDuplicate={() => console.log("Duplicate")}
-                onDownload={() => console.log("Download")}
-                onDelete={() => console.log("Delete")}
-              />
-        </div> */}
         
             {/* Division Filter */}
             {availableFilters.divisions.length > 0 && (
@@ -430,7 +372,7 @@ const handleDelete = async (formId) => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
                 {forms.map((form) => (
-                  <FormCardA2
+                  <FormCardA2Admin
                     key={form.id}
                     date={formatDate(form.created_at || form.last_access_date)}
                     title={form.title || "Untitled Form"}
@@ -438,7 +380,6 @@ const handleDelete = async (formId) => {
                     tags={form.tags || [form.status] || ["Unknown"]}
                     status={form.status}
                     onView={() => handleView(form.id)}
-                    onShare={() => handleShare(form.id)}
                     onDownload={() => handleDownload(form.id, form.title)}
                     onDelete={() => handleDelete(form.id)}
                   />

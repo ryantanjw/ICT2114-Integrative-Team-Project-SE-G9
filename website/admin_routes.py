@@ -1,18 +1,172 @@
 # Fix the import statements
 from flask import Blueprint, jsonify, request, session, make_response
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity, Process, Hazard, Risk
+from models import User, Form, Activity, Process, Hazard, Risk, HazardType
 from . import db
 import random
 import string
 from flask_cors import CORS, cross_origin
 from math import ceil
+from .rag import *
 
 
 # Create a new blueprint for admin routes
 admin = Blueprint('admin', __name__)
 CORS(admin, supports_credentials=True)  # Enable credentials support for cookies
 
+@admin.route('/notification', methods=['GET'])
+def notification():
+    try:
+        knowledge_base, kb_embeddings = load_hazard_kb_and_embeddings()
+        hazards = Hazard.query.filter(Hazard.approval == None).all()
+        for hazard in hazards:
+            if not hazard.hazard or not hazard.hazard.strip():
+                continue
+            if get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings):
+                return jsonify(True)
+        return jsonify(False)
+    except Exception as e:
+        print("Error in /notification:", str(e))
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin.route('/reject_hazard', methods=['POST'])
+def reject_hazard():
+    print("=== Reject Hazard Called ===")
+    # Get JSON payload
+    data = request.get_json()
+    
+    if not data:
+        print("Error: No data provided in request")
+        return jsonify({"success": False, "message": "No data provided"}), 400
+    
+    print("Received data:", data)
+    # set hazard approval to 0
+    hazard = Hazard.query.filter_by(hazard_id=int(data.get("hazard_id"))).first()
+    if hazard:
+        hazard.approval = 0
+        db.session.commit()
+        print(f"Success: Hazard {data.get('hazard_id')} marked as rejected")
+    else:
+        print(f"Error: Hazard {data.get('hazard_id')} not found")
+        return jsonify({"success": False, "message": "Hazard not found"}), 404
+    return jsonify({"success": True, "message": "Hazard rejected", "hazard_id": data.get("hazard_id")})
+    
+
+@admin.route('/approve_hazard', methods=['POST'])
+def approve_hazard():
+    print("=== Approve Hazard Called ===")
+    # Get JSON payload
+    data = request.get_json()
+    
+    if not data:
+        print("Error: No data provided in request")
+        return jsonify({"success": False, "message": "No data provided"}), 400
+    
+    print("Received data:", data)
+    # set hazard approval to 1
+    hazard = Hazard.query.filter_by(hazard_id=int(data.get("hazard_id"))).first()
+    if hazard:
+        hazard.approval = 1  # mark as approved
+        db.session.commit()
+        print(f"Success: Hazard {data.get('hazard_id')} marked as approved")
+    else:
+        print(f"Error: Hazard {data.get('hazard_id')} not found")
+        return jsonify({"success": False, "message": "Hazard not found"}), 404
+
+    # add the data into the known data table
+    try:
+        new_known_data = KnownData(
+            activity_name=data.get("work_activity"),
+            hazard_type=data.get("hazard_type"),
+            hazard_des=data.get("hazard"),
+            injury=data.get("injury"),
+            control=data.get("existing_risk_control"),
+            severity=int(data.get("severity")),
+            likelihood=int(data.get("likelihood")),
+            rpn=int(data.get("RPN"))
+        )
+        db.session.add(new_known_data)
+        db.session.commit()
+        print("Success: New known data added to KnownData table")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error adding known data: {e}")
+        return jsonify({"success": False, "message": "Failed to add known data"}), 500
+
+    # add activity name into kb.txt and reembed it
+    try:
+        with open(os.path.join(os.path.dirname(__file__), 'kb.txt'), 'a') as f:
+            f.write(f"%%{data.get('work_activity')}")
+        print("Success: Activity name appended to kb.txt")
+        reembed_kb()
+        print("Success: reembed_kb() called")
+    except Exception as e:
+        print(f"Error updating kb.txt or reembedding: {e}")
+        return jsonify({"success": False, "message": "Failed to update kb.txt"}), 500
+
+    # add hazard des into kbhazard.txt and reembed it
+    try:
+        with open(os.path.join(os.path.dirname(__file__), 'kbhazard.txt'), 'a') as f:
+            f.write(f"%%{data.get('hazard')}")
+        print("Success: Hazard description appended to kbhazard.txt")
+        reembed_kbhazard()
+        print("Success: reembed_kbhazard() called")
+    except Exception as e:
+        print(f"Error updating kbhazard.txt or reembedding: {e}")
+        return jsonify({"success": False, "message": "Failed to update kbhazard.txt"}), 500
+
+    print("Hazard approval process completed successfully")
+    return jsonify({"success": True, "message": "Hazard approved", "hazard_id": data.get("hazard_id")})
+
+@admin.route('/get_new_hazard', methods=['GET', 'POST'])
+def get_new_hazard():
+    # Query all hazards where approval is NULL
+    knowledge_base, kb_embeddings = load_hazard_kb_and_embeddings()
+    hazards = Hazard.query.filter(Hazard.approval == None).all()
+    matched_hazards = []
+    for hazard in hazards:
+        if not hazard.hazard or not hazard.hazard.strip():
+            print(f"Skipping invalid hazard text: {hazard.hazard!r}")
+            continue
+
+        if get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings):
+            matched_hazards.append(hazard)
+        else:
+            hazard.approval = 0
+            db.session.commit()
+
+    results = []
+    for hazard in matched_hazards:
+        # Get the related activity and hazard type using relationships
+        activity = Activity.query.get(hazard.hazard_activity_id) if hazard.hazard_activity_id else None
+        hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
+        form = Form.query.get(getattr(Process.query.get(activity.activity_process_id), 'process_form_id', None))
+        user = User.query.get(form.form_user_id) if form else None
+        risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
+        results.append({
+            'hazard_id': hazard.hazard_id,
+            'hazard_activity_id': hazard.hazard_activity_id,
+            'hazard': hazard.hazard,
+            'injury': hazard.injury,
+            'hazard_type_id': hazard.hazard_type_id,
+            'remarks': hazard.remarks,
+            'approval': hazard.approval,
+            'work_activity': activity.work_activity if activity else None,
+            'hazard_type': hazard_type.hazard_type if hazard_type else None,
+            "form_title": form.title if form else None,
+            "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
+            "owner": user.user_name if user else None,
+            "existing_risk_control": risk.existing_risk_control if risk else None,
+            "additional_risk_control": risk.additional_risk_control if risk else None,
+            "severity": risk.severity if risk else None,
+            "likelihood": risk.likelihood if risk else None,
+            "RPN": risk.RPN if risk else None,
+        })
+
+    return jsonify({'success': True, 'hazards': results})
+
+    
 
 # Get all users (admin only)
 @admin.route('/get_users', methods=['GET'])

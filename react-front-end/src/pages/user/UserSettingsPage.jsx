@@ -16,6 +16,7 @@ export default function UserSetting() {
   const [userData, setUserData] = useState(null);
   const [existingPassword, setExistingPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
   const [reverifyPassword, setReverifyPassword] = useState("");
 
   // Validate new password complexity
@@ -36,6 +37,10 @@ export default function UserSetting() {
           ? `Password must have ${errs.join(", ")}`
           : "";
       })()
+    : "";
+
+    const reverifyError = reverifyPassword && reverifyPassword !== newPassword
+    ? "Passwords do not match"
     : "";
 
   // Check session when component mounts
@@ -78,6 +83,50 @@ export default function UserSetting() {
     checkSession();
   }, [navigate]);
 
+  const handlePasswordReset = async () => {
+  if (!userData || !userData.user_id) {
+    alert("User session not loaded yet.");
+    return;
+  }
+
+  if (newPasswordError || reverifyError) {
+    alert("Please fix password validation errors first.");
+    return;
+  }
+
+  if (existingPassword === newPassword) {
+    alert("New password must be different from the existing password.");
+    return;
+  }
+  
+  try {
+    const response = await axios.post(
+      "/api/user/reset_password",
+      {
+        user_id: userData.user_id,
+        new_password: newPassword,
+      },
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    if (response.data.success) {
+      alert("Password has been reset successfully.");
+      // Optionally reset inputs
+      setExistingPassword("");
+      setNewPassword("");
+      setReverifyPassword("");
+    } else {
+      alert("Failed to reset password: " + (response.data.error || "Unknown error"));
+    }
+  } catch (error) {
+    console.error("API error:", error);
+    alert("An error occurred while resetting password.");
+  }
+};
+
 return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <Header activePage={location.pathname} />
@@ -100,8 +149,18 @@ return (
                   id="new-password"
                   type="password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  error={newPasswordError}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (!newPasswordTouched) setNewPasswordTouched(true);
+                  }}
+                  onBlur={() => setNewPasswordTouched(true)}
+                  error={
+                    newPasswordTouched
+                      ? newPassword === existingPassword
+                        ? "New password must be different from the existing password"
+                        : newPasswordError
+                      : ""
+                  }
                 />
                 <InputGroup
                   label="Reverify New Password"
@@ -112,8 +171,11 @@ return (
                   error={reverifyPassword && reverifyPassword !== newPassword ? "Passwords do not match" : ""}
                 />
                 <div className="flex justify-end">
-                  <button className="bg-black text-white px-6 py-2 rounded">
-                    Save
+                  <button
+                    onClick={handlePasswordReset}
+                    className="bg-black text-white px-6 py-2 rounded"
+                  >
+                  Save
                   </button>
                 </div>
               </AccordionArea>

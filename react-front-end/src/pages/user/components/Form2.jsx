@@ -24,6 +24,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const pendingUpdatesRef = useRef(null);
   const updateTimeoutRef = useRef(null);
   const lastUpdateTime = useRef(0);
+  const initialLoadRef = useRef(true);
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {

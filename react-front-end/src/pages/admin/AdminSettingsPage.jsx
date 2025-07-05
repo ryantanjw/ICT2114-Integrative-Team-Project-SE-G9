@@ -17,21 +17,30 @@ export default function AdminSetting() {
 
   const [existingPassword, setExistingPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
   const [reverifyPassword, setReverifyPassword] = useState("");
 
   // Validate new password complexity (reuse logic)
   const newPasswordError = newPassword
     ? (() => {
         const errs = [];
-        if (newPassword.length < 8) errs.push("at least 10 characters");
-        if ((newPassword.match(/[^A-Za-z0-9]/g) || []).length < 1) errs.push("1 symbol");
-        if ((newPassword.match(/[A-Z]/g) || []).length < 2) errs.push("2 uppercase letters");
-        if ((newPassword.match(/[a-z]/g) || []).length < 3) errs.push("3 lowercase letters");
-        if ((newPassword.match(/[0-9]/g) || []).length < 4) errs.push("4 numbers");
-        return errs.length > 0 ? `Password must have ${errs.join(", ")}` : "";
+        if (newPassword.length < 8)
+          errs.push("at least 10 characters");
+        if ((newPassword.match(/[^A-Za-z0-9]/g) || []).length < 1)
+          errs.push("1 symbol");
+        if ((newPassword.match(/[A-Z]/g) || []).length < 2)
+          errs.push("2 uppercase letters");
+        if ((newPassword.match(/[a-z]/g) || []).length < 3)
+          errs.push("3 lowercase letters");
+        if ((newPassword.match(/[0-9]/g) || []).length < 4)
+          errs.push("4 numbers");
+        return errs.length > 0
+          ? `Password must have ${errs.join(", ")}`
+          : "";
       })()
-    : ""; 
-  const reverifyError = reverifyPassword && reverifyPassword !== newPassword
+    : "";
+
+    const reverifyError = reverifyPassword && reverifyPassword !== newPassword
     ? "Passwords do not match"
     : "";
 
@@ -75,6 +84,50 @@ export default function AdminSetting() {
     checkSession();
   }, [navigate]);
 
+  const handlePasswordReset = async () => {
+  if (!adminData || !adminData.user_id) {
+    alert("Admin session not loaded yet.");
+    return;
+  }
+
+  if (newPasswordError || reverifyError) {
+    alert("Please fix password validation errors first.");
+    return;
+  }
+
+  if (existingPassword === newPassword) {
+    alert("New password must be different from the existing password.");
+    return;
+  }
+
+  try {
+    const response = await axios.post(
+      "/api/admin/reset_password",
+      {
+        user_id: adminData.user_id,
+        new_password: newPassword,
+      },
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    if (response.data.success) {
+      alert("Password has been reset successfully.");
+      // Optionally reset inputs
+      setExistingPassword("");
+      setNewPassword("");
+      setReverifyPassword("");
+    } else {
+      alert("Failed to reset password: " + (response.data.error || "Unknown error"));
+    }
+  } catch (error) {
+    console.error("API error:", error);
+    alert("An error occurred while resetting password.");
+  }
+};
+
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
@@ -95,8 +148,18 @@ export default function AdminSetting() {
                   id="new-password"
                   type="password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  error={newPasswordError}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (!newPasswordTouched) setNewPasswordTouched(true);
+                  }}
+                  onBlur={() => setNewPasswordTouched(true)}
+                  error={
+                    newPasswordTouched
+                      ? newPassword === existingPassword
+                        ? "New password must be different from the existing password"
+                        : newPasswordError
+                      : ""
+                  }
                 />
                 <InputGroup
                   label="Reverify New Password"
@@ -107,8 +170,11 @@ export default function AdminSetting() {
                   error={reverifyPassword && reverifyPassword !== newPassword ? "Passwords do not match" : ""}
                 />
                 <div className="flex justify-end">
-                  <button className="bg-black text-white px-6 py-2 rounded">
-                    Save
+                  <button
+                    onClick={handlePasswordReset}
+                    className="bg-black text-white px-6 py-2 rounded"
+                  >
+                  Save
                   </button>
                 </div>
               </AccordionArea>

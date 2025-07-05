@@ -17,6 +17,8 @@ export default function AdminDB() {
 
   const [currentTab, setCurrentTab] = useState(0);
   const [expandedCardIndex, setExpandedCardIndex] = useState(null);
+  const [hazards, setHazards] = useState([]);
+  const [isLoadingDBPage, setIsLoadingDBPage] = useState(true);
   
   // Check session when component mounts
   useEffect(() => {
@@ -55,8 +57,53 @@ export default function AdminDB() {
       }
     };
 
-    checkSession();
+    const fetchHazards = async () => {
+      try {
+        const res = await axios.get("/api/admin/get_new_hazard"); 
+        setHazards(res.data.hazards);
+        console.log("successfully fetched hazards", res.data.hazards);
+      } catch (err) {
+        console.error("Error fetching hazards", err);
+      }
+    };
+
+    const init = async () => {
+    setIsLoadingDBPage(true); // Start fullscreen loading
+    await checkSession();
+    await fetchHazards();
+    setIsLoadingDBPage(false); // Stop fullscreen loading
+  };
+
+  init();
   }, [navigate]);
+
+  if (isLoadingDBPage) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="bg-white p-6 rounded-lg shadow-lg text-center">
+          <div className="flex items-center justify-center mb-4">
+            <svg className="animate-spin h-6 w-6 text-blue-600 mr-2" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+            <span className="text-lg font-medium text-gray-700">Fetching data…</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading indicator while checking session
   if (isLoading) {
@@ -91,49 +138,114 @@ export default function AdminDB() {
         <DatabaseTabs onTabChange={setCurrentTab} />
       </div>
 
-      {/* Cards */}
       {currentTab === 0 && (
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full items-start">
-          <FormCardC
-            status="Unapproved"
-            date="19/05/2025"
-            title="Usage of Z-ray Machines"
-            owner="Dave Timothy Johnson"
-            isExpanded={expandedCardIndex === 0}
-            onToggle={() =>
-              setExpandedCardIndex(expandedCardIndex === 0 ? null : 0)
-            }
-            onApproveHazard={() => console.log("Hazard approved: Z-ray")}
-            onApproveRisk={() => console.log("Risk approved: Z-ray")}
-          />
+          {hazards.map((hazard, index) => (
+            <FormCardC
+              key={hazard.hazard_id}
+              status={hazard.approval ?? "Unapproved"}
+              date={hazard.form_date}
+              title={hazard.form_title}
+              owner={hazard.owner}
+              activity={hazard.work_activity}
+              hazard={hazard.hazard}
+              hazardType={hazard.hazard_type}
+              injury={hazard.injury}
+              remarks={hazard.remarks}
+              existingRiskControl={hazard.existing_risk_control}
+              additionalRiskControl={hazard.additional_risk_control}
+              severity={hazard.severity}
+              likelihood={hazard.likelihood}
+              RPN={hazard.RPN}
+              isExpanded={expandedCardIndex === index}
+              onExpand={() =>
+                setExpandedCardIndex(expandedCardIndex === index ? null : index)
+              }
+              // onApproveHazard={async () => {
+              //   try {
+              //     // Send the full hazard data to the backend
+              //     const res = await axios.post(
+              //       "/api/admin/approve_hazard",
+              //       { ...hazard },
+              //       { withCredentials: true }
+              //     );
+              //     // Optionally update UI by removing the approved hazard from the list
+              //     setHazards((prev) =>
+              //       prev.filter((h) => h.hazard_id !== hazard.hazard_id)
+              //     );
+                  
+              //     console.log("Hazard approved:", res.data);
+              //   } catch (err) {
+              //     console.error("Error approving hazard:", err);
+              //   }
+              // }}
+              onApproveHazard={async () => {
+                try {
+                  const res = await axios.post(
+                    "/api/admin/approve_hazard",
+                    hazard,
+                    { withCredentials: true }
+                  );
 
-          <FormCardC
-            status="Unapproved"
-            date="19/05/2025"
-            title="Usage of Z-ray Machines"
-            owner="Dave Timothy Johnson"
-            isExpanded={expandedCardIndex === 0}
-            onToggle={() =>
-              setExpandedCardIndex(expandedCardIndex === 0 ? null : 0)
-            }
-            onApproveHazard={() => console.log("Hazard approved: Z-ray")}
-            onApproveRisk={() => console.log("Risk approved: Z-ray")}
-          />
+                  // If the request was successful (status code 2xx), you can access the data:
+                  console.log("Hazard approved:", res.data);
 
-          <FormCardC
-            status="Unapproved"
-            date="19/05/2025"
-            title="Usage of Z-ray Machines"
-            owner="Dave Timothy Johnson"
-            isExpanded={expandedCardIndex === 0}
-            onToggle={() =>
-              setExpandedCardIndex(expandedCardIndex === 0 ? null : 0)
-            }
-            onApproveHazard={() => console.log("Hazard approved: Z-ray")}
-            onApproveRisk={() => console.log("Risk approved: Z-ray")}
-          />
+                  // Remove the approved hazard from the list
+                  setHazards((prev) =>
+                    prev.filter((h) => h.hazard_id !== hazard.hazard_id)
+                  );
+
+                } catch (err) {
+                  if (err.response) {
+                    // Server responded with a status other than 2xx
+                    console.error("Error approving hazard:", err.response.data);
+                  } else if (err.request) {
+                    // Request was made but no response received
+                    console.error("No response from server:", err.request);
+                  } else {
+                    // Something else happened
+                    console.error("Error:", err.message);
+                  }
+                }
+              }}
+
+
+
+              onRejectHazard={async () => {
+                try {
+                  const res = await axios.post(
+                    "/api/admin/reject_hazard",
+                    hazard,
+                    { withCredentials: true }
+                  );
+
+                  // If the request was successful (status code 2xx), you can access the data:
+                  console.log("Hazard rejected:", res.data);
+
+                  // Optionally update UI by removing the rejected hazard from the list
+                  setHazards((prev) =>
+                    prev.filter((h) => h.hazard_id !== hazard.hazard_id)
+                  );
+
+                } catch (err) {
+                  if (err.response) {
+                    // Server responded with a status other than 2xx
+                    console.error("Error rejecting hazard:", err.response.data);
+                  }
+                  else if (err.request) {
+                    // Request was made but no response received
+                    console.error("No response from server:", err.request);
+                  } else {
+                    // Something else happened
+                    console.error("Error:", err.message);
+                  }
+                }
+              }}
+            />
+          ))}
         </div>
       )}
+
     </div>
   );
 }

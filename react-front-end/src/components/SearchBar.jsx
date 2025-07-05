@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaSearch } from "react-icons/fa";
 
-export default function SearchBar({ onSearch, placeholder = "Search..." }) {
+export default function SearchBar({ onSearch, placeholder = "Search...", initialValue = "" }) {
   const [searchText, setSearchText] = useState("");
   
   // Add debounce for better performance
@@ -12,7 +12,13 @@ export default function SearchBar({ onSearch, placeholder = "Search..." }) {
     }, 300);
     
     return () => clearTimeout(timer);
-  }, [searchText, onSearch]);
+  }, [searchText]);
+
+  // Update local state when initialValue changes
+  useEffect(() => {
+    setSearchText(initialValue);
+  }, [initialValue]);
+
   
   return (
     <div className="relative mb-4">

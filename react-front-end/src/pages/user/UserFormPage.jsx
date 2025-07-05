@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Header from "../../components/Header.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../../components/SearchBar.jsx";
 import axios from "axios";
-import FormCardA from "../../components/FormCardA.jsx"; // Add this import
 import FormCardA2 from "../../components/FormCardA2.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import ShareDialogue from "../../components/ShareDialogue.jsx";
 
 export default function UserForm() {
   const location = useLocation();
@@ -16,6 +16,39 @@ export default function UserForm() {
   const [filteredForms, setFilteredForms] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [isLoadingForms, setIsLoadingForms] = useState(false);
+
+  const [pagination, setPagination] = useState({
+  current_page: 1,
+  per_page: 21,
+  total_forms: 0,
+  total_pages: 0,
+  has_next: false,
+  has_prev: false,
+  next_page: null,
+  prev_page: null,
+  start_index: 0,
+  end_index: 0
+});
+
+  // Share form functionality
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [selectedFormId, setSelectedFormId] = useState(null);
+
+  const [usersList, setUsersList] = useState([]);
+  const dropdownRef = useRef(null);
+
+  // Filter and search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [divisionFilter, setDivisionFilter] = useState("");
+  const [availableFilters, setAvailableFilters] = useState({
+    divisions: [],
+    locations: []
+  });
+  
+  
+
   // Helper function to format date
   const formatDate = (dateString) => {
     if (!dateString) return "No date";
@@ -24,23 +57,61 @@ export default function UserForm() {
   };
 
    // Function to fetch user's forms
-  const fetchUserForms = async () => {
-    try {
-      console.log("Fetching user forms...");
-      const response = await axios.get("/api/user/retrieveForms", {
-        withCredentials: true
+  const fetchUserForms = async (page = 1, search = "", status = "", division = "") => {
+  try {
+    setIsLoadingForms(true);
+    console.log(`Fetching user forms - Page: ${page}, Search: "${search}", Status: "${status}", Division: "${division}"`);
+    
+    const params = new URLSearchParams({
+      page: page.toString(),
+      per_page: "21",
+      ...(search && { search }),
+      ...(status && { status }),
+      ...(division && { division })
+    });
+
+    const response = await axios.get(`/api/user/retrieveForms?${params}`, {
+      withCredentials: true,
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
+    
+    console.log("Forms fetched:", response.data);
+
+    // Used to get the response data of each form
+    const formsArray = response.data.forms || [];
+
+    formsArray.forEach((form, index) => {
+      console.log(`Form ${index + 1}:`, {
+        id: form.id,
+        title: form.title,
+        status: form.status,
+        approval: form.approval, // Add this to see the raw approval value
+        statusType: typeof form.status,
+        statusLength: form.status?.length
       });
-      
-      console.log("Forms fetched:", response.data);
+    });
+    
+    if (response.data.forms) {
+      setForms(response.data.forms);
+      setPagination(response.data.pagination);
+    } else {
+      // Handle old response format (if backend isn't updated yet)
       setForms(response.data);
-      // setFilteredForms(response.data);
-    } catch (error) {
-      console.error("Error fetching forms:", error);
-      console.error("Error response:", error.response?.data);
-      console.error("Error status:", error.response?.status);
-      // Handle error appropriately - maybe show a toast notification
     }
-  };
+  } catch (error) {
+    console.error("Error fetching forms:", error);
+    console.error("Error response:", error.response?.data);
+    console.error("Error status:", error.response?.status);
+    
+    // Show user-friendly error message
+    setForms([]);
+    setPagination(prev => ({ ...prev, total_forms: 0, total_pages: 0 }));
+  } finally {
+    setIsLoadingForms(false);
+  }
+};
 
 // Handle downloading a form
 const handleDownload = (formId, formTitle) => {
@@ -61,7 +132,163 @@ const handleView = async (formId) => {
   navigate(`/user/new/${formId}`);
 }
 
-  // Handle deleting a form
+const handleDuplicate = async (formId) => {
+  console.log(`Duplicating form with ID: ${formId}`);
+  
+  // Show confirmation dialog
+  if (!window.confirm('Are you sure you want to duplicate this form? This will create a copy with all existing data.')) {
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+
+    const response = await axios.post(`/api/user/duplicateForm/${formId}`, {}, {
+      withCredentials: true
+    });
+
+    if (response.data.success) {
+      console.log('Form duplicated successfully:', response.data);
+      
+      // Show success message
+      alert(`Form duplicated successfully! New form: "${response.data.new_form_title}"`);
+      
+      // Refresh the forms list to show the new duplicated form
+      await fetchUserForms();
+      
+      // Optionally navigate to the new form for editing
+      // navigate(`/user/new/${response.data.new_form_id}`);
+      
+    } else {
+      console.error('Failed to duplicate form:', response.data.error);
+      alert('Failed to duplicate form: ' + response.data.error);
+    }
+  } catch (error) {
+    console.error('Error duplicating form:', error);
+  } finally {
+    setIsLoading(false);
+  }
+
+
+}
+
+const handleStatusFilter = (status) => {
+  setStatusFilter(status);
+  fetchUserForms(1, searchQuery, status, divisionFilter);
+};
+
+const handleDivisionFilter = (division) => {
+  setDivisionFilter(division);
+  fetchUserForms(1, searchQuery, statusFilter, division);
+};
+
+const handlePageChange = (newPage) => {
+  if (newPage >= 1 && newPage <= pagination.total_pages) {
+    fetchUserForms(newPage, searchQuery, statusFilter, divisionFilter);
+  }
+};
+
+const handleRefresh = () => {
+  fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
+};
+
+const clearFilters = () => {
+  setSearchQuery("");
+  setStatusFilter("");
+  setDivisionFilter("");
+  fetchUserForms(1, "", "", "");
+};
+
+const handleShare = (formId) => {
+  console.log("=== handleShare called ===");
+  console.log("Received formId:", formId);
+  console.log("Setting selectedFormId to:", formId);
+  
+  setSelectedFormId(formId);
+  setIsShareDialogOpen(true);
+  
+  console.log("Dialog should now be open");
+  console.log("selectedFormId state:", selectedFormId); // Note: This might still show old value due to async state
+};
+
+const handleShareSubmit = async (formId, sharedUsers) => {
+
+  if (!formId || formId === null) {
+    console.error('No form ID provided for sharing');
+    alert('Error: No form selected for sharing');
+    return;
+  }
+  
+  console.log(`Sharing form with ID: ${formId} to ${sharedUsers.length} user(s)`);
+  
+  if (!window.confirm(`Are you sure you want to share this form with ${sharedUsers.length} user(s)? This will create a copy for each selected user.`)) {
+    return;
+  }
+  
+  try {
+    setIsLoadingForms(true);
+
+     const sharePromises = sharedUsers.map(async (user) => {
+      try {
+        const response = await axios.post(`/api/user/shareForm/${formId}`, {
+          target_user_id: user.id,
+          share_type: 'copy',
+          permissions: 'view'
+        }, {
+          withCredentials: true
+        });
+        
+        return {
+          success: response.data.success,
+          user: user.name,
+          response: response.data
+        };
+      } catch (error) {
+        console.error(`Error sharing form with ${user.name}:`, error);
+        return {
+          success: false,
+          user: user.name,
+          error: error.response?.data?.error || error.message
+        };
+      }
+    });
+    
+    const results = await Promise.all(sharePromises);
+
+    const successResults = results.filter(r => r.success);
+    const failedResults = results.filter(r => !r.success);
+    
+    if (successResults.length > 0) {
+      console.log('Forms shared successfully:', successResults);
+      alert(`Form shared successfully with ${successResults.length} user(s)!`);
+    }
+    
+    if (failedResults.length > 0) {
+      const failedUsers = failedResults.map(r => r.user);
+      console.error('Failed to share form with:', failedUsers);
+      alert('Failed to share form with: ' + failedUsers.join(', '));
+    }
+
+       // Close dialog and refresh forms list
+    setIsShareDialogOpen(false);
+    setSelectedFormId(null);
+    await fetchUserForms();
+    
+  } catch (error) {
+    console.error('Error in share process:', error);
+    alert('Error sharing form. Please try again.');
+  } finally {
+    setIsLoadingForms(false);
+  }
+
+};
+
+const handleSearch = (query) => {
+  setSearchQuery(query);
+  fetchUserForms(1, query, statusFilter, divisionFilter); // Reset to page 1 when searching
+};
+
+// Handle deleting a form
 const handleDelete = async (formId) => {
   console.log(`Deleting form with ID: ${formId}`);
   
@@ -90,6 +317,23 @@ const handleDelete = async (formId) => {
     alert('Error deleting form. Please try again.');
   }
 };
+
+  // Fetch users for the dropdown search
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/user/users');
+        if (response.ok) {
+          const data = await response.json();
+          setUsersList(data);
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   // Check session when component mounts
   useEffect(() => {
@@ -161,8 +405,12 @@ const handleDelete = async (formId) => {
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
           All Forms
         </h3>
-        <SearchBar />
-        <div className="mt-6">
+          <SearchBar 
+            onSearch={handleSearch} 
+            placeholder="Search forms, users, references..." 
+            initialValue={searchQuery}
+          />        
+          <div className="mt-6">
           {/* Set forms.length === 1 temporarily so that i can see the UI --> RESET Back to 0 After */}
           {forms.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-sm text-center">
@@ -183,7 +431,9 @@ const handleDelete = async (formId) => {
                   title={form.title || "Untitled Form"}
                   owner={form.owner || "Unknown User"}
                   tags={form.tags || [form.status] || ["Unknown"]}
+                  status={form.status}
                   // tags={createTags(form)}
+                  onDuplicate={() => handleDuplicate(form.id)}
                   onView={() => handleView(form.id)}
                   onShare={() => handleShare(form.id)}
                   onDownload={() => handleDownload(form.id, form.title)}
@@ -194,6 +444,18 @@ const handleDelete = async (formId) => {
           )}
         </div>
       </div>
+            {isShareDialogOpen && (
+              <ShareDialogue
+                isOpen={isShareDialogOpen}
+                onClose={() => {
+                  setIsShareDialogOpen(false);
+                  setSelectedFormId(null);
+                }}
+                formId={selectedFormId}
+                currentUser={userData}
+                onShare={handleShareSubmit}
+              />
+            )}
     </div>
   );
 }

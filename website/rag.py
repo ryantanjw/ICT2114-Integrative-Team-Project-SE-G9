@@ -10,13 +10,15 @@ openai.api_key = os.getenv("OPEN_AI_API_KEY")
 # dynamic path but make sure its all in same folder
 base_dir = os.path.dirname(os.path.abspath(__file__))
 kb_path = os.path.join(base_dir, "kb.txt")
+kb_hazard_path = os.path.join(base_dir, "kbhazard.txt")
 embedding_cache_path = os.path.join(base_dir, "kb_embeddings.npy")
+embedding_hazard_cache_path = os.path.join(base_dir, "kbhazard_embeddings.npy")
 
 # load existing data from file
 def load_knowledge_base_from_file(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
-        return [phrase.strip() for phrase in content.split(",") if phrase.strip()]
+        return [phrase.strip() for phrase in content.split(f"%%") if phrase.strip()]
 
 # this is to save the embeddings to a file so the next time you run the code, it will not have to generate the embeddings again UNLESS the kb.txt file is changed
 def save_embeddings(filepath, embeddings):
@@ -181,3 +183,67 @@ def ai_function(activity):
         result = parse_multiple_risk_assessments(response)
 
     return result
+
+# def get_hazard_match(activity):
+#     # Load KB
+#     knowledge_base = load_knowledge_base_from_file(kb_hazard_path)
+
+#     # Precompute or load cached embeddings
+#     if os.path.exists(embedding_hazard_cache_path):
+#         print("Loading cached embeddings...")
+#         kb_embeddings = load_embeddings(embedding_hazard_cache_path)
+#     else:
+#         print("Generating and caching embeddings using batch processing...")
+#         kb_embeddings = get_embeddings_batched(knowledge_base)
+#         save_embeddings(embedding_hazard_cache_path, kb_embeddings)
+
+#     # Retrieve most relevant
+#     top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
+#     context_text, similarity = top_matches[0]
+
+#     if similarity <= 0.35:
+#         return True
+#     else:
+#         return False
+
+def reembed_kb():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_cache_path, kb_embeddings)
+
+    return True
+
+def reembed_kbhazard():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_hazard_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_hazard_cache_path, kb_embeddings)
+
+    return True
+
+
+def load_hazard_kb_and_embeddings():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_hazard_path)
+
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_hazard_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_hazard_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_hazard_cache_path, kb_embeddings)
+
+    return knowledge_base, kb_embeddings
+
+def get_hazard_match(activity, knowledge_base, kb_embeddings):
+    top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
+    context_text, similarity = top_matches[0]
+    return similarity <= 0.35
+
