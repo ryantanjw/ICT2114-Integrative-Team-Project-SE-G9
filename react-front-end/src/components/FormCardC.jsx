@@ -22,15 +22,11 @@ export default function FormCardC({
   isExpanded,
   onExpand,
 }) {
-  const [showHazard, setShowHazard] = useState(false);
-  const [showRisk, setShowRisk] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
-    if (!isExpanded) {
-      setShowHazard(false);
-      setShowRisk(false);
-    }
-  }, [isExpanded]);
+      if (!isExpanded) setShowAll(false);
+    }, [isExpanded]);
 
   return (
     <div
@@ -57,87 +53,58 @@ export default function FormCardC({
         <p className="text-sm text-gray-500 mb-2">{owner}</p>
       </div>
 
-      {/* New Hazard Section */}
+      {/* Unified Hazard & Risk Section */}
       <div className="mt-4 border-t pt-4">
         <div
-          className="flex justify-between items-center"
+          className="flex justify-between items-center cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
-            setShowHazard(!showHazard);
+            setShowAll(!showAll);
           }}
         >
-          <span className="font-semibold">New Hazard</span>
-          {showHazard ? <MdExpandLess /> : <MdExpandMore />}
+          <span className="font-semibold">
+            New Hazard, Injury & Risk Controls
+          </span>
+          {showAll ? <MdExpandLess /> : <MdExpandMore />}
         </div>
 
-        {showHazard && (
-          <div className="mt-3">
-            <p className="font-bold text-orange-600">Activity: {activity}</p>
-            <p className="text-sm text-gray-700 mb-1">Hazard: {hazard}</p>
-            <p className="text-sm text-gray-700 mb-2">Type: {hazardType}</p>
-            <div className="flex justify-end">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApproveHazard();
-                }}
-                className="bg-green-600 hover:bg-green-600 text-white text-sm px-4 py-1 rounded-full mt-2"
-              >
-                Approve
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRejectHazard();
-                }}
-                className="bg-red-600 hover:bg-red-600 text-white text-sm px-4 py-1 rounded-full ml-2 mt-2"
-              >
-                Reject
-              </button>
+        {showAll && (
+          <div className="mt-4 space-y-6">
+            {/* Hazard Section */}
+            <div>
+              <p className="font-bold text-orange-600">Activity Name</p>
+              <p className="text-sm text-gray-700 mb-2">Hazard Name</p>
             </div>
-          </div>
-        )}
-      </div>
+            <hr className="my-4 border-gray-300" />
 
-      {/* New Injury & Risk Controls Section */}
-      <div className="mt-4 border-t pt-4">
-        <div
-          className="flex justify-between items-center"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowRisk(!showRisk);
-          }}
-        >
-          <span className="font-semibold">New Injury & Risk Controls</span>
-          {showRisk ? <MdExpandLess /> : <MdExpandMore />}
-        </div>
 
-        {showRisk && (
-          <div className="mt-3">
-            <p className="font-bold text-orange-600">Injury: {injury}</p>
-            <p className="text-sm text-gray-700 mb-2">Existing Risk Controls: {existingRiskControl}</p>
-            <p className="text-sm text-gray-700 mb-2">Additional Risk Controls: {additionalRiskControl}</p>
-            <p className="text-sm text-gray-700 mb-2">Remarks: {remarks}</p>
-            {/* <div className="flex justify-end">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApproveRisk();
-                }}
-                className="bg-green-600 hover:bg-green-600 text-white text-sm px-4 py-1 rounded-full mt-2"
-              >
-                Approve
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApproveRisk();
-                }}
-                className="bg-red-600 hover:bg-red-600 text-white text-sm px-4 py-1 rounded-full ml-2 mt-2"
-              >
-                Reject
-              </button>
-            </div> */}
+            {/* Injury & Risk Section */}
+            <div>
+              <p className="font-bold text-orange-600">Injury Name</p>
+              <p className="text-sm text-gray-700 mb-2">
+                Risk Control for Injury
+              </p>
+              <div className="flex justify-end">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onApproveRisk();
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-1 rounded-full"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onApproveRisk();
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1 rounded-full ml-2"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
