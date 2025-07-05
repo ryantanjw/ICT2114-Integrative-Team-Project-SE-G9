@@ -18,6 +18,7 @@ export default function AdminDB() {
   const [currentTab, setCurrentTab] = useState(0);
   const [expandedCardIndex, setExpandedCardIndex] = useState(null);
   const [hazards, setHazards] = useState([]);
+  const [isLoadingDBPage, setIsLoadingDBPage] = useState(true);
   
   // Check session when component mounts
   useEffect(() => {
@@ -66,10 +67,43 @@ export default function AdminDB() {
       }
     };
 
-  
-    checkSession();
-    fetchHazards();
+    const init = async () => {
+    setIsLoadingDBPage(true); // Start fullscreen loading
+    await checkSession();
+    await fetchHazards();
+    setIsLoadingDBPage(false); // Stop fullscreen loading
+  };
+
+  init();
   }, [navigate]);
+
+  if (isLoadingDBPage) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="bg-white p-6 rounded-lg shadow-lg text-center">
+          <div className="flex items-center justify-center mb-4">
+            <svg className="animate-spin h-6 w-6 text-blue-600 mr-2" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+            <span className="text-lg font-medium text-gray-700">Fetching data…</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading indicator while checking session
   if (isLoading) {
