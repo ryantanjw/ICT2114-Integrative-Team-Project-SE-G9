@@ -11,15 +11,20 @@ export default function FormCardC({
   isExpanded,
   onExpand,
 }) {
-  const [showAll, setShowAll] = useState(false);
+  const [showHazard, setShowHazard] = useState(false);
+  const [showRisk, setShowRisk] = useState(false);
 
+  // Collapse both sections when card is not expanded
   useEffect(() => {
-    if (!isExpanded) setShowAll(false);
+    if (!isExpanded) {
+      setShowHazard(false);
+      setShowRisk(false);
+    }
   }, [isExpanded]);
 
   return (
     <div
-      className="bg-white rounded-xl shadow p-5 flex flex-col justify-between"
+      className="bg-white rounded-xl shadow p-5 flex flex-col justify-between cursor-pointer"
       onClick={onExpand}
     >
       {/* Status and Date */}
@@ -42,57 +47,83 @@ export default function FormCardC({
         <p className="text-sm text-gray-500 mb-2">{owner}</p>
       </div>
 
-      {/* Unified Hazard & Risk Section */}
+      {/* New Hazard Section */}
       <div className="mt-4 border-t pt-4">
         <div
-          className="flex justify-between items-center cursor-pointer"
+          className="flex justify-between items-center"
           onClick={(e) => {
             e.stopPropagation();
-            setShowAll(!showAll);
+            setShowHazard(!showHazard);
           }}
         >
-          <span className="font-semibold">
-            New Hazard, Injury & Risk Controls
-          </span>
-          {showAll ? <MdExpandLess /> : <MdExpandMore />}
+          <span className="font-semibold">New Hazard</span>
+          {showHazard ? <MdExpandLess /> : <MdExpandMore />}
         </div>
 
-        {showAll && (
-          <div className="mt-4 space-y-6">
-            {/* Hazard Section */}
-            <div>
-              <p className="font-bold text-orange-600">Activity Name</p>
-              <p className="text-sm text-gray-700 mb-2">Hazard Name</p>
+        {showHazard && (
+          <div className="mt-3">
+            <p className="font-bold text-orange-600">Activity Name</p>
+            <p className="text-sm text-gray-700 mb-2">Hazard Name</p>
+            <div className="flex justify-end">
+                <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onApproveHazard();
+                }}
+                className="bg-green-600 hover:bg-green-600 text-white text-sm px-4 py-1 rounded-full mt-2"
+                >
+                Approve
+                </button>
+                <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onApproveHazard();
+                }}
+                className="bg-red-600 hover:bg-red-600 text-white text-sm px-4 py-1 rounded-full ml-2 mt-2"
+                >
+                Reject
+                </button>
             </div>
-            <hr className="my-4 border-gray-300" />
+          </div>
+        )}
+      </div>
 
+      {/* New Injury & Risk Controls Section */}
+      <div className="mt-4 border-t pt-4">
+        <div
+          className="flex justify-between items-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowRisk(!showRisk);
+          }}
+        >
+          <span className="font-semibold">New Injury & Risk Controls</span>
+          {showRisk ? <MdExpandLess /> : <MdExpandMore />}
+        </div>
 
-            {/* Injury & Risk Section */}
-            <div>
-              <p className="font-bold text-orange-600">Injury Name</p>
-              <p className="text-sm text-gray-700 mb-2">
-                Risk Control for Injury
-              </p>
-              <div className="flex justify-end">
+        {showRisk && (
+          <div className="mt-3">
+            <p className="font-bold text-orange-600">Injury Name</p>
+            <p className="text-sm text-gray-700 mb-2">Risk Control for Injury</p>
+            <div className="flex justify-end">
                 <button
-                  onClick={(e) => {
+                onClick={(e) => {
                     e.stopPropagation();
-                    onApproveRisk();
-                  }}
-                  className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-1 rounded-full"
+                    onApproveHazard();
+                }}
+                className="bg-green-600 hover:bg-green-600 text-white text-sm px-4 py-1 rounded-full mt-2"
                 >
-                  Approve
+                Approve
                 </button>
                 <button
-                  onClick={(e) => {
+                onClick={(e) => {
                     e.stopPropagation();
-                    onApproveRisk();
-                  }}
-                  className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1 rounded-full ml-2"
+                    onApproveHazard();
+                }}
+                className="bg-red-600 hover:bg-red-600 text-white text-sm px-4 py-1 rounded-full ml-2 mt-2"
                 >
-                  Reject
+                Reject
                 </button>
-              </div>
             </div>
           </div>
         )}
