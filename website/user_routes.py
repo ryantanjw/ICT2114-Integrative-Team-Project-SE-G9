@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request, session
+from math import ceil
+from flask import Blueprint, jsonify, request, session, make_response
 from sqlalchemy import text
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
@@ -29,17 +30,39 @@ def retrieve_forms():
         
         print(f"Form model: {Form}")
 
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 21, type=int)  # Default 21 per page
+        
+        search = request.args.get('search', '', type=str)
+        status_filter = request.args.get('status', '', type=str)
+        division_filter = request.args.get('division', '', type=str)
+
         user = User.query.filter_by(user_id=session_user_id).first()
         username = user.user_name if user else "Unknown User"
 
         print(f"username:", username)
 
-        forms = Form.query.filter_by(form_user_id=session_user_id).all()
+        query = Form.query.filter_by(form_user_id=session_user_id)
 
-        print(f"Forms:", forms)
+        # Apply filters if provided
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    Form.title.ilike(search_term),
+                    Form.form_reference_number.ilike(search_term),
+                    Form.location.ilike(search_term),
+                    Form.process.ilike(search_term)
+                )
+            )
 
-        forms_list = []
-        for form in forms:
+        if division_filter:
+            query = query.filter(Form.division == division_filter)
+
+        all_forms = query.all()
+
+        filtered_forms = []
+        for form in all_forms:
 
             def format_date(date_obj):
                 return date_obj.isoformat() if date_obj else None
@@ -55,6 +78,29 @@ def retrieve_forms():
                 from datetime import datetime
                 if form.next_review_date < datetime.now():
                     status = "Review Due"
+
+            if status_filter and status.lower() != status_filter.lower():
+                continue
+                
+            filtered_forms.append((form, status))
+
+        total_forms = len(filtered_forms)
+        total_pages = ceil(total_forms / per_page)
+        
+        # Calculate pagination bounds
+        start_index = (page - 1) * per_page
+        end_index = start_index + per_page
+        paginated_forms = filtered_forms[start_index:end_index]
+
+        print(f"Total forms after filtering: {total_forms}, Current page forms: {len(paginated_forms)}")
+
+        forms_list = []
+        for form, status in paginated_forms:
+
+            approved_by_username = None
+            if form.approved_by:
+                approved_by_user = User.query.filter_by(user_id=form.approved_by).first()
+                approved_by_username = approved_by_user.user_name if approved_by_user else f"User ID: {form.approved_by}"
 
 
             forms_list.append({
@@ -76,7 +122,41 @@ def retrieve_forms():
                 'owner': username  # Add username to the response
             })
 
-        return jsonify(forms_list)
+        has_next = page < total_pages
+        has_prev = page > 1
+
+        response_data = {
+            'forms': forms_list,
+            'pagination': {
+                'current_page': page,
+                'per_page': per_page,
+                'total_forms': total_forms,
+                'total_pages': total_pages,
+                'has_next': has_next,
+                'has_prev': has_prev,
+                'next_page': page + 1 if has_next else None,
+                'prev_page': page - 1 if has_prev else None,
+                'start_index': start_index + 1 if total_forms > 0 else 0,
+                'end_index': min(end_index, total_forms)
+            },
+            'filters': {
+                'search': search,
+                'status': status_filter,
+                'division': division_filter
+            }
+        }
+
+        print(f"Returning page {page} with {len(forms_list)} forms")
+        
+        # Create response with no-cache headers
+        response = make_response(jsonify(response_data))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+
+        return response
+        #return jsonify(forms_list)
+    
      
     except Exception as e:
         print(f"Error retrieving forms: {e}")

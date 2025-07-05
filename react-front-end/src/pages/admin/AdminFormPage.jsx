@@ -69,26 +69,11 @@ export default function AdminForm() {
       });
       
       console.log("Forms fetched:", response.data);
-
-    // Used to get the response data of each form
-    //   const formsArray = response.data.forms || [];
-
-    //   formsArray.forEach((form, index) => {
-    //   console.log(`Form ${index + 1}:`, {
-    //     id: form.id,
-    //     title: form.title,
-    //     status: form.status,
-    //     approval: form.approval, // Add this to see the raw approval value
-    //     statusType: typeof form.status,
-    //     statusLength: form.status?.length
-    //   });
-    // });
       
       if (response.data.forms) {
         setForms(response.data.forms);
         setPagination(response.data.pagination);
       } else {
-        // Handle old response format (if backend isn't updated yet)
         setForms(response.data);
       }
     } catch (error) {
@@ -105,22 +90,22 @@ export default function AdminForm() {
   };
 
     // Function to fetch filter options
-  const fetchFilterOptions = async () => {
-    try {
-      const response = await axios.get("/api/admin/formsStats", {
-        withCredentials: true
-      });
+  // const fetchFilterOptions = async () => {
+  //   try {
+  //     const response = await axios.get("/api/admin/formsStats", {
+  //       withCredentials: true
+  //     });
       
-      if (response.data.available_divisions || response.data.available_locations) {
-        setAvailableFilters({
-          divisions: response.data.available_divisions || [],
-          locations: response.data.available_locations || []
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching filter options:", error);
-    }
-  };
+  //     if (response.data.available_divisions || response.data.available_locations) {
+  //       setAvailableFilters({
+  //         divisions: response.data.available_divisions || [],
+  //         locations: response.data.available_locations || []
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching filter options:", error);
+  //   }
+  // };
 
   // Handle search
   const handleSearch = (query) => {
@@ -253,7 +238,7 @@ const handleDelete = async (formId) => {
         // Fetch initial data
         await Promise.all([
           fetchUserForms(1),
-          fetchFilterOptions()
+          // fetchFilterOptions()
         ]);
 
         setIsLoading(false);
@@ -312,7 +297,7 @@ const handleDelete = async (formId) => {
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
           <SearchBar 
-            // onSearch={handleSearch} 
+            onSearch={handleSearch} 
             placeholder="Search forms, users, references..." 
             initialValue={searchQuery}
           />
