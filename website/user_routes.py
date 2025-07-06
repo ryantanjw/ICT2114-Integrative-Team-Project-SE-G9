@@ -1,16 +1,21 @@
 from math import ceil
-from flask import Blueprint, jsonify, request, session, make_response
+from flask import Blueprint, jsonify, request, session, make_response, send_file, current_app   
 from sqlalchemy import text
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 from models import RA_team, RA_team_member, User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData
-from . import db
+from models import db
 import random
 import string
 from flask_cors import CORS, cross_origin
 from datetime import datetime
 import json
 from .rag import *
+import os
+from services import RiskAssessmentService, RiskAssessmentData, RiskAssessmentRowData, DocxTemplateGenerator
+# from services.document_generator import DocxTemplateGenerator
+
 
 # Create a new blueprint for user routes
 user = Blueprint('user', __name__,static_folder='static')
@@ -202,6 +207,8 @@ def delete_process(process_id):
         db.session.rollback()
         print(f"Error deleting process {process_id}: {str(e)}")
         return jsonify({'error': 'Failed to delete process'}), 500
+    
+
 
 @user.route('/shareForm/<int:formId>', methods=['POST'])
 def share_form(formId):
@@ -1721,3 +1728,186 @@ def reset_password():
         print(f"Error resetting password: {str(e)}")
         db.session.rollback()
         return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500
+    
+# http://localhost:5173/api/risk-assessments/141/export/word
+
+@user.route('/risk-assessments/<form_id>/export/word', methods=['GET'])
+def export_risk_assessment_word(form_id):
+    """Export risk assessment as Word document"""
+    print(f"Entered user download route for form_id: {form_id}")
+    
+    try:
+        # Check if risk_service is available
+        if not hasattr(current_app, 'risk_service'):
+            print("Error: risk_service not found in current_app")
+            return jsonify({
+                'success': False,
+                'error': 'Risk assessment service not available'
+            }), 500
+            
+        risk_service = current_app.risk_service
+        print(f"Risk service found: {risk_service}")
+        
+        # Create a temporary filename
+        filename = f"risk_assessment_{form_id}.docx"
+        filepath = os.path.join(os.getcwd(), filename)
+        print(f"Generating document at: {filepath}")
+        
+        path = RiskAssessmentService.generate_document_template("my_document", "basic")
+        print(f"path created")
+
+        # Test Generation
+        risk_service.generate_word_document_template(filepath)
+        print(f"Generated empty document")
+
+        return jsonify({
+            'success': True,
+            'message': 'Template generated successfully',
+            'filepath': filepath
+        }), 200
+        
+        # Generate the document
+    #     risk_service.generate_word_document(form_id, filepath)
+    #     print(f"Document generated successfully")
+        
+    #     # Check if file was created
+    #     if not os.path.exists(filepath):
+    #         print(f"Error: Generated file not found at {filepath}")
+    #         return jsonify({
+    #             'success': False,
+    #             'error': 'Failed to generate document'
+    #         }), 500
+        
+    #     # Verify file size (basic check for corruption)
+    #     file_size = os.path.getsize(filepath)
+    #     print(f"Generated file size: {file_size} bytes")
+        
+    #     if file_size == 0:
+    #         print("Error: Generated file is empty")
+    #         return jsonify({
+    #             'success': False,
+    #             'error': 'Generated document is empty'
+    #         }), 500
+        
+    #     try:
+    #         # Send file and clean up after
+    #         response = send_file(
+    #             filepath,
+    #             as_attachment=True,
+    #             download_name=filename,
+    #             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    #         )
+            
+    #         # Clean up the temporary file after sending
+    #         @response.call_on_close
+    #         def remove_file():
+    #             try:
+    #                 if os.path.exists(filepath):
+    #                     os.remove(filepath)
+    #                     print(f"Cleaned up temporary file: {filepath}")
+    #             except Exception as e:
+    #                 print(f"Warning: Could not remove temporary file: {e}")
+            
+    #         return response
+            
+    #     except Exception as e:
+    #         # Clean up file if send_file fails
+    #         if os.path.exists(filepath):
+    #             os.remove(filepath)
+    #         raise e
+        
+    except ValueError as e:
+        print(f"ValueError in export_risk_assessment_word: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Invalid form ID or form not found: {str(e)}'
+        }), 404
+    except Exception as e:
+        print(f"Unexpected error in export_risk_assessment_word: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred while generating the document: {str(e)}'
+        }), 500
+    
+@user.route('/test-generate-document/<assessment_id>')
+def test_generate_document(assessment_id):
+    generator = DocxTemplateGenerator()
+
+    generator2 = DocxTemplateGenerator("Risk_Assessment_Form_Template.docx")
+    output_path2 = generator2.generate_with_python_docx(assessment_id)
+    print(f"generated using generator2")
+
+    # output_path = generator.generate_with_python_docx(assessment_id)
+    
+    if output_path2:
+        return send_file(output_path2, as_attachment=True)
+    else:
+        return jsonify({"error": "Document generation failed"}), 500
+    
+@user.route('/api/risk-assessments/sample', methods=['POST'])
+def create_sample_risk_assessment():
+    """Create a sample risk assessment for testing"""
+
+    risk_service = current_app.risk_service
+
+    try:
+        # Create sample data
+        header_data = RiskAssessmentData(
+            reference_number=f"RA-2025-{len(risk_service.get_all_assessments()) + 1:03d}",
+            title="Sample Manufacturing Process Risk Assessment",
+            division="Production",
+            location="Main Factory Floor",
+            ra_leader="John Smith",
+            ra_team="Safety Team A",
+            approved_by="Jane Doe",
+            signature="J. Doe",
+            designation="Safety Manager",
+            last_review_date="2024-12-01",
+            next_review_date="2025-12-01",
+            date="2025-01-15"
+        )
+        
+        rows_data = [
+            RiskAssessmentRowData(
+                ref="1.1", activity="Machine Operation", hazard="Moving Parts",
+                possible_injury="Cuts, crushing injuries", existing_controls="Machine guards, training",
+                severity_initial=4, likelihood_initial=3, rpn_initial=12,
+                additional_controls="Additional emergency stops, improved signage",
+                severity_final=4, likelihood_final=2, rpn_final=8,
+                implementation_person="Maintenance Team", due_date="2025-02-15",
+                remarks="Review after implementation", process_name="Process 1 - Manufacturing"
+            ),
+            RiskAssessmentRowData(
+                ref="1.2", activity="Material Handling", hazard="Heavy Lifting",
+                possible_injury="Back strain, muscle injury", existing_controls="Lifting equipment, training",
+                severity_initial=3, likelihood_initial=4, rpn_initial=12,
+                additional_controls="Mechanical lifting aids, job rotation",
+                severity_final=3, likelihood_final=2, rpn_final=6,
+                implementation_person="Operations Team", due_date="2025-03-01",
+                remarks="Monitor effectiveness", process_name="Process 1 - Manufacturing"
+            ),
+            RiskAssessmentRowData(
+                ref="2.1", activity="Chemical Storage", hazard="Chemical Spills",
+                possible_injury="Chemical burns, respiratory issues", existing_controls="Containment systems, PPE",
+                severity_initial=4, likelihood_initial=2, rpn_initial=8,
+                additional_controls="Improved ventilation, spill response training",
+                severity_final=4, likelihood_final=1, rpn_final=4,
+                implementation_person="Safety Officer", due_date="2025-02-28",
+                remarks="Quarterly review required", process_name="Process 2 - Chemical Handling"
+            )
+        ]
+        
+        # Create assessment
+        assessment_id = risk_service.create_assessment(header_data, rows_data)
+        
+        return jsonify({
+            'success': True,
+            'assessment_id': assessment_id,
+            'message': 'Sample risk assessment created successfully'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400

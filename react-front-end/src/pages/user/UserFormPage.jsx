@@ -114,17 +114,62 @@ export default function UserForm() {
 };
 
 // Handle downloading a form
-const handleDownload = (formId, formTitle) => {
+const handleDownload = async (formId, formTitle) => {
   console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
-  // Add your download logic here
-  // For example, generate PDF or export data
+
   try {
-    // Example: Navigate to download endpoint
-    window.open(`/api/user/downloadForm/${formId}`, '_blank');
+
+    // Make API call to get the file using test endpoint
+    const response = await fetch(`/api/user/test-generate-document/${formId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      },
+       withCredentials: true
+    });
+
+    // Make API call to get the file
+    // const response = await fetch(`/api/user/risk-assessments/${formId}/export/word`, {
+    //   method: 'GET',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   withCredentials: true
+    // });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Get the blob from the response
+    const blob = await response.blob();
+    
+    // Create a download link
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Set the filename - you can customize this based on your needs
+    link.download = `${formTitle}_Risk_Assessment.docx`;
+    
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    console.log('Form downloaded successfully');
+    
   } catch (error) {
     console.error('Error downloading form:', error);
+    
+    // Optional: Show user-friendly error message
+    alert('Failed to download the form. Please try again.');
   }
 };
+
 
 const handleView = async (formId) => {
   console.log(`Redirecting user to form with ID: ${formId}`);

@@ -1,11 +1,10 @@
 from flask import Flask, request, session
-from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
-from flask_cors import CORS
 from datetime import timedelta
+from services import RiskAssessmentService, RiskAssessmentData, RiskAssessmentRowData
 
-db = SQLAlchemy()
 
 def create_app():
     app = Flask(__name__)
@@ -20,7 +19,7 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
     
     # Cross-domain session settings - CRITICAL for your issue
-    app.config['SESSION_COOKIE_SECURE'] = False  # Set to≈ True in production with HTTPS
+    app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = None  
     
@@ -28,7 +27,15 @@ def create_app():
     
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI') or 'sqlite:///database.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
+
+    # Import db from models after app configuration
+    from models import db
+
+    db.init_app(app)
+
+    risk_service = RiskAssessmentService(database_url=os.getenv('DATABASE_URI'))
+    app.risk_service = risk_service  # Attach to app so it can be accessed via current_app
+
     # Configure CORS properly for cross-domain cookies
     CORS(app, 
         supports_credentials=True,
@@ -38,8 +45,7 @@ def create_app():
             "allow_headers": ["Content-Type", "Authorization"],
         }})
     
-    db.init_app(app)
-    
+    # Import and register blueprints
     from .views import views
     from .auth import auth
     from .admin_routes import admin
@@ -49,5 +55,9 @@ def create_app():
     app.register_blueprint(auth, url_prefix='/')
     app.register_blueprint(admin, url_prefix='/admin')  
     app.register_blueprint(user, url_prefix='/user')
+
+    # print("Registered routes:")
+    # for rule in app.url_map.iter_rules():
+    #     print(f"{rule.methods} {rule.rule}")
     
     return app

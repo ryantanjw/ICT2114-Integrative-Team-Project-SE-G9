@@ -2,7 +2,7 @@
 from flask import Blueprint, jsonify, request, session, make_response
 from werkzeug.security import generate_password_hash
 from models import User, Form, Activity, Process, Hazard, Risk, HazardType
-from . import db
+from models import db
 import random
 import string
 from flask_cors import CORS, cross_origin
