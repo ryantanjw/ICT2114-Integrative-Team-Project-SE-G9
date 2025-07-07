@@ -33,8 +33,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     formIdRef.current = id; // This is immediately available
   };
 
-  // Function to properly initialize hazards data structure
+  // Fixed initializeHazards function - replace your existing one
   const initializeHazards = (hazards) => {
+    console.log('Initializing hazards with data:', hazards);
+    
     if (!hazards || hazards.length === 0) {
       return [{
         id: uuidv4(),
@@ -54,25 +56,36 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
 
     // Make sure all required fields exist while preserving existing data
-    return hazards.map(hazard => ({
-      id: hazard.id || hazard.hazard_id || uuidv4(),
-      hazard_id: hazard.hazard_id || hazard.id,
-      description: hazard.description || "",
-      // Fix: Ensure type and injuries are properly preserved
-      type: Array.isArray(hazard.type) ? [...hazard.type] :
-        (hazard.type ? [hazard.type] : []),
-      injuries: Array.isArray(hazard.injuries) ? [...hazard.injuries] :
-        (hazard.injury ? [hazard.injury] : []),
-      existingControls: hazard.existingControls || "",
-      additionalControls: hazard.additionalControls || "",
-      severity: hazard.severity || 1,
-      likelihood: hazard.likelihood || 1,
-      rpn: hazard.rpn || 1,
-      newInjury: "",
-      newType: "",
-      showTypeInput: false,
-      showInjuryInput: false,
-    }));
+    return hazards.map(hazard => {
+      console.log('Processing hazard:', hazard);
+      
+      return {
+        id: hazard.id || hazard.hazard_id || uuidv4(),
+        hazard_id: hazard.hazard_id || hazard.id,
+        description: hazard.description || "",
+        
+        // Fix: Handle type field properly - it might be missing from API
+        type: Array.isArray(hazard.type) ? [...hazard.type] : 
+              (hazard.type ? [hazard.type] : []),
+        
+        // Fix: Handle injuries field properly - it might be missing from API  
+        injuries: Array.isArray(hazard.injuries) ? [...hazard.injuries] :
+                  (hazard.injury ? [hazard.injury] : 
+                  hazard.injuries ? [hazard.injuries] : []),
+        
+        existingControls: hazard.existingControls || "",
+        additionalControls: hazard.additionalControls || "",
+        severity: hazard.severity || 1,
+        likelihood: hazard.likelihood || 1,
+        rpn: hazard.rpn || (hazard.severity || 1) * (hazard.likelihood || 1),
+        
+        // UI state fields
+        newInjury: "",
+        newType: "",
+        showTypeInput: false,
+        showInjuryInput: false,
+      };
+    });
   };
 
   // Debounced function to store form ID in session
@@ -158,6 +171,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Then fetch complete hazard data for this form
       const hazardResponse = await fetch(`/api/user/get_form2_data/${id}`);
 
+      console.log("RETRIEVING HAZARD RESPONSE DATA");
+      console.log("datadata:", hazardResponse);
+
       if (!hazardResponse.ok) {
         throw new Error(`Failed to fetch hazard data: ${hazardResponse.statusText}`);
       }
@@ -172,6 +188,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
       // Process and initialize the processes with proper hazard structure
       if (hazardData.processes && hazardData.processes.length > 0) {
+        console.log("calling line 191:(");
         const processesWithHazards = hazardData.processes.map(proc => ({
           ...proc,
           id: proc.id || proc.process_id,
@@ -224,47 +241,34 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Initialize data from either formData prop or directly from API
   useEffect(() => {
     const initializeFormData = () => {
-      // Add this guard clause to prevent reinitializing if data is already loaded
-      if (dataLoaded && raProcesses.length > 0) {
-        console.log('Data already loaded, skipping initialization');
-        return true;
-      }
+      console.log('=== FORM2 INITIALIZATION DEBUG ===');
+      console.log('dataLoaded:', dataLoaded);
+      console.log('raProcesses.length:', raProcesses.length);
+      console.log('Form2 received formData:', formData);
+      console.log('formData.form_id:', formData?.form_id);
+      console.log('current formId:', formId);
 
-      // If we have formData passed from parent, use that
+      // If we have formData passed from parent, check if it's complete
       if (formData && Object.keys(formData).length > 0 && formData.form_id) {
-        console.log('Initializing from formData prop:', formData);
+        console.log('Checking if formData has complete hazard data...');
 
-        setTitle(formData.title || "");
-        setDivision(formData.division || "");
-        updateFormId(formData.form_id);
+        // Check if formData already has complete hazard data
+        const hasHazardData = formData.processes?.some(proc => 
+          proc.activities?.some(act => 
+            'hazards' in act && Array.isArray(act.hazards)
+          )
+        );
 
-        // Check localStorage for cached Form2 data for this form_id
-        try {
-          const cachedData = localStorage.getItem(`form2_data_${formData.form_id}`);
-          if (cachedData) {
-            const parsedData = JSON.parse(cachedData);
+        console.log('formData has hazard data:', hasHazardData);
 
-            // Only use cache if it's less than 1 hour old
-            const cacheAge = new Date() - new Date(parsedData.lastUpdated || 0);
-            if (cacheAge < 3600000) { // 1 hour in milliseconds
-              console.log('Using cached Form2 data');
+        if (hasHazardData) {
+          // Use the complete data from formData
+          console.log("Using complete hazard data from formData");
+          
+          setTitle(formData.title || "");
+          setDivision(formData.division || "");
+          updateFormId(formData.form_id);
 
-              if (parsedData.processes && parsedData.processes.length > 0) {
-                setRaProcesses(parsedData.processes);
-                setDataLoaded(true);
-                return true;
-              }
-            } else {
-              console.log('Cached data too old, fetching fresh data');
-              localStorage.removeItem(`form2_data_${formData.form_id}`);
-            }
-          }
-        } catch (err) {
-          console.error('Error reading from cache:', err);
-        }
-
-        // If we have processes with hazards, initialize them
-        if (formData.processes && formData.processes.length > 0) {
           const processesWithHazards = formData.processes.map(proc => ({
             ...proc,
             id: proc.id || proc.process_id,
@@ -279,10 +283,20 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           }));
 
           setRaProcesses(processesWithHazards);
+          setDataLoaded(true);
+          return true;
+        } else {
+          // formData doesn't have hazard data, don't initialize from it
+          console.log("formData missing hazard data, will fetch complete data from API");
+          
+          // Just set the basic info and form ID, but don't initialize processes yet
+          setTitle(formData.title || "");
+          setDivision(formData.division || "");
+          updateFormId(formData.form_id);
+          
+          // Return false to trigger API fetch
+          return false;
         }
-
-        setDataLoaded(true);
-        return true;
       }
 
       return false;
@@ -291,12 +305,36 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // Try to initialize from props first
     const initialized = initializeFormData();
 
-    // If not initialized from props, try to get from session
-    if (!initialized && !dataLoaded && sessionData?.current_form_id) {
-      console.log('Form ID found in session:', sessionData.current_form_id);
-      fetchFormData(sessionData.current_form_id);
+    console.log("Initialization from formData result:", initialized);
+
+    // If not initialized from props, fetch complete data from API
+    if (!initialized && !dataLoaded) {
+      const formIdToFetch = formData?.form_id || sessionData?.current_form_id;
+      
+      if (formIdToFetch) {
+        console.log('Fetching complete data from API for form ID:', formIdToFetch);
+        fetchFormData(formIdToFetch);
+      } else {
+        console.log('No form ID available for fetching');
+      }
     }
   }, [formData, sessionData, dataLoaded, fetchFormData]);
+
+  useEffect(() => {
+    console.log("DEBUGGING HERE");
+    console.log("Form2 received formData:", formData);
+    
+    // Check each process and its activities/hazards in detail
+    formData.processes?.forEach((process, index) => {
+      console.log(`Process ${index}:`, process);
+      process.activities?.forEach((activity, actIndex) => {
+        console.log(`Process ${index} Activity ${actIndex}:`, activity);
+        console.log(`Activity ${actIndex} has hazards property:`, 'hazards' in activity);
+        console.log(`Activity ${actIndex} hazards:`, activity.hazards);
+        console.log(`Activity ${actIndex} keys:`, Object.keys(activity));
+      });
+    });
+  }, [formData]);
 
   // Batched update function to avoid excessive parent updates
   const scheduleBatchedUpdate = useCallback(() => {

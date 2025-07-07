@@ -136,34 +136,46 @@ def get_new_hazard():
             hazard.approval = 0
             db.session.commit()
 
-    results = []
-    for hazard in matched_hazards:
-        # Get the related activity and hazard type using relationships
-        activity = Activity.query.get(hazard.hazard_activity_id) if hazard.hazard_activity_id else None
-        hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
-        form = Form.query.get(getattr(Process.query.get(activity.activity_process_id), 'process_form_id', None))
-        user = User.query.get(form.form_user_id) if form else None
-        risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
-        results.append({
-            'hazard_id': hazard.hazard_id,
-            'hazard_activity_id': hazard.hazard_activity_id,
-            'hazard': hazard.hazard,
-            'injury': hazard.injury,
-            'hazard_type_id': hazard.hazard_type_id,
-            'remarks': hazard.remarks,
-            'approval': hazard.approval,
-            'work_activity': activity.work_activity if activity else None,
-            'hazard_type': hazard_type.hazard_type if hazard_type else None,
-            "form_title": form.title if form else None,
-            "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
-            "owner": user.user_name if user else None,
-            "existing_risk_control": risk.existing_risk_control if risk else None,
-            "additional_risk_control": risk.additional_risk_control if risk else None,
-            "severity": risk.severity if risk else None,
-            "likelihood": risk.likelihood if risk else None,
-            "RPN": risk.RPN if risk else None,
-        })
-
+        results = []
+        for hazard in matched_hazards:
+            try:
+                # Get the related activity and hazard type using relationships
+                activity = Activity.query.get(hazard.hazard_activity_id) if hazard.hazard_activity_id else None
+                hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
+                
+                # More robust form lookup
+                form = None
+                if activity and activity.activity_process_id:
+                    process = Process.query.get(activity.activity_process_id)
+                    if process and process.process_form_id:
+                        form = Form.query.get(process.process_form_id)
+                
+                user = User.query.get(form.form_user_id) if form and form.form_user_id else None
+                risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
+                
+                results.append({
+                    'hazard_id': hazard.hazard_id,
+                    'hazard_activity_id': hazard.hazard_activity_id,
+                    'hazard': hazard.hazard or "No hazard description",
+                    'injury': hazard.injury or "No injury description",
+                    'hazard_type_id': hazard.hazard_type_id,
+                    'remarks': hazard.remarks or "No remarks",
+                    'approval': hazard.approval,
+                    'work_activity': activity.work_activity if activity else "Unknown activity",
+                    'hazard_type': hazard_type.hazard_type if hazard_type else "Unknown type",
+                    "form_title": form.title if form else "Unknown form",
+                    "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
+                    "owner": user.user_name if user else "Unknown user",
+                    "existing_risk_control": risk.existing_risk_control if risk else "None specified",
+                    "additional_risk_control": risk.additional_risk_control if risk else "None specified",
+                    "severity": risk.severity if risk else 0,
+                    "likelihood": risk.likelihood if risk else 0,
+                    "RPN": risk.RPN if risk else 0,
+                })
+            except Exception as e:
+                print(f"Error processing hazard {hazard.hazard_id}: {str(e)}")
+                continue
+    
     return jsonify({'success': True, 'hazards': results})
 
     

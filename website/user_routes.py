@@ -708,7 +708,7 @@ def get_form2_data(form_id):
                 "activity_id": activity.activity_id,
                 "id": activity.activity_id,
                 "description": activity.work_activity,
-                "remarks": activity.remarks,
+                "remarks": activity.activity_remarks,
                 "hazards": []
             }
             
@@ -1785,7 +1785,7 @@ def export_risk_assessment_word(form_id):
         }), 500
 
 import traceback 
- 
+
 @user.route('/test-generate-document/<assessment_id>', methods=['POST'])
 def test_generate_document_debug(assessment_id):
     form_data = request.get_json()
@@ -1813,40 +1813,46 @@ def test_generate_document_debug(assessment_id):
         output_path = generator.generate_with_python_docx(assessment_id, form_data)
         print(f"Generator returned output_path: {output_path}")
         
+        if output_path:
+            return send_file(output_path, as_attachment=True)
+        else:
+            return jsonify({"error": "Document generation failed"}), 500
+        
+        #BELOW HERE IS COMMENTED FOR PDF CONVERSION
         # Check if output_path is None
-        if output_path is None:
-            print("ERROR: generate_with_python_docx returned None")
-            return jsonify({"error": "Document generation failed - output_path is None"}), 500
+    #     if output_path is None:
+    #         print("ERROR: generate_with_python_docx returned None")
+    #         return jsonify({"error": "Document generation failed - output_path is None"}), 500
         
-        # Check if file actually exists
-        if not os.path.exists(output_path):
-            print(f"ERROR: Generated file does not exist: {output_path}")
-            return jsonify({"error": f"Generated file does not exist: {output_path}"}), 500
+    #     # Check if file actually exists
+    #     if not os.path.exists(output_path):
+    #         print(f"ERROR: Generated file does not exist: {output_path}")
+    #         return jsonify({"error": f"Generated file does not exist: {output_path}"}), 500
         
-        print(f"DOCX file generated successfully: {output_path}")
+    #     print(f"DOCX file generated successfully: {output_path}")
         
-        # Convert to PDF
-        pdf_path = output_path.replace('.docx', '.pdf')
-        print(f"Converting to PDF: {pdf_path}")
+    #     # Convert to PDF
+    #     pdf_path = output_path.replace('.docx', '.pdf')
+    #     print(f"Converting to PDF: {pdf_path}")
         
-        convert(output_path, pdf_path)
-        print("PDF conversion completed")
+    #     convert(output_path, pdf_path)
+    #     print("PDF conversion completed")
         
-        # Verify PDF exists
-        if not os.path.exists(pdf_path):
-            print(f"ERROR: PDF file was not created: {pdf_path}")
-            return jsonify({"error": "PDF conversion failed"}), 500
+    #     # Verify PDF exists
+    #     if not os.path.exists(pdf_path):
+    #         print(f"ERROR: PDF file was not created: {pdf_path}")
+    #         return jsonify({"error": "PDF conversion failed"}), 500
         
-        print(f"PDF file created successfully: {pdf_path}")
+    #     print(f"PDF file created successfully: {pdf_path}")
         
-        # Clean up DOCX file (optional)
-        try:
-            os.remove(output_path)
-            print("DOCX file cleaned up")
-        except:
-            print("Could not clean up DOCX file")
+    #     # Clean up DOCX file (optional)
+    #     try:
+    #         os.remove(output_path)
+    #         print("DOCX file cleaned up")
+    #     except:
+    #         print("Could not clean up DOCX file")
         
-        return send_file(pdf_path, as_attachment=True)
+    #     return send_file(pdf_path, as_attachment=True)
         
     except Exception as e:
         print(f"ERROR in document generation: {e}")
@@ -1863,10 +1869,7 @@ def test_generate_document_debug(assessment_id):
 
 
     
-    # if output_path:
-    #     return send_file(output_path, as_attachment=True)
-    # else:
-    #     return jsonify({"error": "Document generation failed"}), 500
+
     
 @user.route('/getFormDataForDocument/<int:formId>', methods=['GET'])
 def get_form_data_for_document(formId):
