@@ -1079,12 +1079,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       Work Activity {idx + 1} {act.description && `- ${act.description}`}
                     </span>
                   </div>
-                  <CTAButton
-                    icon={<MdDelete />}
-                    text="Remove"
-                    onClick={() => removeActivity(proc.id, act.id)}
-                    className="text-black"
-                  />
+                  {proc.activities.length > 1 && (
+                    <CTAButton
+                      icon={<MdDelete />}
+                      text="Remove"
+                      onClick={() => removeActivity(proc.id, act.id)}
+                      className="text-black"
+                    />
+                  )}
                 </div>
                 {act.expanded && (
                   <div className="p-4 space-y-4 bg-white rounded-b">
