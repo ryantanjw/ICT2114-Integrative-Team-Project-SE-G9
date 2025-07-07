@@ -6,6 +6,7 @@ import axios from "axios";
 import FormCardA2 from "../../components/FormCardA2.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import ShareDialogue from "../../components/ShareDialogue.jsx";
+import DownloadDialogue from "../../components/DownloadDialogue.jsx";
 
 export default function UserForm() {
   const location = useLocation();
@@ -34,6 +35,8 @@ export default function UserForm() {
   // Share form functionality
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [selectedFormId, setSelectedFormId] = useState(null);
+  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
+  const [selectedDownloadFormId, setSelectedDownloadFormId] = useState(null);
 
   const [usersList, setUsersList] = useState([]);
   const dropdownRef = useRef(null);
@@ -115,15 +118,9 @@ export default function UserForm() {
 
 // Handle downloading a form
 const handleDownload = (formId, formTitle) => {
-  console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
-  // Add your download logic here
-  // For example, generate PDF or export data
-  try {
-    // Example: Navigate to download endpoint
-    window.open(`/api/user/downloadForm/${formId}`, '_blank');
-  } catch (error) {
-    console.error('Error downloading form:', error);
-  }
+  console.log(`Preparing download for form: ${formTitle} (ID: ${formId})`);
+  setSelectedDownloadFormId(formId);
+  setIsDownloadDialogOpen(true);
 };
 
 const handleView = async (formId) => {
@@ -454,6 +451,16 @@ const handleDelete = async (formId) => {
                 formId={selectedFormId}
                 currentUser={userData}
                 onShare={handleShareSubmit}
+              />
+            )}
+            {isDownloadDialogOpen && (
+              <DownloadDialogue
+                isOpen={isDownloadDialogOpen}
+                onClose={() => {
+                  setIsDownloadDialogOpen(false);
+                  setSelectedDownloadFormId(null);
+                }}
+                formId={selectedDownloadFormId}
               />
             )}
     </div>
