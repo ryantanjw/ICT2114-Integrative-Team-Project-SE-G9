@@ -14,6 +14,9 @@ import json
 from .rag import *
 import os
 from services import RiskAssessmentService, RiskAssessmentData, RiskAssessmentRowData, DocxTemplateGenerator
+from docx2pdf import convert
+import tempfile
+import pythoncom
 # from services.document_generator import DocxTemplateGenerator
 
 
@@ -711,7 +714,8 @@ def get_form2_data(form_id):
             
             # Get hazards for this activity
             hazards = Hazard.query.filter_by(hazard_activity_id=activity.activity_id).all()
-            
+            print(f"hazards found")
+
             for hazard in hazards:
                 # Get risk information for this hazard
                 risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first()
@@ -737,6 +741,7 @@ def get_form2_data(form_id):
             
             # If no hazards, add a default empty one
             if not act_data["hazards"]:
+                print(f"no hazards")
                 act_data["hazards"] = []
             
             proc_data["activities"].append(act_data)
@@ -1778,89 +1783,90 @@ def export_risk_assessment_word(form_id):
             'success': False,
             'error': f'An error occurred while generating the document: {str(e)}'
         }), 500
-    
+
+import traceback 
+ 
 @user.route('/test-generate-document/<assessment_id>', methods=['POST'])
-def test_generate_document(assessment_id):
-
+def test_generate_document_debug(assessment_id):
     form_data = request.get_json()
-
-    generator = DocxTemplateGenerator("Risk_Assessment_Form_Template.docx")
-    output_path = generator.generate_with_python_docx(assessment_id, form_data)
-    print(f"generated using generator2")
-
     
-    if output_path:
-        return send_file(output_path, as_attachment=True)
-    else:
-        return jsonify({"error": "Document generation failed"}), 500
+    print(f"=== Starting document generation for assessment_id: {assessment_id} ===")
+    print(f"Received form_data: {form_data}")
     
-@user.route('/api/risk-assessments/sample', methods=['POST'])
-def create_sample_risk_assessment():
-    """Create a sample risk assessment for testing"""
-
-    risk_service = current_app.risk_service
-
     try:
-        # Create sample data
-        header_data = RiskAssessmentData(
-            reference_number=f"RA-2025-{len(risk_service.get_all_assessments()) + 1:03d}",
-            title="Sample Manufacturing Process Risk Assessment",
-            division="Production",
-            location="Main Factory Floor",
-            ra_leader="John Smith",
-            ra_team="Safety Team A",
-            approved_by="Jane Doe",
-            signature="J. Doe",
-            designation="Safety Manager",
-            last_review_date="2024-12-01",
-            next_review_date="2025-12-01",
-            date="2025-01-15"
-        )
+        # Initialize COM
+        pythoncom.CoInitialize()
+        print("COM initialized successfully")
         
-        rows_data = [
-            RiskAssessmentRowData(
-                ref="1.1", activity="Machine Operation", hazard="Moving Parts",
-                possible_injury="Cuts, crushing injuries", existing_controls="Machine guards, training",
-                severity_initial=4, likelihood_initial=3, rpn_initial=12,
-                additional_controls="Additional emergency stops, improved signage",
-                severity_final=4, likelihood_final=2, rpn_final=8,
-                implementation_person="Maintenance Team", due_date="2025-02-15",
-                remarks="Review after implementation", process_name="Process 1 - Manufacturing"
-            ),
-            RiskAssessmentRowData(
-                ref="1.2", activity="Material Handling", hazard="Heavy Lifting",
-                possible_injury="Back strain, muscle injury", existing_controls="Lifting equipment, training",
-                severity_initial=3, likelihood_initial=4, rpn_initial=12,
-                additional_controls="Mechanical lifting aids, job rotation",
-                severity_final=3, likelihood_final=2, rpn_final=6,
-                implementation_person="Operations Team", due_date="2025-03-01",
-                remarks="Monitor effectiveness", process_name="Process 1 - Manufacturing"
-            ),
-            RiskAssessmentRowData(
-                ref="2.1", activity="Chemical Storage", hazard="Chemical Spills",
-                possible_injury="Chemical burns, respiratory issues", existing_controls="Containment systems, PPE",
-                severity_initial=4, likelihood_initial=2, rpn_initial=8,
-                additional_controls="Improved ventilation, spill response training",
-                severity_final=4, likelihood_final=1, rpn_final=4,
-                implementation_person="Safety Officer", due_date="2025-02-28",
-                remarks="Quarterly review required", process_name="Process 2 - Chemical Handling"
-            )
-        ]
+        # Check if template exists
+        template_path = "Risk_Assessment_Form_Template.docx"
+        if not os.path.exists(template_path):
+            print(f"ERROR: Template file not found: {template_path}")
+            return jsonify({"error": f"Template file not found: {template_path}"}), 500
         
-        # Create assessment
-        assessment_id = risk_service.create_assessment(header_data, rows_data)
+        print(f"Template file exists: {template_path}")
         
-        return jsonify({
-            'success': True,
-            'assessment_id': assessment_id,
-            'message': 'Sample risk assessment created successfully'
-        }), 201
+        # Generate DOCX
+        generator = DocxTemplateGenerator(template_path)
+        print("Generator created successfully")
+        
+        output_path = generator.generate_with_python_docx(assessment_id, form_data)
+        print(f"Generator returned output_path: {output_path}")
+        
+        # Check if output_path is None
+        if output_path is None:
+            print("ERROR: generate_with_python_docx returned None")
+            return jsonify({"error": "Document generation failed - output_path is None"}), 500
+        
+        # Check if file actually exists
+        if not os.path.exists(output_path):
+            print(f"ERROR: Generated file does not exist: {output_path}")
+            return jsonify({"error": f"Generated file does not exist: {output_path}"}), 500
+        
+        print(f"DOCX file generated successfully: {output_path}")
+        
+        # Convert to PDF
+        pdf_path = output_path.replace('.docx', '.pdf')
+        print(f"Converting to PDF: {pdf_path}")
+        
+        convert(output_path, pdf_path)
+        print("PDF conversion completed")
+        
+        # Verify PDF exists
+        if not os.path.exists(pdf_path):
+            print(f"ERROR: PDF file was not created: {pdf_path}")
+            return jsonify({"error": "PDF conversion failed"}), 500
+        
+        print(f"PDF file created successfully: {pdf_path}")
+        
+        # Clean up DOCX file (optional)
+        try:
+            os.remove(output_path)
+            print("DOCX file cleaned up")
+        except:
+            print("Could not clean up DOCX file")
+        
+        return send_file(pdf_path, as_attachment=True)
         
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
+        print(f"ERROR in document generation: {e}")
+        print("Full traceback:")
+        traceback.print_exc()
+        return jsonify({"error": f"Document generation failed: {str(e)}"}), 500
+    finally:
+        # Always uninitialize COM
+        try:
+            pythoncom.CoUninitialize()
+            print("COM uninitialized")
+        except:
+            print("Could not uninitialize COM")
+
+
+    
+    # if output_path:
+    #     return send_file(output_path, as_attachment=True)
+    # else:
+    #     return jsonify({"error": "Document generation failed"}), 500
     
 @user.route('/getFormDataForDocument/<int:formId>', methods=['GET'])
 def get_form_data_for_document(formId):

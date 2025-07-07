@@ -1353,7 +1353,7 @@ class DocxTemplateGenerator:
             print(f"Could not apply standard borders: {e}")
 
     def _fill_risk_assessment_table(self, table, processes_data):
-        """Fill the risk assessment table with actual data - version with standard borders"""
+        """Fill the risk assessment table with actual data - version with merged activity cells for multiple hazards"""
         
         # Find the first empty row (skip header rows)
         data_start_row = self._find_data_start_row(table)
@@ -1385,18 +1385,165 @@ class DocxTemplateGenerator:
                 
                 # Make process name bold and optionally center it
                 for paragraph in merged_cell.paragraphs:
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER  # Optional: center the text
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     for run in paragraph.runs:
                         run.font.bold = True
             
-            # Add risk data rows
-            for risk in process['risks']:
-                data_row = table.add_row()
-                self._apply_standard_table_borders(data_row)
-                self._populate_risk_row(data_row, risk)
+            # Add risk data rows with multi-hazard support and merged activity cells
+            for risk_idx, risk in enumerate(process['risks']):
+                # Check if this risk has multiple hazards
+                hazards = self._extract_hazards_from_risk(risk)
+                
+                if len(hazards) <= 1:
+                    # Single hazard - normal row
+                    data_row = table.add_row()
+                    self._apply_standard_table_borders(data_row)
+                    self._populate_risk_row(data_row, risk)
+                    center_columns = [5, 6, 7, 9, 10, 11]
+                    self._center_align_columns(data_row, center_columns)
+                else:
+                    # Multiple hazards - create rows and merge activity cells
+                    created_rows = []
+                    
+                    for hazard_idx, hazard in enumerate(hazards):
+                        data_row = table.add_row()
+                        self._apply_standard_table_borders(data_row)
+                        created_rows.append(data_row)
+                        
+                        # Create modified risk data for this specific hazard
+                        modified_risk = risk.copy()
+                        modified_risk['hazard'] = hazard['hazard']
+                        modified_risk['possible_injury'] = hazard['possible_injury']
+                        
+                        # For sub-rows, don't repeat the activity in the activity cell
+                        if hazard_idx > 0:
+                            modified_risk['activity'] = ''  # Empty for rows that will be merged
+                        
+                        # Update the reference number for sub-rows
+                        if 'ref' in modified_risk:
+                            base_ref = modified_risk['ref']
+                            modified_risk['ref'] = f"{base_ref}.{hazard_idx + 1}"
+                        
+                        self._populate_risk_row(data_row, modified_risk)
+                        center_columns = [5, 6, 7, 9, 10, 11]
+                        self._center_align_columns(data_row, center_columns)
+                    
+                    # Merge activity cells for all rows of the same activity
+                    if len(created_rows) > 1:
+                        self._merge_activity_cells(created_rows, risk.get('activity', ''))
 
-                center_columns = [5, 6, 7, 9, 10, 11]  # Adjust these indices based on your actual table structure
-                self._center_align_columns(data_row, center_columns)
+    def _merge_activity_cells(self, rows, activity_text):
+        """Merge activity cells across multiple rows for the same activity"""
+        if not rows or len(rows) < 2:
+            return
+        
+        try:
+            # Find the activity column index (usually column 1, but may vary)
+            activity_col_idx = self._find_activity_column_index()
+            
+            # Start with the first row's activity cell
+            first_cell = rows[0].cells[activity_col_idx]
+            
+            # Set the activity text in the first cell
+            first_cell.text = activity_text
+            
+            # Merge subsequent rows' activity cells with the first one
+            for i in range(1, len(rows)):
+                if activity_col_idx < len(rows[i].cells):
+                    # Clear the text in cells that will be merged
+                    rows[i].cells[activity_col_idx].text = ''
+                    # Merge with the first cell
+                    first_cell.merge(rows[i].cells[activity_col_idx])
+            
+            # Center align the merged activity cell vertically
+            self._set_cell_vertical_alignment(first_cell, 'center')
+            
+        except Exception as e:
+            print(f"Error merging activity cells: {e}")
+
+    def _find_activity_column_index(self):
+        """Find the index of the activity column. Override this method based on your table structure."""
+        # This assumes activity is in column 1 (index 1). 
+        # Adjust based on your actual table structure:
+        # If your table has: Ref | Activity | Hazard | ... then activity_col_idx = 1
+        return 1
+
+    def _set_cell_vertical_alignment(self, cell, alignment='center'):
+        """Set vertical alignment for a cell"""
+        try:
+            from docx.oxml import parse_xml
+            from docx.oxml.ns import nsdecls
+            
+            # Get the cell element
+            tc = cell._tc
+            
+            # Find or create the tcPr element
+            tcPr = tc.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tcPr')
+            if tcPr is None:
+                tcPr = parse_xml(f'<w:tcPr {nsdecls("w")}></w:tcPr>')
+                tc.insert(0, tcPr)
+            
+            # Find or create the vAlign element
+            vAlign = tcPr.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}vAlign')
+            if vAlign is None:
+                vAlign = parse_xml(f'<w:vAlign {nsdecls("w")} w:val="{alignment}"/>')
+                tcPr.append(vAlign)
+            else:
+                vAlign.set('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', alignment)
+                
+        except Exception as e:
+            print(f"Error setting vertical alignment: {e}")
+
+    def _extract_hazards_from_risk(self, risk):
+        """Extract multiple hazards from a single risk entry"""
+        hazards = []
+        
+        # Check if hazard field contains multiple hazards (separated by common delimiters)
+        hazard_text = risk.get('hazard', '')
+        injury_text = risk.get('possible_injury', '')
+        
+        # Try to split by common patterns like "a)", "b)", "1)", "2)", etc.
+        if any(pattern in hazard_text.lower() for pattern in ['a)', 'b)', 'c)', 'd)', 'e)']):
+            # Split by letter patterns
+            hazard_parts = self._split_by_letter_pattern(hazard_text)
+            injury_parts = self._split_by_letter_pattern(injury_text)
+        elif any(pattern in hazard_text for pattern in ['1)', '2)', '3)', '4)', '5)']):
+            # Split by number patterns
+            hazard_parts = self._split_by_number_pattern(hazard_text)
+            injury_parts = self._split_by_number_pattern(injury_text)
+        elif '\n' in hazard_text or ';' in hazard_text:
+            # Split by newlines or semicolons
+            hazard_parts = [h.strip() for h in hazard_text.replace('\n', ';').split(';') if h.strip()]
+            injury_parts = [i.strip() for i in injury_text.replace('\n', ';').split(';') if i.strip()]
+        else:
+            # Single hazard
+            return [{'hazard': hazard_text, 'possible_injury': injury_text}]
+        
+        # Match hazards with injuries
+        for i, hazard in enumerate(hazard_parts):
+            injury = injury_parts[i] if i < len(injury_parts) else ''
+            hazards.append({
+                'hazard': hazard.strip(),
+                'possible_injury': injury.strip()
+            })
+        
+        return hazards if hazards else [{'hazard': hazard_text, 'possible_injury': injury_text}]
+
+    def _split_by_letter_pattern(self, text):
+        """Split text by letter patterns like 'a)', 'b)', etc."""
+        import re
+        # Split by pattern like "a)", "b)", etc.
+        parts = re.split(r'[a-e]\)\s*', text)
+        # Remove empty parts and clean up
+        return [part.strip() for part in parts if part.strip()]
+
+    def _split_by_number_pattern(self, text):
+        """Split text by number patterns like '1)', '2)', etc."""
+        import re
+        # Split by pattern like "1)", "2)", etc.
+        parts = re.split(r'[1-9]\)\s*', text)
+        # Remove empty parts and clean up
+        return [part.strip() for part in parts if part.strip()]
 
     # Alternative simpler approach - copy border style from existing row
     def _apply_borders_from_existing_row(self, new_row, existing_row):
@@ -1941,79 +2088,182 @@ class DocxTemplateGenerator:
         
         print("Table population with merging complete")
 
-    def _group_activities_by_process(self, activities_data):
-        """Group activities by location and process for merging"""
-        
-        grouped = {}
-        
-        for activity in activities_data:
-            location = activity.get('location', '')
-            process = activity.get('process', '')
+    def _group_activities_by_process(self, activities):
+        """Group activities by process and location, handling None values"""
+        try:
+            print(f"=== DEBUG: group_activities_by_process ===")
+            print(f"Input activities: {activities}")
             
-            # Create a key combining location and process
-            key = f"{location}|{process}"
+            if not activities:
+                print("No activities provided")
+                return {}
             
-            if key not in grouped:
-                grouped[key] = {
-                    'location': location,
-                    'process': process,
-                    'activities': []
+            # Ensure activities is a list
+            if not isinstance(activities, list):
+                print(f"Activities is not a list: {type(activities)}")
+                return {}
+            
+            # Clean and validate the data first
+            cleaned_activities = []
+            for activity in activities:
+                if not isinstance(activity, dict):
+                    print(f"Skipping invalid activity (not dict): {activity}")
+                    continue
+                
+                # Handle None values by providing defaults
+                cleaned_activity = {
+                    'location': activity.get('location', 'Unknown Location'),
+                    'process': activity.get('process', 'Unknown Process'),
+                    'hazard': activity.get('hazard', 'Unknown Hazard'),
+                    'existing_control': activity.get('existing_control', 'None specified'),
+                    'likelihood': activity.get('likelihood', 'Unknown'),
+                    'consequence': activity.get('consequence', 'Unknown'),
+                    'risk_rating': activity.get('risk_rating', 'Unknown'),
+                    'additional_control': activity.get('additional_control', 'None specified'),
+                    'residual_likelihood': activity.get('residual_likelihood', 'Unknown'),
+                    'residual_consequence': activity.get('residual_consequence', 'Unknown'),
+                    'residual_risk_rating': activity.get('residual_risk_rating', 'Unknown'),
+                    'person_responsible': activity.get('person_responsible', 'TBD'),
+                    'target_date': activity.get('target_date', 'TBD'),
+                    'work_activity': activity.get('work_activity', activity.get('hazard', 'Unknown Activity')),
+                    'remarks': activity.get('remarks', activity.get('existing_control', 'None specified'))
+           
                 }
+                cleaned_activities.append(cleaned_activity)
             
-            grouped[key]['activities'].append({
-                'work_activity': activity.get('work_activity', ''),
-                'remarks': activity.get('remarks', '')
-            })
-        
-        # Convert to list and sort for consistent ordering
-        result = list(grouped.values())
-        result.sort(key=lambda x: (x['location'], x['process']))
-        
-        print(f"Grouped {len(activities_data)} activities into {len(result)} process groups")
-        return result
+            print(f"Cleaned activities: {cleaned_activities}")
+            
+            # Sort the cleaned activities (now all values are strings, not None)
+            cleaned_activities.sort(key=lambda x: (x['location'], x['process']))
+            
+            # Group by location and process
+            result = {}
+            for activity in cleaned_activities:
+                location = activity['location']
+                process = activity['process']
+                
+                if location not in result:
+                    result[location] = {}
+                if process not in result[location]:
+                    result[location][process] = []
+                
+                result[location][process].append(activity)
+            
+            print(f"Grouped result: {result}")
+            return result
+            
+        except Exception as e:
+            print(f"Error in group_activities_by_process: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
 
     def _populate_grouped_inventory_table(self, table, grouped_data):
         """Populate table with grouped data and merge cells"""
         
-        ref_counter = 1
-        
-        for group in grouped_data:
-            location = group['location']
-            process = group['process']
-            activities = group['activities']
+        try:
+            print(f"=== DEBUG: _populate_grouped_inventory_table ===")
+            print(f"grouped_data type: {type(grouped_data)}")
+            print(f"grouped_data content: {grouped_data}")
             
-            # Track the starting row for this group
-            group_start_row = len(table.rows)
+            # Convert nested dictionary to expected list format if needed
+            if isinstance(grouped_data, dict):
+                print("Converting nested dict to list format...")
+                list_data = []
+                for location_name, processes in grouped_data.items():
+                    if isinstance(processes, dict):
+                        for process_name, activities in processes.items():
+                            if isinstance(activities, list):
+                                # Ensure activities have the required structure
+                                processed_activities = []
+                                for activity in activities:
+                                    if isinstance(activity, dict):
+                                        processed_activity = {
+                                            'work_activity': activity.get('hazard', ''),
+                                            'remarks': activity.get('existing_control', ''),
+                                            # Keep original fields too
+                                            **activity
+                                        }
+                                        processed_activities.append(processed_activity)
+                                
+                                group_data = {
+                                    'location': location_name,
+                                    'process': process_name,
+                                    'activities': processed_activities
+                                }
+                                list_data.append(group_data)
+                grouped_data = list_data
             
-            # Add rows for each activity in this group
-            for i, activity in enumerate(activities):
-                new_row = table.add_row()
-                self._apply_clean_inventory_formatting(new_row)
+            if not grouped_data:
+                print("No grouped data to populate")
+                return
+                
+            ref_counter = 1
+            
+            for group in grouped_data:
+                print(f"Processing group: {group}")
+                
+                # Handle the case where group might be a string (the original error)
+                if isinstance(group, str):
+                    print(f"ERROR: Expected dict for group, got string: {group}")
+                    continue
+                
+                if not isinstance(group, dict):
+                    print(f"ERROR: Expected dict for group, got {type(group)}")
+                    continue
+                
+                location = group.get('location', 'Unknown Location')
+                process = group.get('process', 'Unknown Process')
+                activities = group.get('activities', [])
+                
+                print(f"Group - Location: {location}, Process: {process}, Activities: {len(activities)}")
+                
+                # Track the starting row for this group
+                group_start_row = len(table.rows)
+                
+                # Add rows for each activity in this group
+                for i, activity in enumerate(activities):
+                    new_row = table.add_row()
+                    self._apply_clean_inventory_formatting(new_row)
 
-                ref_display = str(ref_counter) if i == 0 else ""
+                    ref_display = str(ref_counter) if i == 0 else ""
+                    
+                    # Populate the row
+                    self._populate_merged_inventory_row(
+                        new_row, 
+                        ref_display, 
+                        location if i == 0 else "",  # Only show location in first row
+                        process if i == 0 else "",   # Only show process in first row
+                        activity.get('work_activity', ''),
+                        activity.get('remarks', '')
+                    )
+                    
+                ref_counter += 1
                 
-                # Populate the row
-                self._populate_merged_inventory_row(
-                    new_row, 
-                    ref_display, 
-                    location if i == 0 else "",  # Only show location in first row
-                    process if i == 0 else "",   # Only show process in first row
-                    activity['work_activity'],
-                    activity['remarks']
-                )
-                
-            ref_counter += 1
+                # Merge cells for location and process columns if multiple activities
+                if len(activities) > 1:
+                    self._merge_process_cells(table, group_start_row, len(activities))
             
-            # Merge cells for location and process columns if multiple activities
-            if len(activities) > 1:
-                self._merge_process_cells(table, group_start_row, len(activities))
-        
-        print(f"Populated {ref_counter - 1} total activities")
+            print(f"Populated {ref_counter - 1} total groups")
+            
+        except Exception as e:
+            print(f"Error in _populate_grouped_inventory_table: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _populate_merged_inventory_row(self, row, ref_display, location, process, work_activity, remarks, is_single_activity=False):
         """Populate a single inventory row (modified for merged layout)"""
         
         try:
+            print(f"Populating row - ref: {ref_display}, location: {location}, process: {process}")
+            
+            # Handle None values
+            ref_display = str(ref_display) if ref_display else ""
+            location = str(location) if location else ""
+            process = str(process) if process else ""
+            work_activity = str(work_activity) if work_activity else ""
+            remarks = str(remarks) if remarks else ""
+            
             # Data to populate (location and process might be empty for merged rows)
             cell_data = [
                 ref_display,
@@ -2058,10 +2308,12 @@ class DocxTemplateGenerator:
                             run.font.size = Pt(10)
 
             process_display = process if process else "[continued]"
-            print(f"Populated row {ref_display}: {location} - {process_display} - {work_activity}")
+            print(f"Successfully populated row {ref_display}: {location} - {process_display} - {work_activity}")
                     
         except Exception as e:
             print(f"ERROR populating row {ref_display}: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _merge_process_cells(self, table, start_row_index, num_activities):
         """Merge location and process cells for activities belonging to same process"""
