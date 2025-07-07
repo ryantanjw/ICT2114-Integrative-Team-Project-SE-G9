@@ -1766,56 +1766,6 @@ def export_risk_assessment_word(form_id):
             'filepath': filepath
         }), 200
         
-        # Generate the document
-    #     risk_service.generate_word_document(form_id, filepath)
-    #     print(f"Document generated successfully")
-        
-    #     # Check if file was created
-    #     if not os.path.exists(filepath):
-    #         print(f"Error: Generated file not found at {filepath}")
-    #         return jsonify({
-    #             'success': False,
-    #             'error': 'Failed to generate document'
-    #         }), 500
-        
-    #     # Verify file size (basic check for corruption)
-    #     file_size = os.path.getsize(filepath)
-    #     print(f"Generated file size: {file_size} bytes")
-        
-    #     if file_size == 0:
-    #         print("Error: Generated file is empty")
-    #         return jsonify({
-    #             'success': False,
-    #             'error': 'Generated document is empty'
-    #         }), 500
-        
-    #     try:
-    #         # Send file and clean up after
-    #         response = send_file(
-    #             filepath,
-    #             as_attachment=True,
-    #             download_name=filename,
-    #             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    #         )
-            
-    #         # Clean up the temporary file after sending
-    #         @response.call_on_close
-    #         def remove_file():
-    #             try:
-    #                 if os.path.exists(filepath):
-    #                     os.remove(filepath)
-    #                     print(f"Cleaned up temporary file: {filepath}")
-    #             except Exception as e:
-    #                 print(f"Warning: Could not remove temporary file: {e}")
-            
-    #         return response
-            
-    #     except Exception as e:
-    #         # Clean up file if send_file fails
-    #         if os.path.exists(filepath):
-    #             os.remove(filepath)
-    #         raise e
-        
     except ValueError as e:
         print(f"ValueError in export_risk_assessment_word: {e}")
         return jsonify({
@@ -1829,18 +1779,18 @@ def export_risk_assessment_word(form_id):
             'error': f'An error occurred while generating the document: {str(e)}'
         }), 500
     
-@user.route('/test-generate-document/<assessment_id>')
+@user.route('/test-generate-document/<assessment_id>', methods=['POST'])
 def test_generate_document(assessment_id):
-    generator = DocxTemplateGenerator()
 
-    generator2 = DocxTemplateGenerator("Risk_Assessment_Form_Template.docx")
-    output_path2 = generator2.generate_with_python_docx(assessment_id)
+    form_data = request.get_json()
+
+    generator = DocxTemplateGenerator("Risk_Assessment_Form_Template.docx")
+    output_path = generator.generate_with_python_docx(assessment_id, form_data)
     print(f"generated using generator2")
 
-    # output_path = generator.generate_with_python_docx(assessment_id)
     
-    if output_path2:
-        return send_file(output_path2, as_attachment=True)
+    if output_path:
+        return send_file(output_path, as_attachment=True)
     else:
         return jsonify({"error": "Document generation failed"}), 500
     
@@ -1911,3 +1861,76 @@ def create_sample_risk_assessment():
             'success': False,
             'error': str(e)
         }), 400
+    
+@user.route('/getFormDataForDocument/<int:formId>', methods=['GET'])
+def get_form_data_for_document(formId):
+    """
+    Simplified version that returns data in a format optimized for document generation
+    """
+    try:
+        userId = session.get('user_id')
+        
+        # Get the form
+        form = Form.query.get(formId)
+        if not form:
+            return jsonify({'error': 'Form not found'}), 404
+        
+        # Get all data with a single query approach (more efficient)
+        processes = Process.query.filter_by(process_form_id=formId).all()
+        
+        # Build simplified structure for document generation
+        document_data = {
+            'form': {
+                'title': form.title,
+                'division': form.division,
+                'location': form.location,
+                'process': form.process,
+                'form_reference_number': form.form_reference_number,
+                'approval': form.approval,
+                'approved_by': form.approved_by,
+                'last_review_date': form.last_review_date.isoformat() if form.last_review_date else None,
+                'next_review_date': form.next_review_date.isoformat() if form.next_review_date else None
+            },
+            'activities_data': []  # Flattened for easier document processing
+        }
+        
+        for process in processes:
+            activities = Activity.query.filter_by(activity_process_id=process.process_id).all()
+            
+            for activity in activities:
+                activity_entry = {
+                    'location': process.process_location,
+                    'process': process.process_title,
+                    'work_activity': activity.work_activity,
+                    'remarks': getattr(activity, 'activity_remarks', ''),
+                    'hazards': []
+                }
+                
+                # Get hazards for this activity
+                hazards = Hazard.query.filter_by(hazard_activity_id=activity.activity_id).all()
+                
+                for hazard in hazards:
+                    risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first()
+                    
+                    hazard_entry = {
+                        'hazard': hazard.hazard,
+                        'injury': hazard.injury,
+                        'existing_controls': risk.existing_risk_control if risk else '',
+                        'additional_controls': risk.additional_risk_control if risk else '',
+                        'severity': risk.severity if risk else None,
+                        'likelihood': risk.likelihood if risk else None,
+                        'rpn': risk.RPN if risk else None
+                    }
+                    
+                    activity_entry['hazards'].append(hazard_entry)
+                
+                document_data['activities_data'].append(activity_entry)
+        
+        return jsonify({
+            'success': True,
+            'data': document_data
+        }), 200
+
+    except Exception as e:
+        print(f"Error retrieving form data for document generation: {str(e)}")
+        return jsonify({'error': f'Failed to retrieve form data: {str(e)}'}), 500

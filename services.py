@@ -717,108 +717,7 @@ class DocxTemplateGenerator:
             'generation_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
-    def orig_generate_with_python_docx(self, assessment_id: str, output_path: str = None):
-        """Generate document using template with hardcoded data"""
-        try:
-            import os
-            
-            if output_path is None:
-                output_path = f"risk_assessment_{assessment_id}.docx"
-            
-            # Load the template document
-            if hasattr(self, 'template_path') and self.template_path:
-                # Check if template exists and try different paths
-                template_paths_to_try = [
-                    self.template_path,  # Original path
-                    os.path.join(os.getcwd(), self.template_path),  # Current directory
-                    os.path.join('templates', self.template_path),  # templates folder
-                    os.path.join('app', 'templates', self.template_path),  # app/templates folder
-                    os.path.join(os.path.dirname(__file__), self.template_path),  # Same directory as this file
-                ]
-                
-                template_found = False
-                for path in template_paths_to_try:
-                    if os.path.exists(path):
-                        doc = Document(path)
-                        print(f"Using template: {path}")
-                        template_found = True
-                        break
-                    else:
-                        print(f"Template not found at: {path}")
-                
-                if not template_found:
-                    print(f"Template '{self.template_path}' not found in any of the expected locations.")
-                    print("Creating new document instead...")
-                    doc = Document()
-                    doc.add_heading('Risk Assessment Form', 0)
-            else:
-                # Fallback to creating new document
-                doc = Document()
-                doc.add_heading('Risk Assessment Form', 0)
-                print("No template provided, creating new document")
-            
-            # Hardcoded test data
-            replacement_data = {
-                'division': 'Engineering & Operations',
-                'department': 'Safety & Quality Assurance',
-                'unit': 'Risk Management Team',
-                'location': 'Main Plant - Building A',
-                'supervisor': 'John Smith',
-                'date_created': '2024-01-15',
-                'status': 'Active',
-                'assessment_id': assessment_id,
-                'risk_level': 'Medium',
-                'hazard_description': 'Potential equipment malfunction during maintenance',
-                'mitigation_measures': 'Follow lockout/tagout procedures, use proper PPE',
-                'title': 'Test'
-            }
-            
-            # Replace placeholders in paragraphs
-            for paragraph in doc.paragraphs:
-                for key, value in replacement_data.items():
-                    placeholder = f"{{{key}}}"  # Looking for {key} format
-                    if placeholder in paragraph.text:
-                        paragraph.text = paragraph.text.replace(placeholder, str(value))
-                        print(f"Replaced {placeholder} with {value}")
-            
-            # Replace placeholders in tables
-            for table in doc.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        for key, value in replacement_data.items():
-                            placeholder = f"{{{key}}}"
-                            if placeholder in cell.text:
-                                cell.text = cell.text.replace(placeholder, str(value))
-                                print(f"Replaced {placeholder} in table with {value}")
-            
-            # Replace placeholders in headers and footers
-            for section in doc.sections:
-                # Header
-                if section.header:
-                    for paragraph in section.header.paragraphs:
-                        for key, value in replacement_data.items():
-                            placeholder = f"{{{key}}}"
-                            if placeholder in paragraph.text:
-                                paragraph.text = paragraph.text.replace(placeholder, str(value))
-                
-                # Footer
-                if section.footer:
-                    for paragraph in section.footer.paragraphs:
-                        for key, value in replacement_data.items():
-                            placeholder = f"{{{key}}}"
-                            if placeholder in paragraph.text:
-                                paragraph.text = paragraph.text.replace(placeholder, str(value))
-            
-            # Save the document
-            doc.save(output_path)
-            print(f"Document generated successfully using template: {output_path}")
-            return output_path
-            
-        except Exception as e:
-            print(f"Error generating document: {e}")
-            return None
-
-    def generate_with_python_docx(self, assessment_id: str, output_path: str = None):
+    def generate_with_python_docx(self, assessment_id: str, form_data: dict = None, output_path: str = None):
         """Generate document using template with dynamic risk assessment table"""
         try:
             if output_path is None:
@@ -829,232 +728,27 @@ class DocxTemplateGenerator:
             if not doc:
                 return None
             
-            # Sample data for your risk assessment table
-            assessment_data = {
-                'basic_info': {
-                    'assessment_id': assessment_id,
-                    'division': 'Engineering & Operations',
-                    'department': 'Safety & Quality Assurance',
-                    'location': 'Main Plant - Building A',
-                    'supervisor': 'John Smith',
-                    'date_created': '2024-01-15',
-                    'title': 'Merged Cell Layout Test'
-                },
-                # Work activity inventory data - designed to test merged cells
-                'work_activities': [
-                    # Experiment setup process (3 activities - should merge)
-                    {
-                        'location': 'Laboratory',
-                        'process': 'Experiment setup',
-                        'work_activity': 'Transfer sample solutions to TOC sample vials, and load them onto TOC autosampler',
-                        'remarks': 'Handle with care'
-                    },
-                    {
-                        'location': 'Laboratory',
-                        'process': 'Experiment setup',
-                        'work_activity': 'Switch on/off the TOC analyser',
-                        'remarks': 'Follow startup procedure'
-                    },
-                    {
-                        'location': 'Laboratory',
-                        'process': 'Experiment setup',
-                        'work_activity': 'Switch on synthetic air gas cylinder',
-                        'remarks': 'Check pressure gauge'
-                    },
-                    
-                    # Manufacturing process (4 activities - should merge)
-                    {
-                        'location': 'Workshop A',
-                        'process': 'Manufacturing',
-                        'work_activity': 'CNC machine operation',
-                        'remarks': 'Daily production task'
-                    },
-                    {
-                        'location': 'Workshop A',
-                        'process': 'Manufacturing',
-                        'work_activity': 'Equipment maintenance',
-                        'remarks': 'Weekly preventive maintenance'
-                    },
-                    {
-                        'location': 'Workshop A',
-                        'process': 'Manufacturing',
-                        'work_activity': 'Quality control inspection',
-                        'remarks': 'Check dimensions and tolerances'
-                    },
-                    {
-                        'location': 'Workshop A',
-                        'process': 'Manufacturing',
-                        'work_activity': 'Material handling',
-                        'remarks': 'Raw material preparation'
-                    },
-                    
-                    # Chemical Handling process (3 activities - should merge)
-                    {
-                        'location': 'Chemical Store',
-                        'process': 'Chemical Handling',
-                        'work_activity': 'Chemical dispensing',
-                        'remarks': 'PPE mandatory'
-                    },
-                    {
-                        'location': 'Chemical Store',
-                        'process': 'Chemical Handling',
-                        'work_activity': 'Waste disposal',
-                        'remarks': 'Follow disposal procedures'
-                    },
-                    {
-                        'location': 'Chemical Store',
-                        'process': 'Chemical Handling',
-                        'work_activity': 'Inventory tracking',
-                        'remarks': 'Daily stock check'
-                    },
-                    
-                    # Assembly process (2 activities - should merge)
-                    {
-                        'location': 'Workshop B',
-                        'process': 'Assembly',
-                        'work_activity': 'Product assembly',
-                        'remarks': 'Main assembly line'
-                    },
-                    {
-                        'location': 'Workshop B',
-                        'process': 'Assembly',
-                        'work_activity': 'Final inspection',
-                        'remarks': 'Quality assurance check'
-                    },
-                    
-                    # Single activity processes (should not merge)
-                    {
-                        'location': 'Storage Area',
-                        'process': 'Logistics',
-                        'work_activity': 'Inventory management',
-                        'remarks': 'Stock counting and tracking'
-                    },
-                    {
-                        'location': 'Office',
-                        'process': 'Administration',
-                        'work_activity': 'Data entry and reporting',
-                        'remarks': 'Daily administrative tasks'
-                    },
-                    
-                    # Testing different location, same process (should be separate groups)
-                    {
-                        'location': 'Workshop C',
-                        'process': 'Manufacturing',
-                        'work_activity': 'Machine setup',
-                        'remarks': 'Different location, same process'
-                    },
-                    {
-                        'location': 'Workshop C',
-                        'process': 'Manufacturing',
-                        'work_activity': 'Production monitoring',
-                        'remarks': 'Continuous oversight'
-                    }
-                ],
-                # Risk assessment data that matches your table structure
-                'processes': [
-                    {
-                        'process_name': 'Experiment setup',
-                        'risks': [
-                            {
-                                'ref': '1.1',
-                                'activity': 'Sample handling',
-                                'hazard': 'Chemical exposure',
-                                'possible_injury': 'Skin/eye irritation',
-                                'existing_controls': 'PPE, fume hood',
-                                's1': '3',  # Severity
-                                'l1': '2',  # Likelihood  
-                                'rpn1': '6',  # Risk Priority Number
-                                'additional_controls': 'Emergency eyewash station',
-                                's2': '3',  
-                                'l2': '1', 
-                                'rpn2': '3',
-                                'implementation_person': 'Lab Supervisor',
-                                'due_date': '2024-03-01',
-                                'remarks': 'High priority'
-                            },
-                            {
-                                'ref': '1.2',
-                                'activity': 'Equipment operation',
-                                'hazard': 'Electrical hazard',
-                                'possible_injury': 'Electric shock',
-                                'existing_controls': 'Proper grounding, training',
-                                's1': '4',
-                                'l1': '1',
-                                'rpn1': '4',
-                                'additional_controls': 'GFCI protection',
-                                's2': '4',
-                                'l2': '1',
-                                'rpn2': '4',
-                                'implementation_person': 'Electrical Team',
-                                'due_date': '2024-02-15',
-                                'remarks': 'Critical safety item'
-                            }
-                        ]
-                    },
-                    {
-                        'process_name': 'Manufacturing',
-                        'risks': [
-                            {
-                                'ref': '2.1',
-                                'activity': 'CNC operation',
-                                'hazard': 'Moving machinery',
-                                'possible_injury': 'Crush injury, cuts',
-                                'existing_controls': 'Machine guards, emergency stops',
-                                's1': '4',
-                                'l1': '2',
-                                'rpn1': '8',
-                                'additional_controls': 'Light curtains, additional training',
-                                's2': '4',
-                                'l2': '1',
-                                'rpn2': '4',
-                                'implementation_person': 'Production Manager',
-                                'due_date': '2024-04-01',
-                                'remarks': 'Review monthly'
-                            },
-                            {
-                                'ref': '2.2',
-                                'activity': 'Material handling',
-                                'hazard': 'Manual lifting',
-                                'possible_injury': 'Back injury, strain',
-                                'existing_controls': 'Lifting equipment, training',
-                                's1': '2',
-                                'l1': '3',
-                                'rpn1': '6',
-                                'additional_controls': 'Ergonomic assessment',
-                                's2': '2',
-                                'l2': '2',
-                                'rpn2': '4',
-                                'implementation_person': 'Safety Officer',
-                                'due_date': '2024-03-15',
-                                'remarks': 'Include in safety briefing'
-                            }
-                        ]
-                    },
-                    {
-                        'process_name': 'Chemical Handling',
-                        'risks': [
-                            {
-                                'ref': '3.1',
-                                'activity': 'Chemical dispensing',
-                                'hazard': 'Chemical spills',
-                                'possible_injury': 'Chemical burns, inhalation',
-                                'existing_controls': 'Spill kits, PPE, ventilation',
-                                's1': '3',
-                                'l1': '2',
-                                'rpn1': '6',
-                                'additional_controls': 'Automated dispensing system',
-                                's2': '3',
-                                'l2': '1',
-                                'rpn2': '3',
-                                'implementation_person': 'Chemical Safety Team',
-                                'due_date': '2024-05-01',
-                                'remarks': 'Budget approval required'
-                            }
-                        ]
-                    }
-                ]
-            }
-                        
+            # Debug: Print the incoming form data
+            print("=== DEBUG: Incoming form_data ===")
+            print(f"form_data type: {type(form_data)}")
+            print(f"form_data content: {form_data}")
+            print("=== END DEBUG ===")
+            
+            # Use provided form_data or fallback to sample data
+            if form_data is None or not form_data:
+                print("No form_data provided, using sample data")
+                # Keep your original sample data as fallback
+                assessment_data = self._get_sample_data(assessment_id)
+            else:
+                print("Transforming form_data")
+                # Transform the form data into the expected structure
+                assessment_data = self._transform_form_data(form_data, assessment_id)
+                
+                # Debug: Print the transformed data
+                print("=== DEBUG: Transformed assessment_data ===")
+                print(f"assessment_data: {assessment_data}")
+                print("=== END DEBUG ===")
+            
             # Process the template
             self._process_template_with_risk_data(doc, assessment_data)
             
@@ -1065,8 +759,351 @@ class DocxTemplateGenerator:
             
         except Exception as e:
             print(f"Error generating document: {e}")
+            import traceback
+            traceback.print_exc()
             return None
+
+    def _get_sample_data(self, assessment_id: str) -> dict:
+        """Return the original sample data"""
+        return {
+            'basic_info': {
+                'assessment_id': assessment_id,
+                'division': 'Engineering & Operations',
+                'department': 'Safety & Quality Assurance',
+                'location': 'Main Plant - Building A',
+                'supervisor': 'John Smith',
+                'date_created': '2024-01-15',
+                'title': 'Merged Cell Layout Test'
+            },
+            # Work activity inventory data - designed to test merged cells
+            'work_activities': [
+                # Experiment setup process (3 activities - should merge)
+                {
+                    'location': 'Laboratory',
+                    'process': 'Experiment setup',
+                    'work_activity': 'Transfer sample solutions to TOC sample vials, and load them onto TOC autosampler',
+                    'remarks': 'Handle with care'
+                },
+                {
+                    'location': 'Laboratory',
+                    'process': 'Experiment setup',
+                    'work_activity': 'Switch on/off the TOC analyser',
+                    'remarks': 'Follow startup procedure'
+                },
+                {
+                    'location': 'Laboratory',
+                    'process': 'Experiment setup',
+                    'work_activity': 'Switch on synthetic air gas cylinder',
+                    'remarks': 'Check pressure gauge'
+                },
+                
+                # Manufacturing process (4 activities - should merge)
+                {
+                    'location': 'Workshop A',
+                    'process': 'Manufacturing',
+                    'work_activity': 'CNC machine operation',
+                    'remarks': 'Daily production task'
+                },
+                {
+                    'location': 'Workshop A',
+                    'process': 'Manufacturing',
+                    'work_activity': 'Equipment maintenance',
+                    'remarks': 'Weekly preventive maintenance'
+                },
+                {
+                    'location': 'Workshop A',
+                    'process': 'Manufacturing',
+                    'work_activity': 'Quality control inspection',
+                    'remarks': 'Check dimensions and tolerances'
+                },
+                {
+                    'location': 'Workshop A',
+                    'process': 'Manufacturing',
+                    'work_activity': 'Material handling',
+                    'remarks': 'Raw material preparation'
+                },
+                
+                # Chemical Handling process (3 activities - should merge)
+                {
+                    'location': 'Chemical Store',
+                    'process': 'Chemical Handling',
+                    'work_activity': 'Chemical dispensing',
+                    'remarks': 'PPE mandatory'
+                },
+                {
+                    'location': 'Chemical Store',
+                    'process': 'Chemical Handling',
+                    'work_activity': 'Waste disposal',
+                    'remarks': 'Follow disposal procedures'
+                },
+                {
+                    'location': 'Chemical Store',
+                    'process': 'Chemical Handling',
+                    'work_activity': 'Inventory tracking',
+                    'remarks': 'Daily stock check'
+                },
+                
+                # Assembly process (2 activities - should merge)
+                {
+                    'location': 'Workshop B',
+                    'process': 'Assembly',
+                    'work_activity': 'Product assembly',
+                    'remarks': 'Main assembly line'
+                },
+                {
+                    'location': 'Workshop B',
+                    'process': 'Assembly',
+                    'work_activity': 'Final inspection',
+                    'remarks': 'Quality assurance check'
+                },
+                
+                # Single activity processes (should not merge)
+                {
+                    'location': 'Storage Area',
+                    'process': 'Logistics',
+                    'work_activity': 'Inventory management',
+                    'remarks': 'Stock counting and tracking'
+                },
+                {
+                    'location': 'Office',
+                    'process': 'Administration',
+                    'work_activity': 'Data entry and reporting',
+                    'remarks': 'Daily administrative tasks'
+                },
+                
+                # Testing different location, same process (should be separate groups)
+                {
+                    'location': 'Workshop C',
+                    'process': 'Manufacturing',
+                    'work_activity': 'Machine setup',
+                    'remarks': 'Different location, same process'
+                },
+                {
+                    'location': 'Workshop C',
+                    'process': 'Manufacturing',
+                    'work_activity': 'Production monitoring',
+                    'remarks': 'Continuous oversight'
+                }
+            ],
+            # Risk assessment data that matches your table structure
+            'processes': [
+                {
+                    'process_name': 'Experiment setup',
+                    'risks': [
+                        {
+                            'ref': '1.1',
+                            'activity': 'Sample handling',
+                            'hazard': 'Chemical exposure',
+                            'possible_injury': 'Skin/eye irritation',
+                            'existing_controls': 'PPE, fume hood',
+                            's1': '3',  # Severity
+                            'l1': '2',  # Likelihood  
+                            'rpn1': '6',  # Risk Priority Number
+                            'additional_controls': 'Emergency eyewash station',
+                            's2': '3',  
+                            'l2': '1', 
+                            'rpn2': '3',
+                            'implementation_person': 'Lab Supervisor',
+                            'due_date': '2024-03-01',
+                            'remarks': 'High priority'
+                        },
+                        {
+                            'ref': '1.2',
+                            'activity': 'Equipment operation',
+                            'hazard': 'Electrical hazard',
+                            'possible_injury': 'Electric shock',
+                            'existing_controls': 'Proper grounding, training',
+                            's1': '4',
+                            'l1': '1',
+                            'rpn1': '4',
+                            'additional_controls': 'GFCI protection',
+                            's2': '4',
+                            'l2': '1',
+                            'rpn2': '4',
+                            'implementation_person': 'Electrical Team',
+                            'due_date': '2024-02-15',
+                            'remarks': 'Critical safety item'
+                        }
+                    ]
+                },
+                {
+                    'process_name': 'Manufacturing',
+                    'risks': [
+                        {
+                            'ref': '2.1',
+                            'activity': 'CNC operation',
+                            'hazard': 'Moving machinery',
+                            'possible_injury': 'Crush injury, cuts',
+                            'existing_controls': 'Machine guards, emergency stops',
+                            's1': '4',
+                            'l1': '2',
+                            'rpn1': '8',
+                            'additional_controls': 'Light curtains, additional training',
+                            's2': '4',
+                            'l2': '1',
+                            'rpn2': '4',
+                            'implementation_person': 'Production Manager',
+                            'due_date': '2024-04-01',
+                            'remarks': 'Review monthly'
+                        },
+                        {
+                            'ref': '2.2',
+                            'activity': 'Material handling',
+                            'hazard': 'Manual lifting',
+                            'possible_injury': 'Back injury, strain',
+                            'existing_controls': 'Lifting equipment, training',
+                            's1': '2',
+                            'l1': '3',
+                            'rpn1': '6',
+                            'additional_controls': 'Ergonomic assessment',
+                            's2': '2',
+                            'l2': '2',
+                            'rpn2': '4',
+                            'implementation_person': 'Safety Officer',
+                            'due_date': '2024-03-15',
+                            'remarks': 'Include in safety briefing'
+                        }
+                    ]
+                },
+                {
+                    'process_name': 'Chemical Handling',
+                    'risks': [
+                        {
+                            'ref': '3.1',
+                            'activity': 'Chemical dispensing',
+                            'hazard': 'Chemical spills',
+                            'possible_injury': 'Chemical burns, inhalation',
+                            'existing_controls': 'Spill kits, PPE, ventilation',
+                            's1': '3',
+                            'l1': '2',
+                            'rpn1': '6',
+                            'additional_controls': 'Automated dispensing system',
+                            's2': '3',
+                            'l2': '1',
+                            'rpn2': '3',
+                            'implementation_person': 'Chemical Safety Team',
+                            'due_date': '2024-05-01',
+                            'remarks': 'Budget approval required'
+                        }
+                    ]
+                }
+            ]
+        }
         
+    def _transform_form_data(self, form_data: dict, assessment_id: str) -> dict:
+        """Transform form data into the expected assessment data structure"""
+        try:
+            print(f"=== TRANSFORM DEBUG: form_data keys: {list(form_data.keys()) if form_data else 'None'}")
+            
+            # Extract form info and activities data
+            form_info = form_data.get('form', {})
+            activities_data = form_data.get('activities_data', [])
+            
+            print(f"=== TRANSFORM DEBUG: form_info: {form_info}")
+            print(f"=== TRANSFORM DEBUG: activities_data count: {len(activities_data)}")
+            
+            # Extract basic info from form data
+            basic_info = {
+                'assessment_id': assessment_id,
+                'division': form_info.get('division', 'N/A'),
+                'department': form_info.get('department', 'N/A'),
+                'location': form_info.get('location', 'N/A'),
+                'supervisor': form_info.get('supervisor', 'N/A'),
+                'date_created': form_info.get('last_review_date', 'N/A'),
+                'title': form_info.get('title', f'Risk Assessment {assessment_id}')
+            }
+            
+            print(f"=== TRANSFORM DEBUG: basic_info: {basic_info}")
+            
+            # Transform activities data into work_activities and processes
+            work_activities = []
+            processes = []
+            
+            # Group activities by process for the processes section
+            process_groups = {}
+            
+            for activity in activities_data:
+                # Add to work activities
+                work_activity = {
+                    'location': activity.get('location', ''),
+                    'process': activity.get('process', ''),
+                    'work_activity': activity.get('work_activity', ''),
+                    'remarks': activity.get('remarks', '')
+                }
+                work_activities.append(work_activity)
+                
+                # Group by process for risk assessment
+                process_name = activity.get('process', 'Unknown Process')
+                if process_name not in process_groups:
+                    process_groups[process_name] = {
+                        'process_name': process_name,
+                        'risks': []
+                    }
+                
+                # Transform hazards into risks
+                hazards = activity.get('hazards', [])
+                for i, hazard in enumerate(hazards):
+                    # Skip empty hazards
+                    if not hazard.get('hazard') and not hazard.get('injury'):
+                        continue
+                        
+                    risk = {
+                        'ref': f"{len(process_groups)}.{len(process_groups[process_name]['risks']) + 1}",
+                        'activity': activity.get('work_activity', ''),
+                        'hazard': hazard.get('hazard', ''),
+                        'possible_injury': hazard.get('injury', ''),
+                        'existing_controls': hazard.get('existing_controls', ''),
+                        's1': str(hazard.get('severity', '')),
+                        'l1': str(hazard.get('likelihood', '')),
+                        'rpn1': str(hazard.get('rpn', '')),
+                        'additional_controls': hazard.get('additional_controls', ''),
+                        's2': '',  # These would be filled after additional controls
+                        'l2': '',
+                        'rpn2': '',
+                        'implementation_person': '',
+                        'due_date': '',
+                        'remarks': ''
+                    }
+                    process_groups[process_name]['risks'].append(risk)
+            
+            # Convert process groups to list
+            processes = list(process_groups.values())
+            
+            # Return transformed data structure
+            transformed_data = {
+                'basic_info': basic_info,
+                'work_activities': work_activities,
+                'processes': processes
+            }
+            
+            print(f"=== TRANSFORM DEBUG: Final transformed data structure:")
+            print(f"  - basic_info: {basic_info}")
+            print(f"  - work_activities count: {len(work_activities)}")
+            print(f"  - processes count: {len(processes)}")
+            for process in processes:
+                print(f"    - Process '{process['process_name']}': {len(process['risks'])} risks")
+            
+            return transformed_data
+            
+        except Exception as e:
+            print(f"Error transforming form data: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return basic structure with assessment_id if transformation fails
+            return {
+                'basic_info': {
+                    'assessment_id': assessment_id,
+                    'division': 'Error',
+                    'department': 'Error',
+                    'location': 'Error',
+                    'supervisor': 'Error',
+                    'date_created': 'Error',
+                    'title': f'Risk Assessment {assessment_id} - Error'
+                },
+                'work_activities': [],
+                'processes': []
+            }
+    
     def _load_template(self):
         """Load the template document"""
         if not self.template_path:

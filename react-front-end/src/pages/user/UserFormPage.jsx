@@ -119,30 +119,27 @@ const handleDownload = async (formId, formTitle) => {
 
   try {
 
-    // Make API call to get the file using test endpoint
-    const response = await fetch(`/api/user/test-generate-document/${formId}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      },
-       withCredentials: true
+    // Make API call here to retrieve all the form data to pass in after
+    const dataResponse = await fetch(`/api/user/getFormDataForDocument/${formId}`, {
+      credentials: 'include'
+    });
+    const formData = await dataResponse.json();
+
+    console.log("Form data retrieved:", formData);
+
+    const docResponse = await fetch(`/api/user/test-generate-document/${formId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(formData.data)
     });
 
-    // Make API call to get the file
-    // const response = await fetch(`/api/user/risk-assessments/${formId}/export/word`, {
-    //   method: 'GET',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   withCredentials: true
-    // });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!docResponse.ok) {
+      throw new Error(`HTTP error! status: ${docResponse.status}`);
     }
 
     // Get the blob from the response
-    const blob = await response.blob();
+    const blob = await docResponse.blob();
     
     // Create a download link
     const url = window.URL.createObjectURL(blob);
