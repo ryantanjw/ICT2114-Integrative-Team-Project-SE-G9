@@ -263,14 +263,14 @@ useEffect(() => {
 
       {showHazardAlert && (
         <div className="fixed top-30 right-0 z-50 flex justify-end items-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+          <div className="p-6 max-w-md w-full mx-4 bg-white border border-gray-200 rounded-xl">
             <h3 className="text-lg font-semibold mb-2">New Hazards Detected</h3>
             <p className="text-sm text-gray-600 mb-4">
               There are new hazards pending approval.
             </p>
             <div className="flex justify-end gap-9">
               <button
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
                 onClick={() => setShowHazardAlert(false)}
               >
                 Close

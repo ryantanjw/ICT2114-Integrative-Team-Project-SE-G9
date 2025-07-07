@@ -2,6 +2,7 @@ import { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallba
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete } from "react-icons/md";
+import { toast } from "react-hot-toast";
 
 // Convert to forwardRef to expose methods to parent
 const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNavigate }, ref) => {
@@ -280,11 +281,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
   const showSuccessMessage = (message) => {
     console.log('Success', message);
+    toast.success(message || "Form Saved");
     // Add toast notification here if you have one
   };
 
   const showErrorMessage = (message) => {
     console.log('Error', message);
+    toast.error(message || "An error occurred while saving the form");
     // Add toast notification here if you have one
   };
 
