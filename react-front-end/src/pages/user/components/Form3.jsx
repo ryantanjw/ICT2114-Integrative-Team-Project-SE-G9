@@ -212,10 +212,12 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     };
   }, []);
 
-  // Filter users based on search term
+  // Filter users based on search term and exclude already selected RA team members
   const filteredUsers = usersList.filter(user =>
-    user.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.user_email.toLowerCase().includes(searchTerm.toLowerCase())
+    !raTeam.includes(user.user_name) && (
+      user.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.user_email.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   // Handlers for RA Team
