@@ -18,7 +18,7 @@ embedding_hazard_cache_path = os.path.join(base_dir, "kbhazard_embeddings.npy")
 def load_knowledge_base_from_file(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
-        return [phrase.strip() for phrase in content.split(f"%%") if phrase.strip()]
+        return [phrase.strip() for phrase in content.split("&&") if phrase.strip()]
 
 # this is to save the embeddings to a file so the next time you run the code, it will not have to generate the embeddings again UNLESS the kb.txt file is changed
 def save_embeddings(filepath, embeddings):
@@ -116,7 +116,7 @@ def parse_multiple_risk_assessments(response_text):
         parsed.append({
             "type": [t.strip() for t in hazard_type.split(",")],
             "description": hazard_description.group(1).strip() if hazard_description else None,
-            "injuries": [i.strip() for i in injuries.group(1).split(",")] if injuries else [],
+            "injuries": [injuries.group(1).strip()] if injuries else [],
             "existingControls": risk_control.group(1).strip() if risk_control else None,
             "severity": int(severity.group(1)) if severity else None,
             "likelihood": int(likelihood.group(1)) if likelihood else None,
@@ -151,13 +151,13 @@ def ai_function(activity):
         # If rows found, convert each row to a dict and store in a list
         hazard_data = [
             {
-                "description": row.hazard_des,
-                "type": [row.hazard_type] if row.hazard_type else [],
-                "injuries": [row.injury] if row.injury else [],
-                "existingControls": row.control,
-                "severity": row.severity,
-                "likelihood": row.likelihood,
-                "rpn": row.rpn
+            "description": row.hazard_des,
+            "type": [t.strip() for t in row.hazard_type.split(",")] if row.hazard_type else [],
+            "injuries": [row.injury] if row.injury else [],
+            "existingControls": row.control,
+            "severity": row.severity,
+            "likelihood": row.likelihood,
+            "rpn": row.rpn
             }
             for row in hazard_rows
         ]

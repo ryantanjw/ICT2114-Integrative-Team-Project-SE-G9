@@ -72,23 +72,28 @@ export default function FormCardC({
           <div className="mt-4 space-y-6">
             {/* Hazard Section */}
             <div>
-              <p className="font-bold text-orange-600">Activity Name</p>
-              <p className="text-sm text-gray-700 mb-2">Hazard Name</p>
+              <p className="font-bold text-orange-600">Activity Name: {activity}</p>
+              <p className="text-sm text-gray-700 mb-2">Hazard Description: {hazard}</p>
+              <p className="text-sm text-gray-700 mb-2">Hazard Type: {hazardType}</p>
+              <p className="text-sm text-gray-700 mb-2">Remarks: {remarks}</p>
             </div>
             <hr className="my-4 border-gray-300" />
 
 
             {/* Injury & Risk Section */}
             <div>
-              <p className="font-bold text-orange-600">Injury Name</p>
+              <p className="font-bold text-orange-600">Injury: {injury}</p>
               <p className="text-sm text-gray-700 mb-2">
-                Risk Control for Injury
+                Risk Control for Injury: {existingRiskControl}
+              </p>
+              <p className="text-sm text-gray-700 mb-2">
+                Severity: {severity} | Likelihood: {likelihood} | RPN: {RPN}
               </p>
               <div className="flex justify-end">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onApproveRisk();
+                    onApproveHazard();
                   }}
                   className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-1 rounded-full"
                 >
@@ -97,7 +102,7 @@ export default function FormCardC({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onApproveRisk();
+                    onRejectHazard();
                   }}
                   className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1 rounded-full ml-2"
                 >
