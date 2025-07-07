@@ -721,8 +721,9 @@ class DocxTemplateGenerator:
         """Generate document using template with dynamic risk assessment table"""
         try:
             if output_path is None:
-                output_path = f"risk_assessment_{assessment_id}.docx"
-            
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                output_path = os.path.join(current_dir, f"risk_assessment_{assessment_id}.docx")
+        
             # Load the template
             doc = self._load_template()
             if not doc:
@@ -990,6 +991,26 @@ class DocxTemplateGenerator:
             ]
         }
         
+    def _format_possible_injuries(self, injury_text: str) -> str:
+        """Format comma-separated injuries as a) b) c) list"""
+        if not injury_text:
+            return ''
+        
+        # Split by comma and clean up each injury
+        injuries = [injury.strip() for injury in injury_text.split(',') if injury.strip()]
+        
+        # If only one injury, return as is
+        if len(injuries) <= 1:
+            return injury_text
+        
+        # Format as a) b) c) list
+        formatted_injuries = []
+        for i, injury in enumerate(injuries):
+            letter = chr(ord('a') + i)  # Convert 0->a, 1->b, 2->c, etc.
+            formatted_injuries.append(f"{letter}) {injury}")
+        
+        return '\n'.join(formatted_injuries)
+
     def _transform_form_data(self, form_data: dict, assessment_id: str) -> dict:
         """Transform form data into the expected assessment data structure"""
         try:
@@ -1051,7 +1072,7 @@ class DocxTemplateGenerator:
                         'ref': f"{len(process_groups)}.{len(process_groups[process_name]['risks']) + 1}",
                         'activity': activity.get('work_activity', ''),
                         'hazard': hazard.get('hazard', ''),
-                        'possible_injury': hazard.get('injury', ''),
+                        'possible_injury': self._format_possible_injuries(hazard.get('injury', '')),
                         'existing_controls': hazard.get('existing_controls', ''),
                         's1': str(hazard.get('severity', '')),
                         'l1': str(hazard.get('likelihood', '')),
