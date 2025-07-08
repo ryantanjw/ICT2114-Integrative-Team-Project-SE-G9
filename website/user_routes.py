@@ -2017,25 +2017,3 @@ def get_form_data_for_document(formId):
     except Exception as e:
         print(f"Error retrieving form data for document generation: {str(e)}")
         return jsonify({'error': f'Failed to retrieve form data: {str(e)}'}), 500
-    
-@user.route('/update-form-approval/<form_id>', methods=['PUT'])
-def update_form_approval(form_id):
-    try:
-        data = request.get_json()
-        approval_status = data.get('approval')
-        
-        # Get the form from the database
-        form = db.session.query(Form).filter(Form.form_id == form_id).first()
-        
-        if not form:
-            return jsonify({"error": "Form not found"}), 404
-        
-        # Update the approval status
-        form.approval = approval_status
-        db.session.commit()
-        
-        return jsonify({"message": "Form approval status updated successfully", "approval": approval_status}), 200
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error updating form approval: {e}")
-        return jsonify({"error": f"Failed to update form approval: {str(e)}"}), 500
