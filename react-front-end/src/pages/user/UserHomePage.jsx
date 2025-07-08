@@ -9,6 +9,7 @@ import { MdNoteAdd } from "react-icons/md";
 import axios from "axios";
 import FormCardA2 from "../../components/FormCardA2.jsx";
 import ShareDialogue from "../../components/ShareDialogue.jsx";
+import DownloadDialogue from "../../components/DownloadDialogue.jsx";
 
 export default function UserHome() {
   const location = useLocation();
@@ -29,6 +30,9 @@ export default function UserHome() {
   // Share form functionality
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [selectedFormId, setSelectedFormId] = useState(null);
+  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
+  const [selectedDownloadFormId, setSelectedDownloadFormId] = useState(null);
+  const [selectedFormTitle, setSelectedFormTitle] = useState('');
 
   const formatDate = (dateString) => {
     if (!dateString) return "No date";
@@ -82,58 +86,12 @@ export default function UserHome() {
     }
   };
 
-  const handleDownload = async (formId, formTitle) => {
-    console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
-
-    try {
-
-      // Make API call here to retrieve all the form data to pass in after
-      const dataResponse = await fetch(`/api/user/getFormDataForDocument/${formId}`, {
-        credentials: 'include'
-      });
-      const formData = await dataResponse.json();
-
-      console.log("Form data retrieved:", formData);
-
-      const docResponse = await fetch(`/api/user/test-generate-document/${formId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData.data)
-      });
-
-      if (!docResponse.ok) {
-        throw new Error(`HTTP error! status: ${docResponse.status}`);
-      }
-
-      // Get the blob from the response
-      const blob = await docResponse.blob();
-      
-      // Create a download link
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      // Set the filename - you can customize this based on your needs
-      link.download = `${formTitle}_Risk_Assessment.docx`;
-      
-      // Trigger the download
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      console.log('Form downloaded successfully');
-      
-    } catch (error) {
-      console.error('Error downloading form:', error);
-      
-      // Optional: Show user-friendly error message
-      alert('Failed to download the form. Please try again.');
-    }
-  };
+ const handleDownload = (formId, formTitle) => {
+  console.log(`Preparing download for form: ${formTitle} (ID: ${formId})`);
+  setSelectedDownloadFormId(formId);
+  setSelectedFormTitle(formTitle);
+  setIsDownloadDialogOpen(true);
+};
 
 const handleView = async (formId) => {
   console.log(`Redirecting user to form with ID: ${formId}`);
@@ -432,6 +390,18 @@ const handleDelete = async (formId) => {
           formId={selectedFormId}
           currentUser={userData}
           onShare={handleShareSubmit}
+        />
+      )}
+
+      {isDownloadDialogOpen && (
+        <DownloadDialogue
+          isOpen={isDownloadDialogOpen}
+          onClose={() => {
+            setIsDownloadDialogOpen(false);
+            setSelectedDownloadFormId(null);
+          }}
+          formId={selectedDownloadFormId}
+          formTitle={selectedFormTitle}
         />
       )}
     </div>

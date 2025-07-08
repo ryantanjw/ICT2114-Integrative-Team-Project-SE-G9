@@ -1781,13 +1781,14 @@ def generate_pdf(assessment_id):
             # Use Windows-specific method with COM objects
             try:
                 import pythoncom
-                pythoncom.CoInitialize()
                 from docx2pdf import convert
+
+                pythoncom.CoInitialize()
                 convert(output_path, pdf_path)
                 pythoncom.CoUninitialize()
+
             except ImportError:
                 print("WARNING: pythoncom not available, falling back to alternative method")
-                convert_using_alternative(output_path, pdf_path)
         else:
             # For macOS and other platforms
             convert_using_alternative(output_path, pdf_path)
@@ -1815,7 +1816,7 @@ def generate_pdf(assessment_id):
         print("Full traceback:")
         traceback.print_exc()
         return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
-
+    
 def convert_using_alternative(docx_path, pdf_path):
     """Cross-platform DOCX to PDF conversion"""
     import platform
@@ -1907,7 +1908,7 @@ def convert_using_alternative(docx_path, pdf_path):
         import traceback
         traceback.print_exc()
         raise Exception(f"Failed to convert DOCX to PDF: {e}")
-
+    
 @user.route('/test-generate-document/<assessment_id>', methods=['POST'])
 def test_generate_document_debug(assessment_id):
     form_data = request.get_json()
