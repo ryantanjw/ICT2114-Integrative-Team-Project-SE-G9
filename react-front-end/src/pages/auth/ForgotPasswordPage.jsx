@@ -123,10 +123,10 @@ export default function ForgotPasswordPage() {
                 </div>
                 <div className="text-start mt-20">
                   <h2 className="text-4xl font-bold text-gray-700">
-                    Forgot Passowrd?
+                    Forgot Password?
                   </h2>
                   <p className="mt-5 text-gray-500">
-                    Log in using your registered SIT email address and associated password to access the system.
+                    Provide the registered SIT email address associated with your account and new password to reset your password.
                   </p>
                 </div>
               </div>

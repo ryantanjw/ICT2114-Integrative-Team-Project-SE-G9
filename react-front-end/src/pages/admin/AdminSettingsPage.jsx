@@ -133,14 +133,6 @@ export default function AdminSetting() {
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end mb-5 gap-2">
-              <CTAButton
-                text="Forgot Password?"
-                onClick={() => navigate("/admin/forgot_password")}
-                className="w-full sm:w-auto"
-              />
-            </div>
-
         <div className="flex flex-col justify-start mb-5">
             <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">Settings</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
