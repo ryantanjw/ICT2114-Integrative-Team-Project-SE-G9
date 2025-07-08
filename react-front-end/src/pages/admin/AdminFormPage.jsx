@@ -387,10 +387,10 @@ export default function AdminForm() {
                     owner={form.owner || "Unknown User"}
                     tags={form.tags || [form.status] || ["Unknown"]}
                     status={form.status}
-                    onView={() => handleView(form.id)}
+                    onPreviewPdf={() => handlePreviewPdf(form.id, form.title)}
+
                     onDownload={() => handleDownload(form.id, form.title)}
                     onDelete={() => handleDelete(form.id)}
-                    onPreviewPdf={() => handlePreviewPdf(form.id, form.title)}
                   />
                 ))}
               </div>

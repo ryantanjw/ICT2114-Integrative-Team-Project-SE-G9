@@ -362,7 +362,7 @@ export default function AdminHome() {
                 owner={form.owner || "Unknown User"}
                 tags={form.tags || [form.status] || ["Unknown"]}
                 status={form.status}
-                onView={() => handlePreviewPdf(form.id, form.title)} // Update this to use handlePreviewPdf
+                onPreviewPdf={() => handlePreviewPdf(form.id, form.title)} 
                 onDownload={() => window.open(`/api/admin/downloadForm/${form.id}`, "_blank")}
                 onDelete={async () => {
                   if (!window.confirm("Are you sure you want to delete this form?")) return;
@@ -374,7 +374,6 @@ export default function AdminHome() {
                     alert("Error deleting form");
                   }
                 }}
-                onPreviewPdf={() => handlePreviewPdf(form.id, form.title)} // Add this prop
               />
             ))}
           </div>
