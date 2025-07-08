@@ -31,8 +31,38 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
     };
   }, [generatedPdfUrl]);
 
-  const handleConfirm = () => {
-    setDialogOpen(true);
+  const handleConfirm = async () => {
+    try {
+      // Update form approval status to 1
+      const response = await fetch(`/api/user/update-form-approval/${formData.form_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ approval: 1 })
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Failed to update approval status: ${response.status} ${response.statusText}`);
+      }
+  
+      console.log("Form approval status updated successfully");
+      
+      // Update local form data if updateFormData function was provided
+      if (updateFormData) {
+        updateFormData({
+          ...formData,
+          approval: 1
+        });
+      }
+  
+      // Show confirmation dialog
+      setDialogOpen(true);
+    } catch (error) {
+      console.error("Error updating form approval:", error);
+      alert("Failed to update form approval status. Please try again.");
+    }
   };
 
   // Function to generate filled PDF
