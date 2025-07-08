@@ -6,7 +6,7 @@ import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { MdCheck } from "react-icons/md";
 import { RiCollapseVerticalFill, RiExpandVerticalLine } from "react-icons/ri";
 import { v4 as uuidv4 } from 'uuid';
-
+import { toast } from "react-hot-toast";
 
 const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Build RA processes with nested activities and default hazards
@@ -924,11 +924,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
         // Force update to parent after successful save
         triggerUpdateToParent(true);
+        toast.success("Form Saved"); 
 
         setIsLoading(false);
         return true; // Indicate success
       } else {
         console.log('Error:', response.statusText);
+        toast.error("Failed to save form. Please try again.");
         setIsLoading(false);
         return false; // Indicate failure
       }
@@ -1100,7 +1102,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             <CTAButton
               text="Generate"
               /* ctrl f tag AI Generate button */
-              onClick={async () => await addHazardsToProcess(proc.id)}
+              onClick={async () => {
+                const toastId = toast.loading("Generating with AI...");
+                await addHazardsToProcess(proc.id);
+                toast.success("Hazards generated", { id: toastId });
+              }}
               className="ml-auto bg-gray-100 text-black"
             />
           </div>
@@ -1117,12 +1123,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       Work Activity {idx + 1} {act.description && `- ${act.description}`}
                     </span>
                   </div>
-                  <CTAButton
-                    icon={<MdDelete />}
-                    text="Remove"
-                    onClick={() => removeActivity(proc.id, act.id)}
-                    className="text-black"
-                  />
+                  {proc.activities.length > 1 && (
+                    <CTAButton
+                      icon={<MdDelete />}
+                      text="Remove"
+                      onClick={() => removeActivity(proc.id, act.id)}
+                      className="text-black"
+                    />
+                  )}
                 </div>
                 {act.expanded && (
                   <div className="p-4 space-y-4 bg-white rounded-b">

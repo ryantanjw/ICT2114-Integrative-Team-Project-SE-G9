@@ -53,14 +53,18 @@ export default function FormTabs({ onTabChange, currentTab: externalTab }) {
         <button
           onClick={() => onTabChange(currentTab - 1)}
           disabled={currentTab === 0}
-          className="back-button"
+          className={`px-4 py-2 rounded ${
+            currentTab === 0
+              ? "bg-gray-200 text-black cursor-not-allowed"
+              : "bg-gray-400 text-white"
+          }`}
         >
           Back
         </button>
         <button
           onClick={handleNext}
           disabled={currentTab === tabs.length - 1}
-          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+          className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
         >
           {currentTab >= tabs.length - 1 ? "Complete Form" : "Next"}
         </button>

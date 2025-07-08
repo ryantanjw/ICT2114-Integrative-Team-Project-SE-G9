@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, forwardRef } from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdAdd, MdDelete } from "react-icons/md";
+import { toast } from 'react-hot-toast';
 
 const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Initialize simple fields, falling back to sample if provided
@@ -212,10 +213,12 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     };
   }, []);
 
-  // Filter users based on search term
+  // Filter users based on search term and exclude already selected RA team members
   const filteredUsers = usersList.filter(user =>
-    user.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.user_email.toLowerCase().includes(searchTerm.toLowerCase())
+    !raTeam.includes(user.user_name) && (
+      user.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.user_email.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   // Handlers for RA Team
@@ -293,11 +296,16 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         if (updateFormData) {
           updateFormData(formData);
         }
+
+        toast.success("Form Saved");
       } else {
-        console.error("Error saving form:", await response.text());
+        const errTxt = await response.text();
+        console.error("Error saving form:", errTxt);
+        toast.error("Save failed: " + errTxt);
       }
     } catch (error) {
       console.error("Error saving form:", error);
+      toast.error("Save failed: " + error.message);
     } finally {
       setIsLoading(false);
     }
