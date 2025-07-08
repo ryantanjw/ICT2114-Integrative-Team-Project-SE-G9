@@ -748,41 +748,41 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     scheduleBatchedUpdate();
   };
 
-        const toggleHazardType = (processId, activityId, hazardId, type) => {
-      // Use the functional state update pattern to ensure we're working with the latest state
-      setRaProcesses(prevProcesses => {
-        const newProcesses = prevProcesses.map(proc =>
-          proc.id === processId
-            ? {
-                ...proc,
-                activities: proc.activities.map(a =>
-                  a.id === activityId
-                    ? {
-                        ...a,
-                        hazards: a.hazards.map(h =>
-                          h.id === hazardId
-                            ? {
-                                ...h,
-                                // Set type to either [type] or [] if already selected
-                                type: h.type.includes(type) ? [] : [type]
-                              }
-                            : h
-                        ),
+  const toggleHazardType = (processId, activityId, hazardId, type) => {
+    // Use the functional state update pattern to ensure we're working with the latest state
+    setRaProcesses(prevProcesses => {
+      const newProcesses = prevProcesses.map(proc =>
+        proc.id === processId
+          ? {
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: a.hazards.map(h =>
+                    h.id === hazardId
+                      ? {
+                        ...h,
+                        // Set type to either [type] or [] if already selected
+                        type: h.type.includes(type) ? [] : [type]
                       }
-                    : a
-                ),
-              }
-            : proc
-        );
-        
-        return newProcesses;
-      });
-      
-      // Schedule batched update AFTER state update completes
-      setTimeout(() => {
-        scheduleBatchedUpdate();
-      }, 0);
-    };
+                      : h
+                  ),
+                }
+                : a
+            ),
+          }
+          : proc
+      );
+
+      return newProcesses;
+    });
+
+    // Schedule batched update AFTER state update completes
+    setTimeout(() => {
+      scheduleBatchedUpdate();
+    }, 0);
+  };
 
   const addInjury = (processId, activityId, hazardId) => {
     setRaProcesses(
@@ -1245,15 +1245,24 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                           </label>
                           <div className="flex flex-wrap gap-2 mb-2">
                             {h.injuries.map((inj, idx) => (
-                              <button
+                              <div
                                 key={idx}
-                                type="button"
-                                onClick={() => removeInjury(proc.id, act.id, h.id, inj)}
-                                className="px-3 py-1 rounded-full text-white"
+                                className="px-3 py-1 rounded-full text-white relative group"
                                 style={{ backgroundColor: "#7F3F00" }}
                               >
                                 {inj}
-                              </button>
+                                <div
+                                  className="absolute right-0 top-0 bg-red-600 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transform translate-x-1 -translate-y-1 transition-opacity"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Are you sure you want to delete "${inj}"?`)) {
+                                      removeInjury(proc.id, act.id, h.id, inj);
+                                    }
+                                  }}
+                                >
+                                  <MdDelete size={12} className="text-white" />
+                                </div>
+                              </div>
                             ))}
                             <button
                               type="button"
@@ -1265,6 +1274,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                               + Add More
                             </button>
                           </div>
+
                           {h.showInjuryInput && (
                             <div className="flex items-center space-x-2 mt-2">
                               <input
