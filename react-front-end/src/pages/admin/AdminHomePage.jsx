@@ -12,84 +12,88 @@ import { FaPlus } from "react-icons/fa";
 import FormCardA2 from "../../components/FormCardA2.jsx";
 import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import PdfPreviewModal from "./components/PdfPreviewModal.jsx";
 
 
 
 export default function AdminHome() {
-    const location = useLocation();
-    const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(true);
-    const[adminData, setAdminData] = useState(null);
-    const [modalOpen, setModalOpen] = useState(false);
-    const [isLoadingForms, setIsLoadingForms] = useState(false);
-    const [forms, setForms] = useState([]);
-    const [showHazardAlert, setShowHazardAlert] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [adminData, setAdminData] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [isLoadingForms, setIsLoadingForms] = useState(false);
+  const [forms, setForms] = useState([]);
+  const [showHazardAlert, setShowHazardAlert] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [selectedFormForPdf, setSelectedFormForPdf] = useState(null);
 
-    // Pagination state
-    const [pagination, setPagination] = useState({
-        current_page: 1,
-        per_page: 9,
-        total_forms: 0,
-        total_pages: 1,
-        has_next: false,
-        has_prev: false,
-        next_page: null,
-        prev_page: null,
-        start_index: 0,
-        end_index: 0
-    });
 
-    const [availableFilters, setAvailableFilters] = useState({
-        divisions: [],
-        locations: []
-    });
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    per_page: 9,
+    total_forms: 0,
+    total_pages: 1,
+    has_next: false,
+    has_prev: false,
+    next_page: null,
+    prev_page: null,
+    start_index: 0,
+    end_index: 0
+  });
 
-    // Helper function to format date
-    const formatDate = (dateString) => {
+  const [availableFilters, setAvailableFilters] = useState({
+    divisions: [],
+    locations: []
+  });
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
     if (!dateString) return "No date";
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
-    };
+  };
 
-    const fetchRecentlyCompletedForms = async () => {
-        try {
-            setIsLoadingForms(true);
-            console.log("Fetching 9 latest completed forms");
+  const fetchRecentlyCompletedForms = async () => {
+    try {
+      setIsLoadingForms(true);
+      console.log("Fetching 9 latest completed forms");
 
-            const params = new URLSearchParams({
-                page: "1",
-                per_page: "9",
-                status: "completed", // Only fetch completed forms
-                sort_by: "created_at", // Sort by creation date
-                sort_order: "desc" // Latest first
-            });
+      const params = new URLSearchParams({
+        page: "1",
+        per_page: "9",
+        status: "completed", // Only fetch completed forms
+        sort_by: "created_at", // Sort by creation date
+        sort_order: "desc" // Latest first
+      });
 
-            const response = await axios.get(`/api/admin/retrieveForms?${params}`, {
-                withCredentials: true,
-                headers: {
-                'Cache-Control': 'no-cache'
-                }
-            });
-      
-            if (response.data.forms) {
-                setForms(response.data.forms);
-                setPagination(response.data.pagination);
-            } else {
-            // Handle old response format (if backend isn't updated yet)
-            setForms(response.data);
-            }
-        } catch (error) {
-        console.error("Error fetching recent completed forms:", error);
-        console.error("Error response:", error.response?.data);
-        console.error("Error status:", error.response?.status);
-        
-        // Show user-friendly error message
-        setForms([]);
-        setPagination(prev => ({ ...prev, total_forms: 0, total_pages: 0 }));
-        } finally {
-        setIsLoadingForms(false);
+      const response = await axios.get(`/api/admin/retrieveForms?${params}`, {
+        withCredentials: true,
+        headers: {
+          'Cache-Control': 'no-cache'
         }
-    };
+      });
+
+      if (response.data.forms) {
+        setForms(response.data.forms);
+        setPagination(response.data.pagination);
+      } else {
+        // Handle old response format (if backend isn't updated yet)
+        setForms(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching recent completed forms:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      // Show user-friendly error message
+      setForms([]);
+      setPagination(prev => ({ ...prev, total_forms: 0, total_pages: 0 }));
+    } finally {
+      setIsLoadingForms(false);
+    }
+  };
 
   // Function to fetch filter options
   const fetchFilterOptions = async () => {
@@ -97,7 +101,7 @@ export default function AdminHome() {
       const response = await axios.get("/api/admin/formsStats", {
         withCredentials: true
       });
-      
+
       if (response.data.available_divisions || response.data.available_locations) {
         setAvailableFilters({
           divisions: response.data.available_divisions || [],
@@ -135,107 +139,113 @@ export default function AdminHome() {
   };
 
   // Handle sharing a form
-const handleShare = (formId) => {
-  console.log(`Sharing form with ID: ${formId}`);
-  // Add your share logic here
-  // For example, copy link to clipboard or open share modal
-};
+  const handleShare = (formId) => {
+    console.log(`Sharing form with ID: ${formId}`);
+    // Add your share logic here
+    // For example, copy link to clipboard or open share modal
+  };
 
-// Handle downloading a form
-const handleDownload = (formId, formTitle) => {
-  console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
-  // Add your download logic here
-  // For example, generate PDF or export data
-  try {
-    // Example: Navigate to download endpoint
-    window.open(`/api/admin/downloadForm/${formId}`, '_blank');
-  } catch (error) {
-    console.error('Error downloading form:', error);
-  }
-};
-
-
-// Handle viewing a form --> allows user to edit form --> redirect to form 1
-const handleView = async (formId) => {
-  console.log(`Redirecting user to form with ID: ${formId}`);
-  try {
-    // Example: Navigate to view form1 endpoint
-    // window.open(`/api/admin/downloadForm/${formId}`, '_blank');
-  } catch (error) {
-    console.error('Error downloading form:', error);
-  }
-}
-
-// Handle deleting a form
-const handleDelete = async (formId) => {
-  console.log(`Deleting form with ID: ${formId}`);
-  
-  // Show confirmation dialog
-  if (!window.confirm('Are you sure you want to delete this form? This action cannot be undone.')) {
-    return;
-  }
-
-  try {
-    const response = await axios.delete(`/api/admin/deleteForm/${formId}`, {
-      withCredentials: true
-    });
-
-    if (response.data.success) {
-      console.log('Form deleted successfully');
-      // Refresh the forms list
-      // fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
-      fetchUserForms(pagination.current_page);
-    } else {
-      console.error('Failed to delete form:', response.data.error);
-      alert('Failed to delete form: ' + response.data.error);
+  // Handle downloading a form
+  const handleDownload = (formId, formTitle) => {
+    console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
+    // Add your download logic here
+    // For example, generate PDF or export data
+    try {
+      // Example: Navigate to download endpoint
+      window.open(`/api/admin/downloadForm/${formId}`, '_blank');
+    } catch (error) {
+      console.error('Error downloading form:', error);
     }
-  } catch (error) {
-    console.error('Error deleting form:', error);
-    alert('Error deleting form. Please try again.');
-  }
-};
+  };
 
-// Check for any new Hazard notification
-const checkHazardNotification = async () => {
-  try {
-    const response = await axios.get("/api/admin/notification", {
-      withCredentials: true,
-    });
-    if (response.data === true) {
-      setShowHazardAlert(true);
+  const handlePreviewPdf = (formId, formTitle) => {
+    console.log("Preview PDF clicked for:", formId, formTitle);
+    setSelectedFormForPdf({ id: formId, title: formTitle });
+    setIsPdfModalOpen(true);
+  };
+
+
+  // Handle viewing a form --> allows user to edit form --> redirect to form 1
+  const handleView = async (formId) => {
+    console.log(`Redirecting user to form with ID: ${formId}`);
+    try {
+      // Example: Navigate to view form1 endpoint
+      // window.open(`/api/admin/downloadForm/${formId}`, '_blank');
+    } catch (error) {
+      console.error('Error downloading form:', error);
     }
-  } catch (err) {
-    console.error("Error checking hazard notification:", err);
   }
-};
 
-// Check session when component mounts
-useEffect(() => {
+  // Handle deleting a form
+  const handleDelete = async (formId) => {
+    console.log(`Deleting form with ID: ${formId}`);
+
+    // Show confirmation dialog
+    if (!window.confirm('Are you sure you want to delete this form? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`/api/admin/deleteForm/${formId}`, {
+        withCredentials: true
+      });
+
+      if (response.data.success) {
+        console.log('Form deleted successfully');
+        // Refresh the forms list
+        // fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
+        fetchUserForms(pagination.current_page);
+      } else {
+        console.error('Failed to delete form:', response.data.error);
+        alert('Failed to delete form: ' + response.data.error);
+      }
+    } catch (error) {
+      console.error('Error deleting form:', error);
+      alert('Error deleting form. Please try again.');
+    }
+  };
+
+  // Check for any new Hazard notification
+  const checkHazardNotification = async () => {
+    try {
+      const response = await axios.get("/api/admin/notification", {
+        withCredentials: true,
+      });
+      if (response.data === true) {
+        setShowHazardAlert(true);
+      }
+    } catch (err) {
+      console.error("Error checking hazard notification:", err);
+    }
+  };
+
+  // Check session when component mounts
+  useEffect(() => {
     const checkSession = async () => {
-        try {
+      try {
         console.log("Checking admin session...");
         setIsLoading(true);
-        
+
         const response = await axios.get("/api/check_session", {
-            withCredentials: true
+          withCredentials: true
         });
-        
+
         console.log("Session check response:", response.data);
-        
+
         // If not logged in, redirect to login page
         if (!response.data.logged_in) {
-        console.log("No active session found, redirecting to login");
-        navigate("/auth/login");
-        return;
+          console.log("No active session found, redirecting to login");
+          navigate("/auth/login");
+          return;
         }
-        
+
         // If user is not an admin, redirect to user dashboard
         if (response.data.user_role !== 0) {
-        console.log("Non-admin user detected, redirecting to user dashboard");
-        navigate("/home");
-        return;
-    }
-        
+          console.log("Non-admin user detected, redirecting to user dashboard");
+          navigate("/home");
+          return;
+        }
+
         // Store admin data for display
         setAdminData(response.data);
 
@@ -243,19 +253,19 @@ useEffect(() => {
         await Promise.all([
           fetchRecentlyCompletedForms(),
           checkHazardNotification(),
-        //   fetchFilterOptions()
+          //   fetchFilterOptions()
         ]);
 
         setIsLoading(false);
-    } catch (error) {
+      } catch (error) {
         console.error("Error checking session:", error);
         // If there's an error, assume not logged in and redirect
         navigate("/auth/login");
-    }
+      }
     };
 
     checkSession();
-}, [navigate]);
+  }, [navigate]);
 
   return (
     <div className="relative bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
@@ -352,7 +362,7 @@ useEffect(() => {
                 owner={form.owner || "Unknown User"}
                 tags={form.tags || [form.status] || ["Unknown"]}
                 status={form.status}
-                onView={() => console.log("Viewing form", form.id)}
+                onView={() => handlePreviewPdf(form.id, form.title)} // Update this to use handlePreviewPdf
                 onDownload={() => window.open(`/api/admin/downloadForm/${form.id}`, "_blank")}
                 onDelete={async () => {
                   if (!window.confirm("Are you sure you want to delete this form?")) return;
@@ -364,11 +374,18 @@ useEffect(() => {
                     alert("Error deleting form");
                   }
                 }}
+                onPreviewPdf={() => handlePreviewPdf(form.id, form.title)} // Add this prop
               />
             ))}
           </div>
         )}
       </div>
+      <PdfPreviewModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        formId={selectedFormForPdf?.id}
+        formTitle={selectedFormForPdf?.title}
+      />
     </div>
   );
 }

@@ -10,7 +10,7 @@ export default function FormCardA2({
   title = "Form Title",
   owner = "Form Owner",
   expiryDate = "-",
-  onView,
+  onPreviewPdf,
   onDownload,
   onDelete,
 }) {
@@ -69,7 +69,7 @@ export default function FormCardA2({
       <div className="text text-gray-700 my-2">{owner}</div>
       <div className="text text-gray-700 mb-4">Expiry Date: {expiryDate}</div>
       <div className="flex justify-between">
-        <button onClick={onView} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+        <button onClick={onPreviewPdf} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
           <FiEye className="text-lg" />
         </button>
         <button onClick={onDownload} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
