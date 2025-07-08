@@ -99,6 +99,59 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
     }
   };
 
+  // Download DOCX version
+  const downloadDocx = async () => {
+    try {
+      console.log("Downloading DOCX for form ID:", formData.form_id);
+      
+      // First, fetch complete form data
+      const dataResponse = await fetch(`/api/user/getFormDataForDocument/${formData.form_id}`, {
+        credentials: 'include'
+      });
+
+      if (!dataResponse.ok) {
+        throw new Error(`Failed to fetch form data: ${dataResponse.status} ${dataResponse.statusText}`);
+      }
+
+      const completeFormData = await dataResponse.json();
+      
+      // Use the test-generate-document endpoint for DOCX (same as in DownloadDialogue)
+      const response = await fetch(`/api/user/test-generate-document/${formData.form_id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...completeFormData.data,
+          format: 'docx'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate DOCX: ${response.status} ${response.statusText}`);
+      }
+
+      // Get the response as a blob
+      const docxBlob = await response.blob();
+      
+      // Create a download link
+      const url = URL.createObjectURL(docxBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `risk_assessment_${formData.form_id}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log("DOCX downloaded successfully");
+    } catch (error) {
+      console.error('Error downloading DOCX:', error);
+      alert("Failed to download DOCX. Please try again.");
+    }
+  };
+
   // Add a function to handle PDF display errors
   const handlePdfError = () => {
     console.error("Error displaying PDF");
@@ -206,6 +259,13 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
                 className="px-4 py-2 bg-green-600 text-white rounded text-center"
               >
                 Download PDF
+              </button>
+              {/* New DOCX download button */}
+              <button
+                onClick={downloadDocx}
+                className="px-4 py-2 bg-blue-600 text-white rounded text-center"
+              >
+                Download DOCX
               </button>
               <button
                 onClick={() => {
