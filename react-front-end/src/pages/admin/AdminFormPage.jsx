@@ -7,7 +7,8 @@ import SearchBar from "../../components/SearchBar.jsx";
 import axios from "axios";
 import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
-
+import PdfPreviewModal from "./components/PdfPreviewModal.jsx";
+import DownloadDialogue from "../../components/DownloadDialogue.jsx";
 
 export default function AdminForm() {
   const location = useLocation();
@@ -16,6 +17,12 @@ export default function AdminForm() {
   const [isLoadingForms, setIsLoadingForms] = useState(false);
   const [adminData, setAdminData] = useState(null);
   const [forms, setForms] = useState([]);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [selectedFormForPdf, setSelectedFormForPdf] = useState(null);
+  const [isDownloadDialogueOpen, setIsDownloadDialogueOpen] = useState(false);
+  const [selectedFormForDownload, setSelectedFormForDownload] = useState(null);
+
+
 
   // Pagination state
   const [pagination, setPagination] = useState({
@@ -41,7 +48,7 @@ export default function AdminForm() {
   });
 
 
-    // Helper function to format date
+  // Helper function to format date
   const formatDate = (dateString) => {
     if (!dateString) return "No date";
     const date = new Date(dateString);
@@ -52,7 +59,7 @@ export default function AdminForm() {
     try {
       setIsLoadingForms(true);
       console.log(`Fetching forms - Page: ${page}, Search: "${search}", Status: "${status}", Division: "${division}"`);
-      
+
       const params = new URLSearchParams({
         page: page.toString(),
         per_page: "21",
@@ -67,9 +74,9 @@ export default function AdminForm() {
           'Cache-Control': 'no-cache'
         }
       });
-      
+
       console.log("Forms fetched:", response.data);
-      
+
       if (response.data.forms) {
         setForms(response.data.forms);
         setPagination(response.data.pagination);
@@ -80,7 +87,7 @@ export default function AdminForm() {
       console.error("Error fetching forms:", error);
       console.error("Error response:", error.response?.data);
       console.error("Error status:", error.response?.status);
-      
+
       // Show user-friendly error message
       setForms([]);
       setPagination(prev => ({ ...prev, total_forms: 0, total_pages: 0 }));
@@ -89,13 +96,13 @@ export default function AdminForm() {
     }
   };
 
-    // Function to fetch filter options
+  // Function to fetch filter options
   // const fetchFilterOptions = async () => {
   //   try {
   //     const response = await axios.get("/api/admin/formsStats", {
   //       withCredentials: true
   //     });
-      
+
   //     if (response.data.available_divisions || response.data.available_locations) {
   //       setAvailableFilters({
   //         divisions: response.data.available_divisions || [],
@@ -136,6 +143,19 @@ export default function AdminForm() {
     fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
   };
 
+  // Handle previewing PDF
+  const handlePreviewPdf = (formId, formTitle) => {
+    setSelectedFormForPdf({ id: formId, title: formTitle });
+    setIsPdfModalOpen(true);
+  };
+
+  // Handle download dialogue
+  const handleOpenDownloadDialogue = (formId, formTitle) => {
+    console.log(`Opening download dialogue for: ${formTitle} (ID: ${formId})`);
+    setSelectedFormForDownload({ id: formId, title: formTitle });
+    setIsDownloadDialogueOpen(true);
+  };
+
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery("");
@@ -145,65 +165,65 @@ export default function AdminForm() {
   };
 
   // Handle sharing a form
-const handleShare = (formId) => {
-  console.log(`Sharing form with ID: ${formId}`);
-  // Add your share logic here
-  // For example, copy link to clipboard or open share modal
-};
+  const handleShare = (formId) => {
+    console.log(`Sharing form with ID: ${formId}`);
+    // Add your share logic here
+    // For example, copy link to clipboard or open share modal
+  };
 
-// Handle downloading a form
-const handleDownload = (formId, formTitle) => {
-  console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
-  // Add your download logic here
-  // For example, generate PDF or export data
-  try {
-    // Example: Navigate to download endpoint
-    window.open(`/api/admin/downloadForm/${formId}`, '_blank');
-  } catch (error) {
-    console.error('Error downloading form:', error);
-  }
-};
-
-
-// Handle viewing a form --> allows user to edit form --> redirect to form 1
-const handleView = async (formId) => {
-  console.log(`Redirecting user to form with ID: ${formId}`);
-  try {
-    // Example: Navigate to view form1 endpoint
-    // window.open(`/api/admin/downloadForm/${formId}`, '_blank');
-  } catch (error) {
-    console.error('Error downloading form:', error);
-  }
-}
-
-// Handle deleting a form
-const handleDelete = async (formId) => {
-  console.log(`Deleting form with ID: ${formId}`);
-  
-  // Show confirmation dialog
-  if (!window.confirm('Are you sure you want to delete this form? This action cannot be undone.')) {
-    return;
-  }
-
-  try {
-    const response = await axios.delete(`/api/admin/deleteForm/${formId}`, {
-      withCredentials: true
-    });
-
-    if (response.data.success) {
-      console.log('Form deleted successfully');
-      // Refresh the forms list
-      // fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
-      fetchUserForms(pagination.current_page);
-    } else {
-      console.error('Failed to delete form:', response.data.error);
-      alert('Failed to delete form: ' + response.data.error);
+  // Handle downloading a form
+  const handleDownload = (formId, formTitle) => {
+    console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
+    // Add your download logic here
+    // For example, generate PDF or export data
+    try {
+      // Example: Navigate to download endpoint
+      window.open(`/api/admin/downloadForm/${formId}`, '_blank');
+    } catch (error) {
+      console.error('Error downloading form:', error);
     }
-  } catch (error) {
-    console.error('Error deleting form:', error);
-    alert('Error deleting form. Please try again.');
+  };
+
+
+  // Handle viewing a form --> allows user to edit form --> redirect to form 1
+  const handleView = async (formId) => {
+    console.log(`Redirecting user to form with ID: ${formId}`);
+    try {
+      // Example: Navigate to view form1 endpoint
+      // window.open(`/api/admin/downloadForm/${formId}`, '_blank');
+    } catch (error) {
+      console.error('Error downloading form:', error);
+    }
   }
-};
+
+  // Handle deleting a form
+  const handleDelete = async (formId) => {
+    console.log(`Deleting form with ID: ${formId}`);
+
+    // Show confirmation dialog
+    if (!window.confirm('Are you sure you want to delete this form? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`/api/admin/deleteForm/${formId}`, {
+        withCredentials: true
+      });
+
+      if (response.data.success) {
+        console.log('Form deleted successfully');
+        // Refresh the forms list
+        // fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
+        fetchUserForms(pagination.current_page);
+      } else {
+        console.error('Failed to delete form:', response.data.error);
+        alert('Failed to delete form: ' + response.data.error);
+      }
+    } catch (error) {
+      console.error('Error deleting form:', error);
+      alert('Error deleting form. Please try again.');
+    }
+  };
 
   // Check session when component mounts
   useEffect(() => {
@@ -211,27 +231,27 @@ const handleDelete = async (formId) => {
       try {
         console.log("Checking admin session...");
         setIsLoading(true);
-        
+
         const response = await axios.get("/api/check_session", {
           withCredentials: true
         });
-        
+
         console.log("Session check response:", response.data);
-        
+
         // If not logged in, redirect to login page
         if (!response.data.logged_in) {
           console.log("No active session found, redirecting to login");
           navigate("/auth/login");
           return;
         }
-        
+
         // If user is not an admin, redirect to user dashboard
         if (response.data.user_role !== 0) {
           console.log("Non-admin user detected, redirecting to user dashboard");
           navigate("/home");
           return;
         }
-        
+
         // Store admin data for display
         setAdminData(response.data);
 
@@ -265,7 +285,7 @@ const handleDelete = async (formId) => {
   }
 
   return (
-  <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
+    <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
       <div className="flex flex-col justify-start mb-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -296,12 +316,12 @@ const handleDelete = async (formId) => {
 
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
-          <SearchBar 
-            onSearch={handleSearch} 
-            placeholder="Search forms, users, references..." 
+          <SearchBar
+            onSearch={handleSearch}
+            placeholder="Search forms, users, references..."
             initialValue={searchQuery}
           />
-          
+
           <div className="flex flex-wrap gap-4">
             {/* Status Filter */}
             <select
@@ -314,7 +334,7 @@ const handleDelete = async (formId) => {
               <option value="Completed">Completed</option>
               <option value="review due">Review Due</option>
             </select>
-        
+
             {/* Division Filter */}
             {availableFilters.divisions.length > 0 && (
               <select
@@ -353,13 +373,13 @@ const handleDelete = async (formId) => {
           ) : forms.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-sm text-center">
               <p className="text-gray-600">
-                {searchQuery || statusFilter || divisionFilter 
-                  ? "No forms match your search criteria." 
+                {searchQuery || statusFilter || divisionFilter
+                  ? "No forms match your search criteria."
                   : "No forms found. Create a new form to get started."
                 }
               </p>
               {!(searchQuery || statusFilter || divisionFilter) && (
-                <button 
+                <button
                   type="button"
                   onClick={() => navigate("/user/new")}
                   className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
@@ -379,8 +399,8 @@ const handleDelete = async (formId) => {
                     owner={form.owner || "Unknown User"}
                     tags={form.tags || [form.status] || ["Unknown"]}
                     status={form.status}
-                    onView={() => handleView(form.id)}
-                    onDownload={() => handleDownload(form.id, form.title)}
+                    onPreviewPdf={() => handlePreviewPdf(form.id, form.title)}
+                    onDownload={() => handleOpenDownloadDialogue(form.id, form.title)} // Update this line
                     onDelete={() => handleDelete(form.id)}
                   />
                 ))}
@@ -392,7 +412,7 @@ const handleDelete = async (formId) => {
                   <div className="text-sm text-gray-600">
                     Page {pagination.current_page} of {pagination.total_pages}
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     {/* Previous Button */}
                     <button
@@ -425,17 +445,16 @@ const handleDelete = async (formId) => {
                       {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
                         const pageNum = Math.max(1, pagination.current_page - 2) + i;
                         if (pageNum > pagination.total_pages) return null;
-                        
+
                         return (
                           <button
                             type="button"
                             key={pageNum}
                             onClick={() => handlePageChange(pageNum)}
-                            className={`px-3 py-2 border rounded-md ${
-                              pageNum === pagination.current_page
-                                ? 'bg-blue-500 text-white border-blue-500'
-                                : 'bg-white border-gray-300 hover:bg-gray-50'
-                            }`}
+                            className={`px-3 py-2 border rounded-md ${pageNum === pagination.current_page
+                              ? 'bg-blue-500 text-white border-blue-500'
+                              : 'bg-white border-gray-300 hover:bg-gray-50'
+                              }`}
                           >
                             {pageNum}
                           </button>
@@ -474,6 +493,18 @@ const handleDelete = async (formId) => {
           )}
         </div>
       </div>
+      <DownloadDialogue
+        isOpen={isDownloadDialogueOpen}
+        onClose={() => setIsDownloadDialogueOpen(false)}
+        formId={selectedFormForDownload?.id}
+        formTitle={selectedFormForDownload?.title}
+      />
+      <PdfPreviewModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        formId={selectedFormForPdf?.id}
+        formTitle={selectedFormForPdf?.title}
+      />
     </div>
 
   );
