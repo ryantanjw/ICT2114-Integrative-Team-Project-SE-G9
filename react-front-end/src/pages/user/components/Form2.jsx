@@ -19,6 +19,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const [formId, setFormId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState("");
+  const [currentUserDesignation, setCurrentUserDesignation] = useState("");
+
+
   const formIdRef = useRef(null);
   const lastFetchTime = useRef(0);
   const pendingUpdatesRef = useRef(null);
@@ -88,6 +92,53 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     });
   };
 
+  // Fetch current user details on mount  
+  useEffect(() => {
+    // Function to get current user's details
+    const fetchCurrentUser = async () => {
+      if (!sessionData || !sessionData.user_id) {
+        console.log("No user ID available in session data:", sessionData);
+        return;
+      }
+
+      console.log(`Attempting to fetch user data for ID: ${sessionData.user_id}`);
+
+      try {
+        const response = await fetch(`/api/user/user/${sessionData.user_id}`, {
+          credentials: 'include'
+        });
+
+        console.log("API response status:", response.status);
+
+        if (response.ok) {
+          const userData = await response.json();
+          console.log("User data fetched:", userData);
+
+          // FIXED: Use the correct property names from the API response
+          const userName = userData.user_name || sessionData.username || "Unknown User";
+          const userDesignation = userData.user_designation || userData.user_role || "Unknown Dept";
+
+          console.log(`Setting user name: "${userName}" and role: "${userDesignation}"`);
+
+          setCurrentUserName(userName);
+          setCurrentUserDesignation(userDesignation);
+        } else {
+          console.error("Failed to fetch user data, status:", response.status);
+          // Set fallback values on error
+          setCurrentUserName(sessionData.username || "Unknown User");
+          setCurrentUserDesignation("Unknown Dept");
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        // Set fallback values on error
+        setCurrentUserName(sessionData.username || "Unknown User");
+        setCurrentUserDesignation("Unknown Dept");
+      }
+    };
+
+    fetchCurrentUser();
+  }, [sessionData]);
+
   // Debounced function to store form ID in session
   const storeFormIdInSession = useCallback(async (form_id) => {
     const now = Date.now();
@@ -142,6 +193,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   useEffect(() => {
     fetchHazardTypes();
   }, [fetchHazardTypes]);
+
+
 
   // Fetch form data from API  
   const fetchFormData = useCallback(async (id) => {
@@ -1386,7 +1439,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                           <InputGroup
                             label="Implementation Person"
                             id={`impl-${h.id}`}
-                            value="Hajmath Begum (PO, POD)"
+                            value={currentUserName ? `${currentUserName} (${currentUserDesignation})` : "Loading..."}
                             onChange={() => { }}
                             disabled
                             className="flex-1"
