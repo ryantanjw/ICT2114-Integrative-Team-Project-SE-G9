@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Enum
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
@@ -129,63 +128,3 @@ class share_access(db.Model):
     # Define fields
     shared_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), primary_key=True)
     shared_form_id = db.Column(db.Integer, db.ForeignKey('form.form_id'), primary_key=True)
-
-# For Generating Word Doc Form
-
-Base = declarative_base()
-
-class RiskAssessmentHeader(Base):
-    __tablename__ = 'risk_assessment_header'
-    
-    id = Column(Integer, primary_key=True)
-    assessment_id = Column(String(50), unique=True, nullable=False)
-    reference_number = Column(String(100), nullable=False)
-    title = Column(String(200), nullable=False)
-    division = Column(String(100))
-    location = Column(String(200))
-    ra_leader = Column(String(100))
-    ra_team = Column(String(200))
-    approved_by = Column(String(100))
-    signature = Column(String(100))
-    designation = Column(String(100))
-    last_review_date = Column(String(20))
-    next_review_date = Column(String(20))
-    date = Column(String(20))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationship to risk assessment rows
-    rows = relationship("RiskAssessmentRow", back_populates="header", cascade="all, delete-orphan")
-    
-    def __repr__(self):
-        return f"<RiskAssessmentHeader(assessment_id='{self.assessment_id}', title='{self.title}')>"
-
-class RiskAssessmentRow(Base):
-    __tablename__ = 'risk_assessment_rows'
-    
-    id = Column(Integer, primary_key=True)
-    assessment_id = Column(String(50), ForeignKey('risk_assessment_header.assessment_id'), nullable=False)
-    ref = Column(String(20), nullable=False)
-    activity = Column(Text)
-    hazard = Column(Text)
-    possible_injury = Column(Text)
-    existing_controls = Column(Text)
-    severity_initial = Column(Integer)
-    likelihood_initial = Column(Integer)
-    rpn_initial = Column(Integer)
-    additional_controls = Column(Text)
-    severity_final = Column(Integer)
-    likelihood_final = Column(Integer)
-    rpn_final = Column(Integer)
-    implementation_person = Column(String(100))
-    due_date = Column(String(20))
-    remarks = Column(Text)
-    process_name = Column(String(200))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationship back to header
-    header = relationship("RiskAssessmentHeader", back_populates="rows")
-    
-    def __repr__(self):
-        return f"<RiskAssessmentRow(ref='{self.ref}', activity='{self.activity}')>"

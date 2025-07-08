@@ -37,6 +37,7 @@ export default function UserForm() {
   const [selectedFormId, setSelectedFormId] = useState(null);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
   const [selectedDownloadFormId, setSelectedDownloadFormId] = useState(null);
+  const [selectedFormTitle, setSelectedFormTitle] = useState('');
 
   const [usersList, setUsersList] = useState([]);
   const dropdownRef = useRef(null);
@@ -49,8 +50,6 @@ export default function UserForm() {
     divisions: [],
     locations: []
   });
-  
-  
 
   // Helper function to format date
   const formatDate = (dateString) => {
@@ -116,62 +115,10 @@ export default function UserForm() {
   }
 };
 
-// // Handle downloading a form
-// const handleDownload = async (formId, formTitle) => {
-//   console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
-
-//   try {
-
-//     // Make API call here to retrieve all the form data to pass in after
-//     const dataResponse = await fetch(`/api/user/getFormDataForDocument/${formId}`, {
-//       credentials: 'include'
-//     });
-//     const formData = await dataResponse.json();
-
-//     console.log("Form data retrieved:", formData);
-
-//     const docResponse = await fetch(`/api/user/test-generate-document/${formId}`, {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json' },
-//       credentials: 'include',
-//       body: JSON.stringify(formData.data)
-//     });
-
-//     if (!docResponse.ok) {
-//       throw new Error(`HTTP error! status: ${docResponse.status}`);
-//     }
-
-//     // Get the blob from the response
-//     const blob = await docResponse.blob();
-    
-//     // Create a download link
-//     const url = window.URL.createObjectURL(blob);
-//     const link = document.createElement('a');
-//     link.href = url;
-    
-//     // Set the filename - you can customize this based on your needs
-//     link.download = `${formTitle}_Risk_Assessment.docx`;
-    
-//     // Trigger the download
-//     document.body.appendChild(link);
-//     link.click();
-    
-//     // Clean up
-//     document.body.removeChild(link);
-//     window.URL.revokeObjectURL(url);
-    
-//     console.log('Form downloaded successfully');
-    
-//   } catch (error) {
-//     console.error('Error downloading form:', error);
-    
-//     // Optional: Show user-friendly error message
-//     alert('Failed to download the form. Please try again.');
-//   };
-
 const handleDownload = (formId, formTitle) => {
   console.log(`Preparing download for form: ${formTitle} (ID: ${formId})`);
   setSelectedDownloadFormId(formId);
+  setSelectedFormTitle(formTitle);
   setIsDownloadDialogOpen(true);
 };
 
@@ -416,12 +363,6 @@ const handleDelete = async (formId) => {
         setUserData(response.data);
         
         console.log("user data has been set:", response.data);
-        // Here you would typically fetch the user's forms
-        // For example:
-        // const formsResponse = await axios.get("/api/user/forms", {
-        //   withCredentials: true
-        // });
-        // setForms(formsResponse.data);
 
         await fetchUserForms();
         
@@ -514,6 +455,7 @@ const handleDelete = async (formId) => {
                   setSelectedDownloadFormId(null);
                 }}
                 formId={selectedDownloadFormId}
+                formTitle={selectedFormTitle}
               />
             )}
     </div>

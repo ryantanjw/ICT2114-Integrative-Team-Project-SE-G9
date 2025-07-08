@@ -13,11 +13,10 @@ from datetime import datetime
 import json
 from .rag import *
 import os
-from services import RiskAssessmentService, RiskAssessmentData, RiskAssessmentRowData, DocxTemplateGenerator
+from services import DocxTemplateGenerator
 from docx2pdf import convert
 import tempfile
 import pythoncom
-# from services.document_generator import DocxTemplateGenerator
 
 
 # Create a new blueprint for user routes
@@ -1733,58 +1732,83 @@ def reset_password():
         print(f"Error resetting password: {str(e)}")
         db.session.rollback()
         return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500
-    
-# http://localhost:5173/api/risk-assessments/141/export/word
-
-@user.route('/risk-assessments/<form_id>/export/word', methods=['GET'])
-def export_risk_assessment_word(form_id):
-    """Export risk assessment as Word document"""
-    print(f"Entered user download route for form_id: {form_id}")
-    
-    try:
-        # Check if risk_service is available
-        if not hasattr(current_app, 'risk_service'):
-            print("Error: risk_service not found in current_app")
-            return jsonify({
-                'success': False,
-                'error': 'Risk assessment service not available'
-            }), 500
-            
-        risk_service = current_app.risk_service
-        print(f"Risk service found: {risk_service}")
-        
-        # Create a temporary filename
-        filename = f"risk_assessment_{form_id}.docx"
-        filepath = os.path.join(os.getcwd(), filename)
-        print(f"Generating document at: {filepath}")
-        
-        path = RiskAssessmentService.generate_document_template("my_document", "basic")
-        print(f"path created")
-
-        # Test Generation
-        risk_service.generate_word_document_template(filepath)
-        print(f"Generated empty document")
-
-        return jsonify({
-            'success': True,
-            'message': 'Template generated successfully',
-            'filepath': filepath
-        }), 200
-        
-    except ValueError as e:
-        print(f"ValueError in export_risk_assessment_word: {e}")
-        return jsonify({
-            'success': False,
-            'error': f'Invalid form ID or form not found: {str(e)}'
-        }), 404
-    except Exception as e:
-        print(f"Unexpected error in export_risk_assessment_word: {e}")
-        return jsonify({
-            'success': False,
-            'error': f'An error occurred while generating the document: {str(e)}'
-        }), 500
 
 import traceback 
+
+@user.route('/generate-pdf/<assessment_id>', methods=['POST'])
+def generate_pdf(assessment_id):
+    form_data = request.get_json()
+    
+    print(f"=== Starting PDF generation for assessment_id: {assessment_id} ===")
+    print(f"Received form_data: {form_data}")
+    
+    try:
+        # Initialize COM
+        pythoncom.CoInitialize()
+        print("COM initialized successfully")
+        
+        # Check if template exists
+        template_path = "Risk_Assessment_Form_Template.docx"
+        if not os.path.exists(template_path):
+            print(f"ERROR: Template file not found: {template_path}")
+            return jsonify({"error": f"Template file not found: {template_path}"}), 500
+        
+        print(f"Template file exists: {template_path}")
+        
+        # Generate DOCX first
+        generator = DocxTemplateGenerator(template_path)
+        print("Generator created successfully")
+        
+        output_path = generator.generate_with_python_docx(assessment_id, form_data)
+        print(f"Generator returned output_path: {output_path}")
+        
+        # Check if output_path is None
+        if output_path is None:
+            print("ERROR: generate_with_python_docx returned None")
+            return jsonify({"error": "Document generation failed - output_path is None"}), 500
+        
+        # Check if file actually exists
+        if not os.path.exists(output_path):
+            print(f"ERROR: Generated file does not exist: {output_path}")
+            return jsonify({"error": f"Generated file does not exist: {output_path}"}), 500
+        
+        print(f"DOCX file generated successfully: {output_path}")
+        
+        # Convert to PDF
+        pdf_path = output_path.replace('.docx', '.pdf')
+        print(f"Converting to PDF: {pdf_path}")
+        
+        convert(output_path, pdf_path)
+        print("PDF conversion completed")
+        
+        # Verify PDF exists
+        if not os.path.exists(pdf_path):
+            print(f"ERROR: PDF file was not created: {pdf_path}")
+            return jsonify({"error": "PDF conversion failed"}), 500
+        
+        print(f"PDF file created successfully: {pdf_path}")
+        
+        # Clean up DOCX file (optional)
+        try:
+            os.remove(output_path)
+            print("DOCX file cleaned up")
+        except:
+            print("Could not clean up DOCX file")
+        
+        return send_file(pdf_path, as_attachment=True)
+        
+    except Exception as e:
+        print(f"ERROR in PDF generation: {e}")
+        print("Full traceback:")
+        traceback.print_exc()
+        return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
+    finally:
+        # Always uninitialize COM
+        try:
+            pythoncom.CoUninitialize()
+            print("COM uninitialized")
+        except:
+            print("Could not uninitialize COM")
 
 @user.route('/test-generate-document/<assessment_id>', methods=['POST'])
 def test_generate_document_debug(assessment_id):
@@ -1817,42 +1841,6 @@ def test_generate_document_debug(assessment_id):
             return send_file(output_path, as_attachment=True)
         else:
             return jsonify({"error": "Document generation failed"}), 500
-        
-        #BELOW HERE IS COMMENTED FOR PDF CONVERSION
-        # Check if output_path is None
-    #     if output_path is None:
-    #         print("ERROR: generate_with_python_docx returned None")
-    #         return jsonify({"error": "Document generation failed - output_path is None"}), 500
-        
-    #     # Check if file actually exists
-    #     if not os.path.exists(output_path):
-    #         print(f"ERROR: Generated file does not exist: {output_path}")
-    #         return jsonify({"error": f"Generated file does not exist: {output_path}"}), 500
-        
-    #     print(f"DOCX file generated successfully: {output_path}")
-        
-    #     # Convert to PDF
-    #     pdf_path = output_path.replace('.docx', '.pdf')
-    #     print(f"Converting to PDF: {pdf_path}")
-        
-    #     convert(output_path, pdf_path)
-    #     print("PDF conversion completed")
-        
-    #     # Verify PDF exists
-    #     if not os.path.exists(pdf_path):
-    #         print(f"ERROR: PDF file was not created: {pdf_path}")
-    #         return jsonify({"error": "PDF conversion failed"}), 500
-        
-    #     print(f"PDF file created successfully: {pdf_path}")
-        
-    #     # Clean up DOCX file (optional)
-    #     try:
-    #         os.remove(output_path)
-    #         print("DOCX file cleaned up")
-    #     except:
-    #         print("Could not clean up DOCX file")
-        
-    #     return send_file(pdf_path, as_attachment=True)
         
     except Exception as e:
         print(f"ERROR in document generation: {e}")

@@ -3,8 +3,6 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 from datetime import timedelta
-from services import RiskAssessmentService, RiskAssessmentData, RiskAssessmentRowData
-
 
 def create_app():
     app = Flask(__name__)
@@ -32,9 +30,6 @@ def create_app():
     from models import db
 
     db.init_app(app)
-
-    risk_service = RiskAssessmentService(database_url=os.getenv('DATABASE_URI'))
-    app.risk_service = risk_service  # Attach to app so it can be accessed via current_app
 
     # Configure CORS properly for cross-domain cookies
     CORS(app, 
