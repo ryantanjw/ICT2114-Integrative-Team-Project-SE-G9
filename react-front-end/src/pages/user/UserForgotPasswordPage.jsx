@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import HeaderAdmin from "../../components/HeaderAdmin.jsx";
+import Header from "../../components/Header.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import ActionCard from "../../components/ActionCard.jsx";
 import { MdPeople } from "react-icons/md";
@@ -10,16 +10,17 @@ import AccordionArea from "../../components/AccordianArea.jsx";
 import InputGroup from "../../components/InputGroup.jsx";
 import CTAButton from "../../components/CTAButton.jsx";
 
-export default function AdminSetting() {
+export default function UserSetting() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [adminData, setAdminData] = useState(null);
+  const [userData, setUserData] = useState(null);
 
   const [existingPassword, setExistingPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordTouched, setNewPasswordTouched] = useState(false);
   const [reverifyPassword, setReverifyPassword] = useState("");
+  const [verifyEmail, setVerifyEmail] = useState("");
 
   // Validate new password complexity (reuse logic)
   const newPasswordError = newPassword
@@ -49,7 +50,7 @@ export default function AdminSetting() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        console.log("Checking admin session...");
+        console.log("Checking user session...");
         setIsLoading(true);
         
         const response = await axios.get("/api/check_session", {
@@ -65,15 +66,15 @@ export default function AdminSetting() {
           return;
         }
         
-        // If user is not an admin, redirect to user dashboard
-        if (response.data.user_role !== 0) {
-          console.log("Non-admin user detected, redirecting to user dashboard");
-          navigate("/home");
+        // If user is an admin, redirect to admin dashboard
+        if (response.data.user_role === 0) {
+          console.log("Admin user detected, redirecting to admin dashboard");
+          navigate("/admin");
           return;
         }
         
-        // Store admin data for display
-        setAdminData(response.data);
+        // Store user data for display
+        setUserData(response.data);
         setIsLoading(false);
       } catch (error) {
         console.error("Error checking session:", error);
@@ -86,8 +87,8 @@ export default function AdminSetting() {
   }, [navigate]);
 
   const handlePasswordReset = async () => {
-  if (!adminData || !adminData.user_id) {
-    alert("Admin session not loaded yet.");
+  if (!userData || !userData.user_id) {
+    alert("User session not loaded yet.");
     return;
   }
 
@@ -96,16 +97,16 @@ export default function AdminSetting() {
     return;
   }
 
-  if (existingPassword === newPassword) {
-    alert("New password must be different from the existing password.");
+  if (verifyEmail !== userData?.user_email) {
+    alert("Entered email does not match your account.");
     return;
   }
 
   try {
     const response = await axios.post(
-      "/api/admin/reset_password",
+      "/api/user/reset_password",
       {
-        user_id: adminData.user_id,
+        user_id: userData.user_id,
         new_password: newPassword,
       },
       {
@@ -131,28 +132,23 @@ export default function AdminSetting() {
 
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
-      <HeaderAdmin activePage={location.pathname} />
-
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end mb-5 gap-2">
-              <CTAButton
-                text="Forgot Password?"
-                onClick={() => navigate("/admin/forgot_password")}
-                className="w-full sm:w-auto"
-              />
-            </div>
+      <Header activePage={location.pathname} />
 
         <div className="flex flex-col justify-start mb-5">
-            <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">Settings</h3>
+            <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">Forgot Password?</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
               <AccordionArea title="Password" className="col-span-full">
                 <InputGroup
-                  label="Existing Password"
-                  id="existing-password"
-                  type="password"
-                  value={existingPassword}
-                  onChange={(e) => setExistingPassword(e.target.value)}
-                  error={existingPassword && existingPassword.length < 10 ? "Password must be at least 10 characters long" : ""}
-                  action={<a href="/admin/forgot-password">Forgot password?</a>}
+                    label="Enter Your Email"
+                    id="verify-email"
+                    type="email"
+                    value={verifyEmail}
+                    onChange={(e) => setVerifyEmail(e.target.value)}
+                    error={
+                    verifyEmail && verifyEmail !== userData?.user_email
+                        ? "Email does not match your account"
+                        : ""
+                    }
                 />
                 <InputGroup
                   label="New Password"

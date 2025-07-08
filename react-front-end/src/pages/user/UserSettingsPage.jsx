@@ -143,6 +143,7 @@ return (
                   value={existingPassword}
                   onChange={(e) => setExistingPassword(e.target.value)}
                   error={existingPassword && existingPassword.length < 10 ? "Password must be at least 10 characters long" : ""}
+                  action={<a href="/user/forgot-password">Forgot password?</a>}
                 />
                 <InputGroup
                   label="New Password"

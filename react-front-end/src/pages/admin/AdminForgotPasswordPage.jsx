@@ -20,6 +20,7 @@ export default function AdminSetting() {
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordTouched, setNewPasswordTouched] = useState(false);
   const [reverifyPassword, setReverifyPassword] = useState("");
+  const [verifyEmail, setVerifyEmail] = useState("");
 
   // Validate new password complexity (reuse logic)
   const newPasswordError = newPassword
@@ -96,8 +97,8 @@ export default function AdminSetting() {
     return;
   }
 
-  if (existingPassword === newPassword) {
-    alert("New password must be different from the existing password.");
+  if (verifyEmail !== adminData?.user_email) {
+    alert("Entered email does not match your account.");
     return;
   }
 
@@ -133,26 +134,21 @@ export default function AdminSetting() {
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end mb-5 gap-2">
-              <CTAButton
-                text="Forgot Password?"
-                onClick={() => navigate("/admin/forgot_password")}
-                className="w-full sm:w-auto"
-              />
-            </div>
-
         <div className="flex flex-col justify-start mb-5">
-            <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">Settings</h3>
+            <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">Forgot Password?</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
               <AccordionArea title="Password" className="col-span-full">
                 <InputGroup
-                  label="Existing Password"
-                  id="existing-password"
-                  type="password"
-                  value={existingPassword}
-                  onChange={(e) => setExistingPassword(e.target.value)}
-                  error={existingPassword && existingPassword.length < 10 ? "Password must be at least 10 characters long" : ""}
-                  action={<a href="/admin/forgot-password">Forgot password?</a>}
+                    label="Enter Your Email"
+                    id="verify-email"
+                    type="email"
+                    value={verifyEmail}
+                    onChange={(e) => setVerifyEmail(e.target.value)}
+                    error={
+                    verifyEmail && verifyEmail !== adminData?.user_email
+                        ? "Email does not match your account"
+                        : ""
+                    }
                 />
                 <InputGroup
                   label="New Password"
