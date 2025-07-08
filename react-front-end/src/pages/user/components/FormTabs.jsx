@@ -65,13 +65,16 @@ export default function FormTabs({ onTabChange, currentTab: externalTab, isForm1
         >
           Back
         </button>
-        <button
-          onClick={handleNext}
-          disabled={currentTab === tabs.length - 1}
-          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
-        >
-          {currentTab >= tabs.length - 1 ? "Complete Form" : "Next"}
-        </button>
+        
+        {/* Only show Next/Complete button if not on last tab */}
+        {currentTab < tabs.length - 1 && (
+          <button
+            onClick={handleNext}
+            className="px-4 py-2 bg-blue-600 text-white rounded"
+          >
+            Next
+          </button>
+        )}
       </div>
     </div>
   );
