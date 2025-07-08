@@ -8,6 +8,7 @@ import axios from "axios";
 import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import PdfPreviewModal from "./components/PdfPreviewModal.jsx";
+import DownloadDialogue from "../../components/DownloadDialogue.jsx";
 
 export default function AdminForm() {
   const location = useLocation();
@@ -18,6 +19,10 @@ export default function AdminForm() {
   const [forms, setForms] = useState([]);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [selectedFormForPdf, setSelectedFormForPdf] = useState(null);
+  const [isDownloadDialogueOpen, setIsDownloadDialogueOpen] = useState(false);
+  const [selectedFormForDownload, setSelectedFormForDownload] = useState(null);
+
+
 
   // Pagination state
   const [pagination, setPagination] = useState({
@@ -142,6 +147,13 @@ export default function AdminForm() {
   const handlePreviewPdf = (formId, formTitle) => {
     setSelectedFormForPdf({ id: formId, title: formTitle });
     setIsPdfModalOpen(true);
+  };
+
+  // Handle download dialogue
+  const handleOpenDownloadDialogue = (formId, formTitle) => {
+    console.log(`Opening download dialogue for: ${formTitle} (ID: ${formId})`);
+    setSelectedFormForDownload({ id: formId, title: formTitle });
+    setIsDownloadDialogueOpen(true);
   };
 
   // Clear all filters
@@ -388,8 +400,7 @@ export default function AdminForm() {
                     tags={form.tags || [form.status] || ["Unknown"]}
                     status={form.status}
                     onPreviewPdf={() => handlePreviewPdf(form.id, form.title)}
-
-                    onDownload={() => handleDownload(form.id, form.title)}
+                    onDownload={() => handleOpenDownloadDialogue(form.id, form.title)} // Update this line
                     onDelete={() => handleDelete(form.id)}
                   />
                 ))}
@@ -482,6 +493,12 @@ export default function AdminForm() {
           )}
         </div>
       </div>
+      <DownloadDialogue
+        isOpen={isDownloadDialogueOpen}
+        onClose={() => setIsDownloadDialogueOpen(false)}
+        formId={selectedFormForDownload?.id}
+        formTitle={selectedFormForDownload?.title}
+      />
       <PdfPreviewModal
         isOpen={isPdfModalOpen}
         onClose={() => setIsPdfModalOpen(false)}

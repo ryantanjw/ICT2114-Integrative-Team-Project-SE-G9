@@ -13,6 +13,7 @@ import FormCardA2 from "../../components/FormCardA2.jsx";
 import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import PdfPreviewModal from "./components/PdfPreviewModal.jsx";
+import DownloadDialogue from "../../components/DownloadDialogue.jsx";
 
 
 
@@ -27,6 +28,10 @@ export default function AdminHome() {
   const [showHazardAlert, setShowHazardAlert] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [selectedFormForPdf, setSelectedFormForPdf] = useState(null);
+  const [isDownloadDialogueOpen, setIsDownloadDialogueOpen] = useState(false);
+  const [selectedFormForDownload, setSelectedFormForDownload] = useState(null);
+
+
 
 
   // Pagination state
@@ -157,6 +162,13 @@ export default function AdminHome() {
       console.error('Error downloading form:', error);
     }
   };
+
+  const handleOpenDownloadDialogue = (formId, formTitle) => {
+    console.log(`Opening download dialogue for: ${formTitle} (ID: ${formId})`);
+    setSelectedFormForDownload({ id: formId, title: formTitle });
+    setIsDownloadDialogueOpen(true);
+  };
+
 
   const handlePreviewPdf = (formId, formTitle) => {
     console.log("Preview PDF clicked for:", formId, formTitle);
@@ -362,9 +374,10 @@ export default function AdminHome() {
                 owner={form.owner || "Unknown User"}
                 tags={form.tags || [form.status] || ["Unknown"]}
                 status={form.status}
-                onPreviewPdf={() => handlePreviewPdf(form.id, form.title)} 
-                onDownload={() => window.open(`/api/admin/downloadForm/${form.id}`, "_blank")}
+                onPreviewPdf={() => handlePreviewPdf(form.id, form.title)}
+                onDownload={() => handleOpenDownloadDialogue(form.id, form.title)} // Update this line
                 onDelete={async () => {
+                  // Your existing delete logic
                   if (!window.confirm("Are you sure you want to delete this form?")) return;
                   try {
                     const response = await axios.delete(`/api/admin/deleteForm/${form.id}`, { withCredentials: true });
@@ -376,9 +389,17 @@ export default function AdminHome() {
                 }}
               />
             ))}
+
           </div>
         )}
       </div>
+      <DownloadDialogue
+        isOpen={isDownloadDialogueOpen}
+        onClose={() => setIsDownloadDialogueOpen(false)}
+        formId={selectedFormForDownload?.id}
+        formTitle={selectedFormForDownload?.title}
+      />
+
       <PdfPreviewModal
         isOpen={isPdfModalOpen}
         onClose={() => setIsPdfModalOpen(false)}
