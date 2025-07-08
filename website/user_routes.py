@@ -16,7 +16,6 @@ import os
 from services import DocxTemplateGenerator
 from docx2pdf import convert
 import tempfile
-import pythoncom
 
 
 # Create a new blueprint for user routes
@@ -1743,10 +1742,6 @@ def generate_pdf(assessment_id):
     print(f"Received form_data: {form_data}")
     
     try:
-        # Initialize COM
-        pythoncom.CoInitialize()
-        print("COM initialized successfully")
-        
         # Check if template exists
         template_path = "Risk_Assessment_Form_Template.docx"
         if not os.path.exists(template_path):
@@ -1774,11 +1769,29 @@ def generate_pdf(assessment_id):
         
         print(f"DOCX file generated successfully: {output_path}")
         
+        # Determine which platform we're on
+        import platform
+        system = platform.system()
+        
         # Convert to PDF
         pdf_path = output_path.replace('.docx', '.pdf')
         print(f"Converting to PDF: {pdf_path}")
         
-        convert(output_path, pdf_path)
+        if system == "Windows":
+            # Use Windows-specific method with COM objects
+            try:
+                import pythoncom
+                pythoncom.CoInitialize()
+                from docx2pdf import convert
+                convert(output_path, pdf_path)
+                pythoncom.CoUninitialize()
+            except ImportError:
+                print("WARNING: pythoncom not available, falling back to alternative method")
+                convert_using_alternative(output_path, pdf_path)
+        else:
+            # For macOS and other platforms
+            convert_using_alternative(output_path, pdf_path)
+        
         print("PDF conversion completed")
         
         # Verify PDF exists
@@ -1802,13 +1815,98 @@ def generate_pdf(assessment_id):
         print("Full traceback:")
         traceback.print_exc()
         return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
-    finally:
-        # Always uninitialize COM
-        try:
-            pythoncom.CoUninitialize()
-            print("COM uninitialized")
-        except:
-            print("Could not uninitialize COM")
+
+def convert_using_alternative(docx_path, pdf_path):
+    """Cross-platform DOCX to PDF conversion"""
+    import platform
+    system = platform.system()
+    
+    try:
+        if system == "Darwin":  # macOS
+            # Try using LibreOffice first (if installed)
+            try:
+                import subprocess
+                # Check if LibreOffice exists
+                libreoffice_paths = [
+                    "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+                    "/Applications/OpenOffice.app/Contents/MacOS/soffice"
+                ]
+                
+                soffice_path = None
+                for path in libreoffice_paths:
+                    if os.path.exists(path):
+                        soffice_path = path
+                        break
+                
+                if soffice_path:
+                    cmd = [
+                        soffice_path,
+                        '--headless',
+                        '--convert-to', 'pdf',
+                        '--outdir', os.path.dirname(pdf_path),
+                        docx_path
+                    ]
+                    subprocess.run(cmd, check=True)
+                    print("LibreOffice conversion successful")
+                    return
+            except Exception as e:
+                print(f"LibreOffice conversion failed: {e}, trying next method")
+                
+            # Try using pandoc
+            try:
+                import subprocess
+                cmd = ['pandoc', docx_path, '-o', pdf_path]
+                subprocess.run(cmd, check=True)
+                print("Pandoc conversion successful")
+                return
+            except Exception as e:
+                print(f"Pandoc conversion failed: {e}, trying next method")
+                
+            # Fall back to python-based conversion
+            try:
+                from docx2pdf import convert
+                convert(docx_path, pdf_path)
+                print("docx2pdf conversion successful")
+                return
+            except Exception as e:
+                print(f"docx2pdf conversion failed: {e}")
+                raise
+        
+        elif system == "Linux":
+            # Try using LibreOffice
+            try:
+                import subprocess
+                cmd = [
+                    'libreoffice', 
+                    '--headless', 
+                    '--convert-to', 'pdf', 
+                    '--outdir', os.path.dirname(pdf_path),
+                    docx_path
+                ]
+                subprocess.run(cmd, check=True)
+                return
+            except Exception as e:
+                print(f"LibreOffice conversion failed: {e}, trying next method")
+                
+            # Try using pandoc
+            try:
+                import subprocess
+                cmd = ['pandoc', docx_path, '-o', pdf_path]
+                subprocess.run(cmd, check=True)
+                return
+            except Exception as e:
+                print(f"All conversion methods failed: {e}")
+                raise
+        else:
+            # For other platforms - try generic approaches
+            from docx2pdf import convert
+            convert(docx_path, pdf_path)
+    
+    except Exception as e:
+        print(f"Error in alternative conversion: {e}")
+        import traceback
+        traceback.print_exc()
+        raise Exception(f"Failed to convert DOCX to PDF: {e}")
 
 @user.route('/test-generate-document/<assessment_id>', methods=['POST'])
 def test_generate_document_debug(assessment_id):
@@ -1818,10 +1916,6 @@ def test_generate_document_debug(assessment_id):
     print(f"Received form_data: {form_data}")
     
     try:
-        # Initialize COM
-        pythoncom.CoInitialize()
-        print("COM initialized successfully")
-        
         # Check if template exists
         template_path = "Risk_Assessment_Form_Template.docx"
         if not os.path.exists(template_path):
@@ -1847,14 +1941,6 @@ def test_generate_document_debug(assessment_id):
         print("Full traceback:")
         traceback.print_exc()
         return jsonify({"error": f"Document generation failed: {str(e)}"}), 500
-    finally:
-        # Always uninitialize COM
-        try:
-            pythoncom.CoUninitialize()
-            print("COM uninitialized")
-        except:
-            print("Could not uninitialize COM")
-
 
     
 
