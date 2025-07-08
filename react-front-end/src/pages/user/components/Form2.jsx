@@ -36,7 +36,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Fixed initializeHazards function - replace your existing one
   const initializeHazards = (hazards) => {
     console.log('Initializing hazards with data:', hazards);
-    
+
     if (!hazards || hazards.length === 0) {
       return [{
         id: uuidv4(),
@@ -58,27 +58,27 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // Make sure all required fields exist while preserving existing data
     return hazards.map(hazard => {
       console.log('Processing hazard:', hazard);
-      
+
       return {
         id: hazard.id || hazard.hazard_id || uuidv4(),
         hazard_id: hazard.hazard_id || hazard.id,
         description: hazard.description || "",
-        
+
         // Fix: Handle type field properly - it might be missing from API
-        type: Array.isArray(hazard.type) ? [...hazard.type] : 
-              (hazard.type ? [hazard.type] : []),
-        
+        type: Array.isArray(hazard.type) ? [...hazard.type] :
+          (hazard.type ? [hazard.type] : []),
+
         // Fix: Handle injuries field properly - it might be missing from API  
         injuries: Array.isArray(hazard.injuries) ? [...hazard.injuries] :
-                  (hazard.injury ? [hazard.injury] : 
-                  hazard.injuries ? [hazard.injuries] : []),
-        
+          (hazard.injury ? [hazard.injury] :
+            hazard.injuries ? [hazard.injuries] : []),
+
         existingControls: hazard.existingControls || "",
         additionalControls: hazard.additionalControls || "",
         severity: hazard.severity || 1,
         likelihood: hazard.likelihood || 1,
         rpn: hazard.rpn || (hazard.severity || 1) * (hazard.likelihood || 1),
-        
+
         // UI state fields
         newInjury: "",
         newType: "",
@@ -253,8 +253,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         console.log('Checking if formData has complete hazard data...');
 
         // Check if formData already has complete hazard data
-        const hasHazardData = formData.processes?.some(proc => 
-          proc.activities?.some(act => 
+        const hasHazardData = formData.processes?.some(proc =>
+          proc.activities?.some(act =>
             'hazards' in act && Array.isArray(act.hazards)
           )
         );
@@ -264,7 +264,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         if (hasHazardData) {
           // Use the complete data from formData
           console.log("Using complete hazard data from formData");
-          
+
           setTitle(formData.title || "");
           setDivision(formData.division || "");
           updateFormId(formData.form_id);
@@ -288,12 +288,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         } else {
           // formData doesn't have hazard data, don't initialize from it
           console.log("formData missing hazard data, will fetch complete data from API");
-          
+
           // Just set the basic info and form ID, but don't initialize processes yet
           setTitle(formData.title || "");
           setDivision(formData.division || "");
           updateFormId(formData.form_id);
-          
+
           // Return false to trigger API fetch
           return false;
         }
@@ -310,7 +310,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // If not initialized from props, fetch complete data from API
     if (!initialized && !dataLoaded) {
       const formIdToFetch = formData?.form_id || sessionData?.current_form_id;
-      
+
       if (formIdToFetch) {
         console.log('Fetching complete data from API for form ID:', formIdToFetch);
         fetchFormData(formIdToFetch);
@@ -323,7 +323,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   useEffect(() => {
     console.log("DEBUGGING HERE");
     console.log("Form2 received formData:", formData);
-    
+
     // Check each process and its activities/hazards in detail
     formData.processes?.forEach((process, index) => {
       console.log(`Process ${index}:`, process);
@@ -748,35 +748,42 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     scheduleBatchedUpdate();
   };
 
-  const toggleHazardType = (processId, activityId, hazardId, type) => {
-    setRaProcesses(
-      raProcesses.map(proc =>
-        proc.id === processId
-          ? {
-            ...proc,
-            activities: proc.activities.map(a =>
-              a.id === activityId
-                ? {
-                  ...a,
-                  hazards: a.hazards.map(h =>
-                    h.id === hazardId
-                      ? {
-                        ...h,
-                        // Replace array with single type instead of toggling
-                        type: h.type.includes(type) ? [] : [type]
+        const toggleHazardType = (processId, activityId, hazardId, type) => {
+      // Use the functional state update pattern to ensure we're working with the latest state
+      setRaProcesses(prevProcesses => {
+        const newProcesses = prevProcesses.map(proc =>
+          proc.id === processId
+            ? {
+                ...proc,
+                activities: proc.activities.map(a =>
+                  a.id === activityId
+                    ? {
+                        ...a,
+                        hazards: a.hazards.map(h =>
+                          h.id === hazardId
+                            ? {
+                                ...h,
+                                // Set type to either [type] or [] if already selected
+                                type: h.type.includes(type) ? [] : [type]
+                              }
+                            : h
+                        ),
                       }
-                      : h
-                  ),
-                }
-                : a
-            ),
-          }
-          : proc
-      )
-    );
-    // Schedule a batched update
-    scheduleBatchedUpdate();
-  };
+                    : a
+                ),
+              }
+            : proc
+        );
+        
+        return newProcesses;
+      });
+      
+      // Schedule batched update AFTER state update completes
+      setTimeout(() => {
+        scheduleBatchedUpdate();
+      }, 0);
+    };
+
   const addInjury = (processId, activityId, hazardId) => {
     setRaProcesses(
       raProcesses.map(proc =>
@@ -924,7 +931,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
         // Force update to parent after successful save
         triggerUpdateToParent(true);
-        toast.success("Form Saved"); 
+        toast.success("Form Saved");
 
         setIsLoading(false);
         return true; // Indicate success
