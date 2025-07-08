@@ -36,6 +36,12 @@ def retrieve_forms():
         
         print(f"Form model: {Form}")
 
+        # Check if this is a request for recent forms (with limit)
+        limit = request.args.get('limit', None, type=int)
+        sort_by = request.args.get('sort_by', 'last_access_date', type=str)
+        sort_order = request.args.get('sort_order', 'desc', type=str)
+        
+        # Original pagination parameters (for full form lists)
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 21, type=int)  # Default 21 per page
         
@@ -65,7 +71,24 @@ def retrieve_forms():
         if division_filter:
             query = query.filter(Form.division == division_filter)
 
-        all_forms = query.all()
+        # Apply sorting
+        if sort_by == 'last_access_date':
+            if sort_order == 'desc':
+                query = query.order_by(Form.last_access_date.desc())
+            else:
+                query = query.order_by(Form.last_access_date.asc())
+        elif sort_by == 'created_at':
+            if sort_order == 'desc':
+                query = query.order_by(Form.created_at.desc())
+            else:
+                query = query.order_by(Form.created_at.asc())
+
+        # If limit is specified (for recent forms), apply it directly
+        if limit:
+            print(f"Applying limit: {limit}")
+            all_forms = query.limit(limit).all()
+        else:
+            all_forms = query.all()
 
         filtered_forms = []
         for form in all_forms:
@@ -78,7 +101,6 @@ def retrieve_forms():
             if form.approval == 1:
                 status = "Completed"
 
-
             # Check if review is due
             if form.next_review_date:
                 from datetime import datetime
@@ -90,15 +112,22 @@ def retrieve_forms():
                 
             filtered_forms.append((form, status))
 
-        total_forms = len(filtered_forms)
-        total_pages = ceil(total_forms / per_page)
-        
-        # Calculate pagination bounds
-        start_index = (page - 1) * per_page
-        end_index = start_index + per_page
-        paginated_forms = filtered_forms[start_index:end_index]
-
-        print(f"Total forms after filtering: {total_forms}, Current page forms: {len(paginated_forms)}")
+        # Only apply pagination if no limit is specified
+        if limit:
+            # For recent forms request, no pagination needed
+            total_forms = len(filtered_forms)
+            paginated_forms = filtered_forms
+            print(f"Recent forms request: returning {len(paginated_forms)} forms (limit: {limit})")
+        else:
+            # Apply pagination for full form lists
+            total_forms = len(filtered_forms)
+            total_pages = ceil(total_forms / per_page)
+            
+            # Calculate pagination bounds
+            start_index = (page - 1) * per_page
+            end_index = start_index + per_page
+            paginated_forms = filtered_forms[start_index:end_index]
+            print(f"Paginated request: Total forms after filtering: {total_forms}, Current page forms: {len(paginated_forms)}")
 
         forms_list = []
         for form, status in paginated_forms:
@@ -107,7 +136,6 @@ def retrieve_forms():
             if form.approved_by:
                 approved_by_user = User.query.filter_by(user_id=form.approved_by).first()
                 approved_by_username = approved_by_user.user_name if approved_by_user else f"User ID: {form.approved_by}"
-
 
             forms_list.append({
                 'id': form.form_id,
@@ -128,31 +156,41 @@ def retrieve_forms():
                 'owner': username  # Add username to the response
             })
 
-        has_next = page < total_pages
-        has_prev = page > 1
-
-        response_data = {
-            'forms': forms_list,
-            'pagination': {
-                'current_page': page,
-                'per_page': per_page,
+        # Prepare response data
+        if limit:
+            # Simple response for recent forms
+            response_data = {
+                'forms': forms_list,
                 'total_forms': total_forms,
-                'total_pages': total_pages,
-                'has_next': has_next,
-                'has_prev': has_prev,
-                'next_page': page + 1 if has_next else None,
-                'prev_page': page - 1 if has_prev else None,
-                'start_index': start_index + 1 if total_forms > 0 else 0,
-                'end_index': min(end_index, total_forms)
-            },
-            'filters': {
-                'search': search,
-                'status': status_filter,
-                'division': division_filter
+                'limit': limit
             }
-        }
+        else:
+            # Full response with pagination for form lists
+            has_next = page < total_pages
+            has_prev = page > 1
+            
+            response_data = {
+                'forms': forms_list,
+                'pagination': {
+                    'current_page': page,
+                    'per_page': per_page,
+                    'total_forms': total_forms,
+                    'total_pages': total_pages,
+                    'has_next': has_next,
+                    'has_prev': has_prev,
+                    'next_page': page + 1 if has_next else None,
+                    'prev_page': page - 1 if has_prev else None,
+                    'start_index': start_index + 1 if total_forms > 0 else 0,
+                    'end_index': min(end_index, total_forms)
+                },
+                'filters': {
+                    'search': search,
+                    'status': status_filter,
+                    'division': division_filter
+                }
+            }
 
-        print(f"Returning page {page} with {len(forms_list)} forms")
+        print(f"Returning {len(forms_list)} forms")
         
         # Create response with no-cache headers
         response = make_response(jsonify(response_data))
@@ -161,13 +199,11 @@ def retrieve_forms():
         response.headers['Expires'] = '0'
 
         return response
-        #return jsonify(forms_list)
-    
-     
+        
     except Exception as e:
         print(f"Error retrieving forms: {e}")
         return jsonify({'error': 'Failed to retrieve forms'}), 500
-
+    
 @user.route('/process/<int:process_id>', methods=['DELETE'])
 def delete_process(process_id):
     try:
