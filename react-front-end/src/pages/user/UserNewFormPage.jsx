@@ -85,78 +85,44 @@ export default function UserNewForm() {
     return isValid;
   }, []);
 
-  const loadExistingForm = useCallback(async (targetFormId, forceForm2 = false) => {
+  const loadExistingForm = useCallback(async (targetFormId) => {
     if (!targetFormId) return false;
 
     try {
       console.log(`Loading existing form with ID: ${targetFormId}`);
-      console.log("DEBUGGING IN USERNEWFORM");
       setIsLoading(true);
 
-      const endpoint = forceForm2 ? 
-      `/api/user/get_form2_data/${targetFormId}` : 
-      `/api/user/get_form/${targetFormId}`;
-    
-      console.log("ENDPOINT SELECTE:", endpoint);
-      const response = await axios.get(endpoint);
+      const response = await axios.get(`/api/user/get_form/${targetFormId}`);
 
-      //const response = await axios.get(`/api/user/get_form/${targetFormId}`);
-
-      console.log("response data f2:", response.data);
+      console.log("response data:", response.data);
 
       console.log("remarks:", response.data.activity_remarks || response.data.remarks);
 
-
-
       if (response.data) {
-            // Transform the data to ensure proper structure
-            const transformedProcesses = response.data.processes?.map(process => ({
-              ...process,
-              activities: process.activities?.map(activity => ({
-                ...activity,
-                // Ensure hazards are properly structured for Form2
-                hazards: activity.hazards?.map(hazard => ({
-                  id: hazard.id || hazard.hazard_id,
-                  hazard_id: hazard.hazard_id || hazard.id,
-                  description: hazard.description || "",
-                  type: hazard.type || [],
-                  likelihood: hazard.likelihood || 1,
-                  severity: hazard.severity || 1,
-                  ppn: hazard.ppn || 1,
-                  injuries: hazard.injuries || [],
-                  existingControls: hazard.existingControls || "",
-                  additionalControls: hazard.additionalControls || "",
-                  // Add any other fields Form2 expects
-                })) || []
-              })) || []
-            })) || [];
+        const loadedFormData = {
+          title: response.data.title || "",
+          division: response.data.division || "",
+          processes: response.data.processes || [],
+          form_id: response.data.form_id,
+          remarks: response.data.activity_remarks || response.data.remarks || "",
+        };
 
-            const loadedFormData = {
-              title: response.data.title || "",
-              division: response.data.division || "",
-              processes: transformedProcesses,
-              form_id: response.data.form_id,
-              remarks: response.data.activity_remarks || response.data.remarks || "",
-            };
+        console.log("Successfully loaded existing form data:", loadedFormData);
+        setFormData(loadedFormData);
+        setIsEditMode(true);
 
-            console.log("Successfully loaded and transformed form data:", loadedFormData);
-            console.log("Hazards in first activity:", loadedFormData.processes?.[0]?.activities?.[0]?.hazards);
-            
-            setFormData(loadedFormData);
-            setIsEditMode(true);
+        // Validate the loaded form
+        validateForm1(loadedFormData);
+        validateForm2(loadedFormData);
 
-            // Validate the loaded form
-            validateForm1(loadedFormData);
-            validateForm2(loadedFormData);
+        // Store form ID in session
+        await storeFormIdInSession(loadedFormData.form_id);
 
-            // Store form ID in session
-            await storeFormIdInSession(loadedFormData.form_id);
-
-            return true;
-          } else {
-            console.error("No form data received from server");
-            return false;
-          }
+        return true;
+      } else {
+        console.error("No form data received from server");
+        return false;
+      }
     } catch (error) {
       console.error("Error loading existing form:", error);
       
@@ -358,7 +324,7 @@ export default function UserNewForm() {
     };
   }, [formId, isEditMode]);
 
-  // Update the handleTabChange function to be more resilient to server errors
+  // Update the handleTabChange function to be more robust
   const handleTabChange = async (tabIndex) => {
     try {
       console.log(`Attempting to navigate from tab ${currentTab} to tab ${tabIndex}`);
@@ -396,7 +362,7 @@ export default function UserNewForm() {
       // Going forward - save current tab data before switching
       let saveSuccess = true;
   
-      // Always validate first before trying to save
+      // Save data based on current tab
       if (currentTab === 0 && form1Ref.current) {
         // Validate before attempting to save
         const validation = form1Ref.current.validateForm();
@@ -410,33 +376,8 @@ export default function UserNewForm() {
   
         if (!saveSuccess) {
           console.error("Failed to save Form 1");
-          
-          // Instead of immediately blocking navigation, check if we have locally saved data
-          const localData = localStorage.getItem('form1_pending_data');
-          
-          if (localData) {
-            try {
-              const parsedData = JSON.parse(localData);
-              console.log("Using locally saved Form 1 data:", parsedData);
-              
-              // Allow continuing with offline data
-              updateFormData(parsedData, true);
-              
-              // We'll show a warning but allow navigation
-              alert("Warning: Unable to save to server. Continuing with locally saved data.");
-              
-              // Set currentTab and exit early
-              setCurrentTab(tabIndex);
-              return;
-            } catch (e) {
-              console.error("Error parsing local data:", e);
-              alert("Failed to save Form 1 and no valid local data found. Please try again.");
-              return;
-            }
-          } else {
-            alert("Failed to save Form 1. Please try again.");
-            return;
-          }
+          alert("Failed to save Form 1. Please try again.");
+          return;
         }
   
         // Get the form data after saving
@@ -444,7 +385,7 @@ export default function UserNewForm() {
         if (formData.form_id) {
           console.log("Form 1 saved with ID:", formData.form_id);
   
-          // Store form ID in session ONCE when the tab changes
+          // Store form ID in session
           await storeFormIdInSession(formData.form_id);
   
           // Update the parent's formData state
@@ -456,7 +397,6 @@ export default function UserNewForm() {
         }
       }
       else if (currentTab === 1 && form2Ref.current) {
-        // Similar logic for Form2...
         const validation = form2Ref.current.validateForm();
         if (!validation.valid) {
           alert(validation.message || "Please complete Form 2 before proceeding.");
@@ -471,23 +411,35 @@ export default function UserNewForm() {
           alert("Failed to save Form 2. Please try again.");
           return;
         }
+  
+        // Get the form data after saving
+        const formData = form2Ref.current.getData();
+        updateFormData(formData);
+      }
+      else if (currentTab === 2 && form3Ref.current) {
+        // Save Form 3 data
+        if (form3Ref.current.validate && !form3Ref.current.validate()) {
+          alert("Please complete Form 3 before proceeding.");
+          return;
+        }
+        
+        console.log("Saving Form 3 before tab change...");
+        if (form3Ref.current.saveData) {
+          await form3Ref.current.saveData();
+        }
+        
+        // Get Form 3 data if available
+        if (form3Ref.current.getData) {
+          const form3Data = form3Ref.current.getData();
+          updateFormData({...formData, ...form3Data});
+        }
       }
   
       // Change the tab
       console.log(`Successfully navigating from tab ${currentTab} to tab ${tabIndex}`);
       setCurrentTab(tabIndex);
-
-       // Load Form2 data when switching to tab 1
-      if (tabIndex === 1 && formData.form_id) {
-          console.log("Loading Form2 data for tab switch...");
-          await loadExistingForm(formData.form_id, true); // Pass true for forceForm2
-        }
-        // Only refresh data ONCE after a tab change for other tabs
-        else if (formData.form_id) {
-          refreshFormData(true);
-        }
   
-      // Only refresh data ONCE after a tab change
+      // Refresh data after a tab change if we have a form ID
       if (formData.form_id) {
         refreshFormData(true);
       }
@@ -495,9 +447,8 @@ export default function UserNewForm() {
       console.error("Error during tab change:", error);
       alert("An error occurred while changing tabs. Please try again.");
     }
-  };  
-  
-  // Check user session on initial load
+  }
+  // Check user session on initial load and when formId changes
   useEffect(() => {
     const checkSession = async () => {
       // Skip if we've already checked the session in this component instance
@@ -533,7 +484,7 @@ export default function UserNewForm() {
           console.log("Admin user detected, redirecting to admin dashboard");
           navigate("/admin");
           return;
-        } 
+        }
 
         // Store user data for display
         setUserData(response.data);
@@ -666,7 +617,7 @@ export default function UserNewForm() {
       </div>
     );
   }
-
+  
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <Header activePage={location.pathname} />
@@ -704,6 +655,13 @@ export default function UserNewForm() {
           {currentTab === 2 && (
             <Form3
               ref={form3Ref}
+              formData={formData}
+              sessionData={userData}
+              updateFormData={updateFormData}
+            />
+          )}
+          {currentTab === 3 && (
+            <ConfirmForm
               formData={formData}
               sessionData={userData}
               updateFormData={updateFormData}

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { FaFileAlt, FaExclamationTriangle, FaCheckCircle } from "react-icons/fa";
 import { HiMiniDocumentCheck } from "react-icons/hi2";
 
-
 const tabs = [
   { label: "Form 1 - WA Inventory", icon: <FaFileAlt /> },
   { label: "Form 2 - RA Process", icon: <FaExclamationTriangle /> },
@@ -10,7 +9,7 @@ const tabs = [
   { label: "Confirmation Details", icon: <FaCheckCircle /> },
 ];
 
-export default function FormTabs({ onTabChange, currentTab: externalTab }) {
+export default function FormTabs({ onTabChange, currentTab: externalTab, isForm1Valid, isForm2Valid }) {
   const [activeTab, setActiveTab] = useState(0);
   
   // Use external tab state if provided, otherwise use local state
@@ -18,8 +17,20 @@ export default function FormTabs({ onTabChange, currentTab: externalTab }) {
 
   const handleNext = () => {
     if (currentTab < tabs.length - 1) {
-      setActiveTab(currentTab + 1);
+      // IMPORTANT: Use the parent's onTabChange handler instead of directly setting the tab
+      // This will trigger the save functionality in the parent component
       onTabChange?.(currentTab + 1);
+    }
+  };
+
+  // Handle tab click - this ensures the parent component is notified about tab changes
+  const handleTabClick = (index) => {
+    // Only update if the parent component provides a handler
+    if (onTabChange) {
+      onTabChange(index);
+    } else {
+      // Fallback to local state if no parent handler
+      setActiveTab(index);
     }
   };
 
@@ -31,10 +42,7 @@ export default function FormTabs({ onTabChange, currentTab: externalTab }) {
           {tabs.map((tab, index) => (
             <div
               key={index}
-              onClick={() => {
-                setActiveTab(index);
-                onTabChange?.(index);
-              }}
+              onClick={() => handleTabClick(index)}
               className={`relative flex items-center space-x-2 cursor-pointer pb-2 ${
                 index === currentTab ? "text-black font-semibold" : "text-gray-400"
               }`}
@@ -51,20 +59,16 @@ export default function FormTabs({ onTabChange, currentTab: externalTab }) {
 
       <div className="mt-4 flex justify-between">
         <button
-          onClick={() => onTabChange(currentTab - 1)}
+          onClick={() => handleTabClick(currentTab - 1)}
           disabled={currentTab === 0}
-          className={`px-4 py-2 rounded ${
-            currentTab === 0
-              ? "bg-gray-200 text-black cursor-not-allowed"
-              : "bg-gray-400 text-white"
-          }`}
+          className="back-button"
         >
           Back
         </button>
         <button
           onClick={handleNext}
           disabled={currentTab === tabs.length - 1}
-          className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
+          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
         >
           {currentTab >= tabs.length - 1 ? "Complete Form" : "Next"}
         </button>
