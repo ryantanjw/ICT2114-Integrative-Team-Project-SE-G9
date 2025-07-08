@@ -11,6 +11,17 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   // Define fallback PDF URL
   const fallbackPdfUrl = "/forms/Risk_Assessment_Form_Template.pdf";
 
+  // Check for previously generated PDFs when component mounts
+  useEffect(() => {
+    // Check if this form has a previously generated PDF flag
+    const hasGeneratedPdf = localStorage.getItem(`generatedPdf_${formData.form_id}`);
+    
+    if (hasGeneratedPdf === "true" && !generatedPdfUrl) {
+      console.log("Found previously generated PDF for this form, auto-generating...");
+      generatePdf();
+    }
+  }, [formData.form_id]); // Only run when form_id changes
+
   // Cleanup object URL when component unmounts or URL changes
   useEffect(() => {
     return () => {
@@ -19,10 +30,6 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
       }
     };
   }, [generatedPdfUrl]);
-
-  useEffect(() => {
-    console.log("ConfirmForm is rendering!"); // Debug to verify component is rendering
-  }, []);
 
   const handleConfirm = () => {
     setDialogOpen(true);
@@ -80,6 +87,9 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
         const blobUrl = URL.createObjectURL(pdfBlob);
         console.log("Created blob URL for PDF:", blobUrl);
         setGeneratedPdfUrl(blobUrl);
+        
+        // Store that we've generated a PDF for this form
+        localStorage.setItem(`generatedPdf_${formData.form_id}`, "true");
       } else {
         // If the response is not a PDF, it might be JSON error
         const textData = await pdfBlob.text();
@@ -94,6 +104,9 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
       console.log("Using fallback PDF template");
       setUseFallbackPdf(true);
       setGeneratedPdfUrl(fallbackPdfUrl);
+      
+      // Even with fallback, remember that we've attempted to generate
+      localStorage.setItem(`generatedPdf_${formData.form_id}`, "true");
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -183,6 +196,16 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
     }
   };
 
+  // Function to clear the generated PDF flag
+  const clearGeneratedPdf = () => {
+    if (generatedPdfUrl && generatedPdfUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(generatedPdfUrl);
+    }
+    setGeneratedPdfUrl(null);
+    setUseFallbackPdf(false);
+    localStorage.removeItem(`generatedPdf_${formData.form_id}`);
+  };
+
   return (
     <>
       {/* PDF Preview */}
@@ -268,13 +291,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
                 Download DOCX
               </button>
               <button
-                onClick={() => {
-                  if (generatedPdfUrl && generatedPdfUrl.startsWith('blob:')) {
-                    URL.revokeObjectURL(generatedPdfUrl);
-                  }
-                  setGeneratedPdfUrl(null);
-                  setUseFallbackPdf(false);
-                }}
+                onClick={clearGeneratedPdf}
                 className="px-4 py-2 bg-gray-600 text-white rounded text-center"
               >
                 Generate New PDF
