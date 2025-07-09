@@ -30,7 +30,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   const [dataLoaded, setDataLoaded] = useState(false); // Track if data has been loaded
   const formIdRef = useRef(formData?.form_id || null);
   const lastFetchTime = useRef(0);
-  const [deletedProcessIds, setDeletedProcessIds] = useState([]); //Use this state to track deleted processes --> need to include another one for deleted activities after
+  const [deletedProcessIds, setDeletedProcessIds] = useState([]); //Use this state to track deleted processes
+  const [deletedActivityIds, setDeletedActivityIds] = useState([]); //Use this state to track deleted activities
 
 
   // Helper function to update both state and ref
@@ -291,6 +292,17 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     // If the process has a database ID (process_id), track it for deletion
     if (processToRemove && processToRemove.process_id) {
       setDeletedProcessIds(prev => [...prev, processToRemove.process_id]);
+      
+      // Also track all activities in this process for deletion
+      if (processToRemove.activities) {
+        const activityIdsToDelete = processToRemove.activities
+          .filter(activity => activity.activity_id)
+          .map(activity => activity.activity_id);
+        
+        if (activityIdsToDelete.length > 0) {
+          setDeletedActivityIds(prev => [...prev, ...activityIdsToDelete]);
+        }
+      }
     }
 
     setProcesses(processes.filter(p => p.id !== id));
@@ -318,6 +330,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       if (p.id !== procId) return p;
       // Prevent removing last activity
       if (p.activities.length <= 1) return p;
+      
+      // Find the activity to remove and track it for deletion if it has a database ID
+      const activityToRemove = p.activities.find(a => a.id === actId);
+      if (activityToRemove && activityToRemove.activity_id) {
+        setDeletedActivityIds(prev => [...prev, activityToRemove.activity_id]);
+      }
+      
       return {
         ...p,
         activities: p.activities.filter(a => a.id !== actId)
@@ -453,6 +472,33 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
         // Clear the deleted processes list after attempting deletion
         setDeletedProcessIds([]);
+      }
+
+      // Handle deleted activities
+      if (deletedActivityIds.length > 0) {
+        console.log('Deleting activities:', deletedActivityIds);
+
+        for (const activityId of deletedActivityIds) {
+          try {
+            const deleteResponse = await fetch(`/api/user/activity/${activityId}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            });
+
+            if (!deleteResponse.ok) {
+              console.error(`Failed to delete activity ${activityId}`);
+            } else {
+              console.log(`Successfully deleted activity ${activityId}`);
+            }
+          } catch (error) {
+            console.error(`Error deleting activity ${activityId}:`, error);
+          }
+        }
+
+        // Clear the deleted activities list after attempting deletion
+        setDeletedActivityIds([]);
       }
 
       if (processes && processes.length > 0) {

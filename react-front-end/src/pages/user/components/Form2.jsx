@@ -421,7 +421,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         console.log('No form ID available for fetching');
       }
     }
-  }, [formData?.form_id, sessionData?.current_form_id]); // Only depend on form ID changes
+  }, [formData?.form_id, sessionData?.current_form_id, formData?.processes?.length]); // Also depend on processes length changes
 
   useEffect(() => {
     console.log("DEBUGGING HERE");

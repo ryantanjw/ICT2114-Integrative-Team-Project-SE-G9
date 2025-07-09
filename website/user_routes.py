@@ -246,6 +246,39 @@ def delete_process(process_id):
         return jsonify({'error': 'Failed to delete process'}), 500
     
 
+@user.route('/activity/<int:activity_id>', methods=['DELETE'])
+def delete_activity(activity_id):
+    try:
+        # Find the activity
+        activity = Activity.query.get(activity_id)
+        print(f"backend activity to be deleted found:", activity)
+        if not activity:
+            return jsonify({'error': 'Activity not found'}), 404
+        
+        # Delete hazards associated with this activity
+        hazards = Hazard.query.filter_by(hazard_activity_id=activity_id).all()
+        
+        for hazard in hazards:
+            # Delete risks associated with this hazard
+            Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).delete()
+            
+        # Delete the hazards
+        Hazard.query.filter_by(hazard_activity_id=activity_id).delete()
+        
+        # Delete the activity
+        db.session.delete(activity)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Activity {activity_id} and all associated data deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting activity {activity_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete activity'}), 500
+
 
 @user.route('/shareForm/<int:formId>', methods=['POST'])
 def share_form(formId):
