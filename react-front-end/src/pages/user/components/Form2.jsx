@@ -1197,9 +1197,34 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     {/* Activity Number */}
                     <div>
                       <label className="block text-sm font-medium mb-1">Activity Number</label>
-                      <div className="px-2 py-1 bg-gray-100 rounded inline-block">
-                        {act.activityNumber || idx + 1}
-                      </div>
+                      <select
+                        value={act.activityNumber || idx + 1}
+                        onChange={(e) => {
+                          updateActivityField(proc.id, act.id, "activityNumber", parseInt(e.target.value));
+                        }}
+                        className="px-2 py-1 border border-gray-300 rounded"
+                      >
+                        {/* Generate options from 1 to the total number of activities in this process */}
+                        {[...Array(proc.activities.length)].map((_, num) => {
+                          const activityNumber = num + 1;
+                          // Check if this number is already used by another activity in the same process
+                          const isUsed = proc.activities.some(
+                            (otherAct) =>
+                              otherAct.id !== act.id && // Not the current activity
+                              (otherAct.activityNumber || proc.activities.findIndex(a => a.id === otherAct.id) + 1) === activityNumber // Has this number
+                          );
+
+                          return (
+                            <option
+                              key={activityNumber}
+                              value={activityNumber}
+                              disabled={isUsed}
+                            >
+                              {activityNumber}{isUsed ? " (in use)" : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
                     </div>
 
                     {/* Hazard sections */}
