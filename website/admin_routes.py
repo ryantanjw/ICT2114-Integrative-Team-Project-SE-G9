@@ -373,7 +373,7 @@ def add_user():
             user_email=data['email'],
             password=data['password'],  # Make sure to hash this in production!
             user_designation='student',
-            user_role=data.get('user_role', 1),  # Default to regular user (1)
+            user_role=data['accountType'],  
             user_cluster=data['programmeCluster']
         )
         
