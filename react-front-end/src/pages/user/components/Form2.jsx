@@ -21,6 +21,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const [dataLoaded, setDataLoaded] = useState(false);
   const [currentUserName, setCurrentUserName] = useState("");
   const [currentUserDesignation, setCurrentUserDesignation] = useState("");
+  const [lastSaveTime, setLastSaveTime] = useState(0); // Track when we last saved
 
 
   const formIdRef = useRef(null);
@@ -72,10 +73,26 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         type: Array.isArray(hazard.type) ? [...hazard.type] :
           (hazard.type ? [hazard.type] : []),
 
-        // Fix: Handle injuries field properly - it might be missing from API  
-        injuries: Array.isArray(hazard.injuries) ? [...hazard.injuries] :
-          (hazard.injury ? [hazard.injury] :
-            hazard.injuries ? [hazard.injuries] : []),
+        // Fix: Handle injuries field properly - split by comma if string, handle arrays
+        injuries: (() => {
+          if (Array.isArray(hazard.injuries)) {
+            // If it's already an array, flatten and split any comma-separated strings
+            return hazard.injuries.flatMap(injury => 
+              typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
+            );
+          } else if (hazard.injury) {
+            // Handle single injury field (split by comma)
+            return typeof hazard.injury === 'string' 
+              ? hazard.injury.split(',').map(i => i.trim()).filter(i => i)
+              : [hazard.injury];
+          } else if (hazard.injuries) {
+            // Handle injuries as string (split by comma)
+            return typeof hazard.injuries === 'string' 
+              ? hazard.injuries.split(',').map(i => i.trim()).filter(i => i)
+              : [hazard.injuries];
+          }
+          return [];
+        })(),
 
         existingControls: hazard.existingControls || "",
         additionalControls: hazard.additionalControls || "",
@@ -203,6 +220,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       return;
     }
 
+    // Don't fetch if we already have data loaded for this form
+    if (dataLoaded && formId === id) {
+      console.log('Data already loaded for this form, skipping fetch');
+      return;
+    }
+
     try {
       setIsLoading(true);
       console.log(`Fetching form data for ID: ${id}`);
@@ -297,7 +320,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     } finally {
       setIsLoading(false);
     }
-  }, [storeFormIdInSession, hazardTypesList, fetchHazardTypes]);
+  }, [storeFormIdInSession, hazardTypesList, fetchHazardTypes, dataLoaded, formId]);
 
   // Initialize data from either formData prop or directly from API
   useEffect(() => {
@@ -308,6 +331,19 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       console.log('Form2 received formData:', formData);
       console.log('formData.form_id:', formData?.form_id);
       console.log('current formId:', formId);
+
+      // If we already have data loaded and the form ID matches, don't reinitialize
+      if (dataLoaded && formId && formData?.form_id === formId) {
+        console.log('Skipping initialization - data already loaded for this form');
+        return true;
+      }
+
+      // If we just saved recently (within 5 seconds), don't reinitialize from potentially stale parent data
+      const timeSinceLastSave = Date.now() - lastSaveTime;
+      if (dataLoaded && timeSinceLastSave < 5000) {
+        console.log('Skipping initialization - recent save detected, avoiding stale data');
+        return true;
+      }
 
       // If we have formData passed from parent, check if it's complete
       if (formData && Object.keys(formData).length > 0 && formData.form_id) {
@@ -385,7 +421,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         console.log('No form ID available for fetching');
       }
     }
-  }, [formData, sessionData, dataLoaded, fetchFormData]);
+  }, [formData?.form_id, sessionData?.current_form_id]); // Only depend on form ID changes
 
   useEffect(() => {
     console.log("DEBUGGING HERE");
@@ -993,6 +1029,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
         // Force update to parent after successful save
         triggerUpdateToParent(true);
+        
+        // Record the save time to prevent reinitialization from stale data
+        setLastSaveTime(Date.now());
+        
         toast.success("Form Saved");
 
         setIsLoading(false);
@@ -1037,8 +1077,20 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     id: uuidv4(),
     hazard_id: uuidv4(),
     description,
-    type,
-    injuries,
+    type: Array.isArray(type) ? type : (type ? [type] : []),
+    // Handle injuries - split by comma if string, handle arrays
+    injuries: (() => {
+      if (Array.isArray(injuries)) {
+        return injuries.flatMap(injury => 
+          typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
+        );
+      } else if (injuries) {
+        return typeof injuries === 'string' 
+          ? injuries.split(',').map(i => i.trim()).filter(i => i)
+          : [injuries];
+      }
+      return [];
+    })(),
     newInjury: "",
     newType: "",
     showTypeInput: false,

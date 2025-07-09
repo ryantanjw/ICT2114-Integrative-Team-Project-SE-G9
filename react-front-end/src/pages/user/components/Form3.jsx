@@ -363,6 +363,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="ref-number"
           value={referenceNumber}
           onChange={(e) => setReferenceNumber(e.target.value)}
+          disabled
         />
         <InputGroup
           label="Division"

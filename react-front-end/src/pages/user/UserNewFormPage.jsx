@@ -32,7 +32,7 @@ export default function UserNewForm() {
   const [isForm2Valid, setIsForm2Valid] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false); 
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Function to validate Form 1
   const validateForm1 = useCallback((data) => {
@@ -125,7 +125,7 @@ export default function UserNewForm() {
       }
     } catch (error) {
       console.error("Error loading existing form:", error);
-      
+
       // If form not found or access denied, show appropriate message
       if (error.response?.status === 404) {
         alert("Form not found. It may have been deleted or you don't have access to it.");
@@ -136,13 +136,13 @@ export default function UserNewForm() {
       } else {
         alert("Error loading form. Please try again.");
       }
-      
+
       return false;
     } finally {
       setIsLoading(false);
     }
   }, [validateForm1, validateForm2, navigate]);
-  
+
 
   // Debounced function to store form ID in session
   const storeFormIdInSession = useCallback(async (form_id) => {
@@ -197,17 +197,17 @@ export default function UserNewForm() {
       console.log("Form data unchanged, skipping update");
       return;
     }
-  
+
     console.log("Updating form data:", data);
-  
+
     // Preserve the form_id when updating
     const newFormData = {
       ...data,
       form_id: data.form_id || formData.form_id
     };
-  
+
     setFormData(newFormData);
-  
+
     // Only validate if we're not forcing a save (to reduce unnecessary processing)
     if (!forceSave) {
       // Validate forms based on current tab
@@ -217,13 +217,13 @@ export default function UserNewForm() {
         validateForm2(newFormData);
       }
     }
-  
+
     // Only store form ID in session when it changes or when forced
     if ((newFormData.form_id && newFormData.form_id !== formData.form_id) || forceSave) {
       await storeFormIdInSession(newFormData.form_id);
     }
   }, [formData, currentTab, validateForm1, validateForm2, storeFormIdInSession]);
-  
+
   // Fetch latest form data from the server
   const refreshFormData = useCallback(async (force = false) => {
     if (!formData.form_id) {
@@ -272,13 +272,13 @@ export default function UserNewForm() {
     const clearFormIdOnReload = async () => {
       // Only clear on initial page load
       if (!initialLoadRef.current) return;
-      
+
       initialLoadRef.current = false;
-      
+
       if (!formId) {
         try {
           console.log('Clearing form ID from session on page load');
-          
+
           // Clear from session using API
           await fetch('/api/user/clear_form_id', {
             method: 'POST',
@@ -286,24 +286,24 @@ export default function UserNewForm() {
               'Content-Type': 'application/json',
             }
           });
-          
+
           console.log('Form ID cleared from session on page load');
         } catch (error) {
           console.error('Error clearing form ID from session:', error);
         }
       }
     };
-    
+
     clearFormIdOnReload();
-    
+
     // Set up beforeunload handler to clear form ID when navigating away from page
     const handleBeforeUnload = () => {
-      
+
       if (!isEditMode) {
-      // Use synchronous localStorage for unload event
-      localStorage.removeItem('current_form_id');
-      
-      // For modern browsers, we can try to make a synchronous request
+        // Use synchronous localStorage for unload event
+        localStorage.removeItem('current_form_id');
+
+        // For modern browsers, we can try to make a synchronous request
         try {
           const xhr = new XMLHttpRequest();
           xhr.open('POST', '/api/user/clear_form_id', false); // false = synchronous
@@ -314,10 +314,10 @@ export default function UserNewForm() {
         }
       }
     };
-    
+
     // Add beforeunload listener
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     // Clean up event listener
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -328,18 +328,18 @@ export default function UserNewForm() {
   const handleTabChange = async (tabIndex) => {
     try {
       console.log(`Attempting to navigate from tab ${currentTab} to tab ${tabIndex}`);
-  
+
       // Skip if already on the selected tab
       if (currentTab === tabIndex) {
         return;
       }
-  
+
       // Going backward - don't save to DB, just update state
       if (tabIndex < currentTab) {
         console.log("Going backward, preserving form data without saving to DB");
-        
+
         let stateUpdateSuccess = true;
-        
+
         // For Form2, use the goBack method
         if (currentTab === 1 && form2Ref.current) {
           stateUpdateSuccess = form2Ref.current.goBack();
@@ -348,20 +348,20 @@ export default function UserNewForm() {
         else if (currentTab === 2 && form3Ref.current && form3Ref.current.goBack) {
           stateUpdateSuccess = form3Ref.current.goBack();
         }
-        
+
         if (!stateUpdateSuccess) {
           console.error("Failed to update state when going back");
           return;
         }
-        
+
         // Change the tab without validation or saving
         setCurrentTab(tabIndex);
         return;
       }
-  
+
       // Going forward - save current tab data before switching
       let saveSuccess = true;
-  
+
       // Save data based on current tab
       if (currentTab === 0 && form1Ref.current) {
         // Validate before attempting to save
@@ -370,24 +370,24 @@ export default function UserNewForm() {
           alert(validation.message || "Please complete Form 1 before proceeding.");
           return;
         }
-        
+
         console.log("Saving Form 1 before tab change...");
         saveSuccess = await form1Ref.current.saveForm();
-  
+
         if (!saveSuccess) {
           console.error("Failed to save Form 1");
           alert("Failed to save Form 1. Please try again.");
           return;
         }
-  
+
         // Get the form data after saving
         const formData = form1Ref.current.getData();
         if (formData.form_id) {
           console.log("Form 1 saved with ID:", formData.form_id);
-  
+
           // Store form ID in session
           await storeFormIdInSession(formData.form_id);
-  
+
           // Update the parent's formData state
           updateFormData(formData);
         } else {
@@ -402,16 +402,16 @@ export default function UserNewForm() {
           alert(validation.message || "Please complete Form 2 before proceeding.");
           return;
         }
-        
+
         console.log("Saving Form 2 before tab change...");
         saveSuccess = await form2Ref.current.saveForm();
-  
+
         if (!saveSuccess) {
           console.error("Failed to save Form 2");
           alert("Failed to save Form 2. Please try again.");
           return;
         }
-  
+
         // Get the form data after saving
         const formData = form2Ref.current.getData();
         updateFormData(formData);
@@ -422,23 +422,23 @@ export default function UserNewForm() {
           alert("Please complete Form 3 before proceeding.");
           return;
         }
-        
+
         console.log("Saving Form 3 before tab change...");
         if (form3Ref.current.saveData) {
           await form3Ref.current.saveData();
         }
-        
+
         // Get Form 3 data if available
         if (form3Ref.current.getData) {
           const form3Data = form3Ref.current.getData();
-          updateFormData({...formData, ...form3Data});
+          updateFormData({ ...formData, ...form3Data });
         }
       }
-  
+
       // Change the tab
       console.log(`Successfully navigating from tab ${currentTab} to tab ${tabIndex}`);
       setCurrentTab(tabIndex);
-  
+
       // Refresh data after a tab change if we have a form ID
       if (formData.form_id) {
         refreshFormData(true);
@@ -491,10 +491,10 @@ export default function UserNewForm() {
 
         // // Check for form ID in localStorage first (preserved during tab navigation)
         // const localFormId = localStorage.getItem('current_form_id');
-        
+
         // // If not in localStorage, check session
         // const formIdToUse = localFormId || response.data.current_form_id;
-        
+
         //may change 497 to if formId
         if (formId) {
           console.log("Found form ID to continue with:", formId);
@@ -505,13 +505,13 @@ export default function UserNewForm() {
             return;
           }
         } else {
-           // Check for form ID in localStorage or session (for new forms)
+          // Check for form ID in localStorage or session (for new forms)
           const localFormId = localStorage.getItem('current_form_id');
           const formIdToUse = localFormId || response.data.current_form_id;
-          
+
           if (formIdToUse) {
             console.log("Found form ID to continue with:", formIdToUse);
-          // Fetch the form data to continue
+            // Fetch the form data to continue
             try {
               const formResponse = await axios.get(`/api/user/get_form/${formIdToUse}`);
 
@@ -534,7 +534,7 @@ export default function UserNewForm() {
             }
             catch (formError) {
               console.error("Error loading form data:", formError);
-            }         
+            }
           }
         }
 
@@ -617,7 +617,7 @@ export default function UserNewForm() {
       </div>
     );
   }
-  
+
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <Header activePage={location.pathname} />
@@ -635,6 +635,16 @@ export default function UserNewForm() {
         </div>
         <div className="mt-6">
           {currentTab === 0 && (
+
+
+            <Form3
+              ref={form3Ref}
+              formData={formData}
+              sessionData={userData}
+              updateFormData={updateFormData}
+            />
+          )}
+          {currentTab === 1 && (
             <Form1
               ref={form1Ref}
               sample={null}
@@ -643,21 +653,13 @@ export default function UserNewForm() {
               formData={formData}
             />
           )}
-          {currentTab === 1 && (
+          {currentTab === 2 && (
             <Form2
               ref={form2Ref}
               sample={null}
               sessionData={userData}
               updateFormData={updateFormData}
               formData={formData}
-            />
-          )}
-          {currentTab === 2 && (
-            <Form3
-              ref={form3Ref}
-              formData={formData}
-              sessionData={userData}
-              updateFormData={updateFormData}
             />
           )}
           {currentTab === 3 && (

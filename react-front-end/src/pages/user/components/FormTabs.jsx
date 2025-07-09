@@ -3,15 +3,15 @@ import { FaFileAlt, FaExclamationTriangle, FaCheckCircle } from "react-icons/fa"
 import { HiMiniDocumentCheck } from "react-icons/hi2";
 
 const tabs = [
+  { label: "Overall Details", icon: <HiMiniDocumentCheck /> },
   { label: "Form 1 - WA Inventory", icon: <FaFileAlt /> },
   { label: "Form 2 - RA Process", icon: <FaExclamationTriangle /> },
-  { label: "Overall Details", icon: <HiMiniDocumentCheck /> },
   { label: "Confirmation Details", icon: <FaCheckCircle /> },
 ];
 
 export default function FormTabs({ onTabChange, currentTab: externalTab, isForm1Valid, isForm2Valid }) {
   const [activeTab, setActiveTab] = useState(0);
-  
+
   // Use external tab state if provided, otherwise use local state
   const currentTab = externalTab !== undefined ? externalTab : activeTab;
 
@@ -43,9 +43,8 @@ export default function FormTabs({ onTabChange, currentTab: externalTab, isForm1
             <div
               key={index}
               onClick={() => handleTabClick(index)}
-              className={`relative flex items-center space-x-2 cursor-pointer pb-2 ${
-                index === currentTab ? "text-black font-semibold" : "text-gray-400"
-              }`}
+              className={`relative flex items-center space-x-2 cursor-pointer pb-2 ${index === currentTab ? "text-black font-semibold" : "text-gray-400"
+                }`}
             >
               <span className="text-xl">{tab.icon}</span>
               <span>{tab.label}</span>
@@ -61,16 +60,20 @@ export default function FormTabs({ onTabChange, currentTab: externalTab, isForm1
         <button
           onClick={() => handleTabClick(currentTab - 1)}
           disabled={currentTab === 0}
-          className="back-button"
+          className={`px-4 py-2 rounded text-white font-medium transition-all duration-200 ${
+            currentTab === 0 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-black hover:bg-gray-800 active:bg-gray-900'
+          }`}
         >
           Back
         </button>
-        
+
         {/* Only show Next/Complete button if not on last tab */}
         {currentTab < tabs.length - 1 && (
           <button
             onClick={handleNext}
-            className="px-4 py-2 bg-blue-600 text-white rounded"
+            className="px-4 py-2 bg-black text-white rounded font-medium hover:bg-gray-800 active:bg-gray-900 transition-all duration-200"
           >
             Next
           </button>
