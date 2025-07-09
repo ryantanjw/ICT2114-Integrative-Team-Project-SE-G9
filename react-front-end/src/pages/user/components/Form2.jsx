@@ -1217,7 +1217,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       {raProcesses.map((proc) => (
         <div key={proc.id} className="border border-gray-200 rounded-lg">
           <div className="flex items-center bg-gray-100 px-4 py-2 rounded-t">
-            <span className="font-semibold text-lg">
+            <span className="font-semibold text-4xl">
               {`Process ${proc.processNumber} - ${proc.header}`}
             </span>
             <CTAButton
@@ -1240,7 +1240,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     onClick={() => toggleExpand(proc.id, act.id)}
                   >
                     {act.expanded ? <FiChevronUp /> : <FiChevronDown />}
-                    <span className="font-semibold">
+                    <span className="font-semibold text-3xl">
                       Work Activity {idx + 1} {act.description && `- ${act.description}`}
                     </span>
                   </div>

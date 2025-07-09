@@ -275,7 +275,9 @@ export default function UserNewForm() {
 
       initialLoadRef.current = false;
 
-      if (!formId) {
+      // Only clear form_id if we're NOT in edit mode and there's no formId in the URL
+      // This prevents clearing the session when navigating between Form3 and Form1
+      if (!formId && !isEditMode) {
         try {
           console.log('Clearing form ID from session on page load');
 
@@ -291,6 +293,8 @@ export default function UserNewForm() {
         } catch (error) {
           console.error('Error clearing form ID from session:', error);
         }
+      } else {
+        console.log('Keeping form_id in session - either formId exists or in edit mode');
       }
     };
 
@@ -340,13 +344,17 @@ export default function UserNewForm() {
 
         let stateUpdateSuccess = true;
 
-        // For Form2, use the goBack method
-        if (currentTab === 1 && form2Ref.current) {
-          stateUpdateSuccess = form2Ref.current.goBack();
-        }
-        // For Form3, use the goBack method if it exists
-        else if (currentTab === 2 && form3Ref.current && form3Ref.current.goBack) {
+        // For Form3 (tab 0), use the goBack method
+        if (currentTab === 0 && form3Ref.current && form3Ref.current.goBack) {
           stateUpdateSuccess = form3Ref.current.goBack();
+        }
+        // For Form1 (tab 1), use the goBack method
+        else if (currentTab === 1 && form1Ref.current && form1Ref.current.goBack) {
+          stateUpdateSuccess = form1Ref.current.goBack();
+        }
+        // For Form2 (tab 2), use the goBack method
+        else if (currentTab === 2 && form2Ref.current && form2Ref.current.goBack) {
+          stateUpdateSuccess = form2Ref.current.goBack();
         }
 
         if (!stateUpdateSuccess) {
@@ -363,7 +371,32 @@ export default function UserNewForm() {
       let saveSuccess = true;
 
       // Save data based on current tab
-      if (currentTab === 0 && form1Ref.current) {
+      if (currentTab === 0 && form3Ref.current) {
+        // Save Form 3 data (Overall Details)
+        if (form3Ref.current.validate && !form3Ref.current.validate()) {
+          alert("Please complete the Overall Details before proceeding.");
+          return;
+        }
+
+        console.log("Saving Form 3 before tab change...");
+        if (form3Ref.current.saveData) {
+          const savedData = await form3Ref.current.saveData();
+          if (!savedData) {
+            console.error("Failed to save Form 3");
+            alert("Failed to save Overall Details. Please try again.");
+            return;
+          }
+          
+          // Update the parent's formData state with the saved data
+          updateFormData(savedData);
+          
+          // Store form ID in session if we have one
+          if (savedData.form_id) {
+            await storeFormIdInSession(savedData.form_id);
+          }
+        }
+      }
+      else if (currentTab === 1 && form1Ref.current) {
         // Validate before attempting to save
         const validation = form1Ref.current.validateForm();
         if (!validation.valid) {
@@ -396,7 +429,7 @@ export default function UserNewForm() {
           return;
         }
       }
-      else if (currentTab === 1 && form2Ref.current) {
+      else if (currentTab === 2 && form2Ref.current) {
         const validation = form2Ref.current.validateForm();
         if (!validation.valid) {
           alert(validation.message || "Please complete Form 2 before proceeding.");
@@ -415,24 +448,6 @@ export default function UserNewForm() {
         // Get the form data after saving
         const formData = form2Ref.current.getData();
         updateFormData(formData);
-      }
-      else if (currentTab === 2 && form3Ref.current) {
-        // Save Form 3 data
-        if (form3Ref.current.validate && !form3Ref.current.validate()) {
-          alert("Please complete Form 3 before proceeding.");
-          return;
-        }
-
-        console.log("Saving Form 3 before tab change...");
-        if (form3Ref.current.saveData) {
-          await form3Ref.current.saveData();
-        }
-
-        // Get Form 3 data if available
-        if (form3Ref.current.getData) {
-          const form3Data = form3Ref.current.getData();
-          updateFormData({ ...formData, ...form3Data });
-        }
       }
 
       // Change the tab

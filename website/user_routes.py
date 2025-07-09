@@ -658,8 +658,9 @@ def form1_save():
 
     if (not data or 
             not data.get('title') or 
-            not data.get('division')):
-            return jsonify({"success": False, "error": "Missing required fields"}), 400
+            not data.get('division') or
+            not data.get('form_id')):
+            return jsonify({"success": False, "error": "Missing required fields. Form ID is required for updates."}), 400
     
     try:
         form_id = data.get('form_id')
@@ -667,37 +668,22 @@ def form1_save():
         division = data.get('division')
         current_time = datetime.now()
 
-        if form_id:
-            form = Form.query.get(form_id)
-            if not form:
-                return jsonify({"error": "Form not Found"}), 404
-            print(f"Updating existing form with ID: {form_id}")
-            form.title = title
-            form.division = division
-
-            action = 'updated'
-        else:
-            form = Form(
-                title=title,
-                division=division,
-            )
-            form.form_user_id = userid
-            db.session.add(form)
-            action = 'created'
+        # Form1 should only update existing forms
+        form = Form.query.get(form_id)
+        if not form:
+            return jsonify({"error": "Form not found. Use Form3 to create new forms."}), 404
         
+        print(f"Updating existing form with ID: {form_id}")
+        form.title = title
+        form.division = division
         form.last_access_date = current_time  # Set last access date to current time
 
-
         db.session.commit()
-
-        # Store form_id in session for persistence across tabs
-        session['current_form_id'] = form.form_id
 
         return jsonify({
             "success": True,
             "form_id": form.form_id,    
-            "message": "Form saved successfully",
-            "action": "updated" if form_id else "created",
+            "action": "updated",
             "last_access_date": form.last_access_date.isoformat(),  # Return the timestamp
         }), 200
 
@@ -1221,19 +1207,41 @@ def form3_save():
         current_user = User.query.get(userid)
         if not current_user:
             return jsonify({"error": "Current user not found"}), 400
-            
-        # Validate required fields
-        if (not data or 
-                not data.get('form_id')):
-                return jsonify({"success": False, "error": "Missing required fields"}), 400
+        
+        # Validate required fields for form creation
+        if not data or not data.get('title') or not data.get('division'):
+            return jsonify({"success": False, "error": "Title and division are required"}), 400
         
         form_id = data.get('form_id')
-        form = Form.query.get(form_id)
+        title = data.get('title')
+        division = data.get('division')
+        current_time = datetime.now()
         
-        if not form:
-            return jsonify({"error": "Form not found"}), 404
+        if form_id:
+            # Update existing form
+            form = Form.query.get(form_id)
+            if not form:
+                return jsonify({"error": "Form not found"}), 404
+            
+            print(f"Updating existing form with ID: {form_id}")
+            form.title = title
+            form.division = division
+            action = 'updated'
+        else:
+            # Create new form
+            print("Creating new form in Form3")
+            form = Form(
+                title=title,
+                division=division,
+                form_user_id=userid
+            )
+            db.session.add(form)
+            db.session.flush()  # Get the form ID immediately
+            action = 'created'
         
-        # Update form fields
+        form.last_access_date = current_time
+        
+        # Update form fields from Form3
         if 'form_reference_number' in data:
             form.form_reference_number = data.get('form_reference_number')
             
@@ -1317,10 +1325,15 @@ def form3_save():
         # Commit changes
         db.session.commit()
         
+        # Store form_id in session for persistence across tabs (like form1 originally did)
+        session['current_form_id'] = form.form_id
+        
         return jsonify({
             "success": True,
             "form_id": form.form_id,
-            "message": "Form 3 saved successfully"
+            "message": f"Form {action} successfully",
+            "action": action,
+            "last_access_date": form.last_access_date.isoformat()
         }), 200
         
     except Exception as e:
@@ -1502,6 +1515,9 @@ def get_form(form_id):
         if not form:
             return jsonify({"error": "Form not found"}), 404
         
+        # Store form_id in session for future use
+        session['current_form_id'] = form_id
+        
         # Fetch processes, activities, hazards from the database
         processes = []
         
@@ -1545,6 +1561,28 @@ def get_form(form_id):
     
     except Exception as e:
         import traceback
+        print(f"Error getting form: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+@user.route('/get_form', methods=['GET'])
+def get_current_form():
+    """Get form data from session's current_form_id"""
+    try:
+        # Get form_id from session
+        form_id = session.get('current_form_id')
+        
+        if not form_id:
+            return jsonify({"error": "No current form in session"}), 404
+        
+        # Use the existing get_form logic
+        return get_form(form_id)
+    
+    except Exception as e:
+        import traceback
+        print(f"Error getting current form: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
   
 @user.route('/check_session', methods=['GET'])
 def check_session():

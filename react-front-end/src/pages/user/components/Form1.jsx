@@ -129,16 +129,57 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           console.log('Using form_id from session:', id);
         }
 
+        // If still no ID, try to fetch from session directly
         if (!id) {
-          console.log('No form ID found, showing empty form');
-          setDataLoaded(true);
-          setIsLoading(false);
-          return;
+          console.log('No form ID found, trying to fetch from session...');
+          // Try the session-based endpoint first
+          const sessionResponse = await fetch('/api/user/get_form');
+          if (sessionResponse.ok) {
+            const sessionData = await sessionResponse.json();
+            console.log('Form data loaded from session:', sessionData);
+            
+            // Update form state with session data
+            setTitle(sessionData.title || "");
+            setDivision(sessionData.division || "");
+
+            // Ensure all processes have valid IDs
+            const processesWithIds = sessionData.processes.map(proc => ({
+              ...proc,
+              id: proc.id || proc.process_id,
+              process_id: proc.process_id || proc.id,
+              activities: proc.activities.map(act => ({
+                ...act,
+                id: act.id || act.activity_id,
+                activity_id: act.activity_id || act.id
+              }))
+            }));
+
+            setProcesses(processesWithIds || []);
+            updateFormId(sessionData.form_id);
+
+            // Also store in session
+            await storeFormIdInSession(sessionData.form_id);
+            setIsLoading(false);
+            setDataLoaded(true);
+            return;
+          } else {
+            console.log('No form found in session, showing empty form');
+            setDataLoaded(true);
+            setIsLoading(false);
+            return;
+          }
         }
 
         console.log(`Fetching form data for ID: ${id}`);
 
-        const response = await fetch(`/api/user/get_form/${id}`);
+        // Try to get form data from session first, then by ID
+        let response;
+        if (id) {
+          response = await fetch(`/api/user/get_form/${id}`);
+        } else {
+          // Try to get from session if no ID provided
+          response = await fetch('/api/user/get_form');
+        }
 
         if (response.ok) {
           const data = await response.json();
@@ -222,7 +263,12 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       division,
       processes,
       form_id: formId
-    })
+    }),
+    goBack: () => {
+      // When going back from Form1, don't save or show alerts
+      console.log('Going back from Form1 - no save needed');
+      return true;
+    }
   }));
 
   const addProcess = () => {
@@ -307,6 +353,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
     const currentFormId = formIdRef.current;
 
+    // Form1 now requires form_id for updates
+    if (!currentFormId) {
+      setIsLoading(false);
+      showErrorMessage("Form ID is required for updates. Please start from Form 3 to create a new form.");
+      return false;
+    }
+
     console.log("Form1 data:", { formId: currentFormId, title, division, processes });
 
     // Create a function to save form data to localStorage as a fallback
@@ -316,7 +369,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           title,
           division,
           processes,
-          form_id: currentFormId || `temp_${Date.now()}`,
+          form_id: currentFormId,
           last_saved: new Date().toISOString(),
           pending_save: true
         };
@@ -334,15 +387,11 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         title,
         division,
         processes: processes, // Include all processes in the main request
-        userId: sessionData?.user_id
+        userId: sessionData?.user_id,
+        form_id: currentFormId // Always include form_id for Form1
       };
 
-      if (currentFormId) {
-        requestBody.form_id = currentFormId;
-        console.log('Including form_id in request:', currentFormId);
-      } else {
-        console.log('No Form ID, creating new form');
-      }
+      console.log('Form1 updating existing form with ID:', currentFormId);
 
       // First attempt to save to server
       const response = await fetch('/api/user/form1', {
@@ -365,11 +414,6 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
           if (localSaveSuccess) {
             showSuccessMessage('Form saved locally (database connection unavailable). Your changes will be synchronized when connection is restored.');
-
-            // Generate a temporary form ID if needed
-            const tempFormId = currentFormId || `temp_${Date.now()}`;
-            updateFormId(tempFormId);
-
             setIsLoading(false);
             return true; // Return success for UI flow
           } else {
@@ -381,16 +425,9 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       }
 
       const formResult = await response.json();
-      console.log('Form save success:', formResult);
+      console.log('Form1 save success:', formResult);
 
       let formId = formResult.form_id;
-
-      // Update form ID if new form
-      if (formResult.action === 'created' || !currentFormId) {
-        updateFormId(formId);
-        await storeFormIdInSession(formId);
-        console.log('New form created with ID:', formId);
-      }
 
       if (deletedProcessIds.length > 0) {
         console.log('Deleting processes:', deletedProcessIds);
@@ -417,7 +454,6 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         // Clear the deleted processes list after attempting deletion
         setDeletedProcessIds([]);
       }
-
 
       if (processes && processes.length > 0) {
         console.log('Saving processes for form ID:', formId);
@@ -517,7 +553,6 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       setIsLoading(false);
       console.log('All data saved successfully');
 
-      showSuccessMessage('Form saved successfully!');
 
       return true;
 
