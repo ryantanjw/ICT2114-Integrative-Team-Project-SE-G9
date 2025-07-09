@@ -1,3 +1,6 @@
+import { IoArrowBack, IoArrowForward } from "react-icons/io5";
+import { MdSave } from "react-icons/md";
+import StickyBottomNav from "../../components/StickyBottomNav.jsx";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Header from "../../components/Header.jsx";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -448,6 +451,17 @@ export default function UserNewForm() {
       alert("An error occurred while changing tabs. Please try again.");
     }
   }
+
+  // Save handler for current tab
+  const handleSaveClick = async () => {
+    if (currentTab === 0 && form1Ref.current) {
+      await form1Ref.current.saveForm();
+    } else if (currentTab === 1 && form2Ref.current) {
+      await form2Ref.current.saveForm();
+    } else if (currentTab === 2 && form3Ref.current && form3Ref.current.saveData) {
+      await form3Ref.current.saveData();
+    }
+  };
   // Check user session on initial load and when formId changes
   useEffect(() => {
     const checkSession = async () => {
@@ -619,9 +633,9 @@ export default function UserNewForm() {
   }
   
   return (
-    <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
+    <div className="bg-[#F7FAFC] min-h-screen max-w-screen 2xl:px-40 px-5">
       <Header activePage={location.pathname} />
-      <div className="flex flex-col justify-start mb-5">
+      <div className="flex flex-col justify-start pb-5">
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
           RA Form Submission
         </h3>
@@ -669,6 +683,31 @@ export default function UserNewForm() {
           )}
         </div>
       </div>
+      {/* Floating Bottom Nav */}
+      <StickyBottomNav
+        buttonsLeft={[
+          {
+            text: "Back",
+            onClick: () => handleTabChange(currentTab - 1),
+            disabled: currentTab === 0,
+            icon: IoArrowBack
+          },
+          {
+            text: "Next",
+            onClick: () => handleTabChange(currentTab + 1),
+            disabled: currentTab === 3,
+            icon: IoArrowForward
+          }
+        ]}
+        buttonsRight={[
+          {
+            text: "Save",
+            onClick: handleSaveClick,
+            icon: MdSave
+          }
+        ]}
+        position="bottom"
+      />
     </div>
   );
 }

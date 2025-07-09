@@ -1,4 +1,6 @@
+import { MdSave } from "react-icons/md";
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
+import StickyBottomNav from "../../../components/StickyBottomNav.jsx";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdAdd, MdDelete } from "react-icons/md";
@@ -1146,7 +1148,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           />
         </div>
         <CTAButton
-          icon={allCollapsed ? <RiExpandVerticalLine /> : <RiCollapseVerticalFill />}
+          icon={allCollapsed ? RiExpandVerticalLine : RiCollapseVerticalFill}
           text={allCollapsed ? "Expand All" : "Collapse All"}
           onClick={toggleExpandAll}
           className="ml-auto bg-gray-100 text-black"
@@ -1154,8 +1156,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       </div>
       {/* Render a section for each process */}
       {raProcesses.map((proc) => (
-        <div key={proc.id} className="border border-gray-200 rounded-lg">
-          <div className="flex items-center bg-gray-100 px-4 py-2 rounded-t">
+        <div key={proc.id} className="hello">
+        <div className="sticky top-2 inset-x-0 z-10 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
             <span className="font-semibold text-lg">
               {`Process ${proc.processNumber} - ${proc.header}`}
             </span>
@@ -1185,7 +1187,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                   </div>
                   {proc.activities.length > 1 && (
                     <CTAButton
-                      icon={<MdDelete />}
+                      icon={MdDelete}
                       text="Remove"
                       onClick={() => removeActivity(proc.id, act.id)}
                       className="text-black"
@@ -1229,7 +1231,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
                     {/* Hazard sections */}
                     {act.hazards.map((h, hi) => (
-                      <div
+                        <div
                         key={h.id}
                         className="border border-gray-200 rounded-lg p-4 space-y-4"
                       >
@@ -1480,18 +1482,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         </div>
       ))}
       {/* Save button */}
-      <div className="flex justify-end mt-4">
-        <CTAButton
-          text="Save"
-          onClick={() => {
-            // Force update to parent before saving
-            triggerUpdateToParent(true);
-            handleSave();
-          }}
-          className="px-6 py-2"
-          disabled={isLoading}
-        />
-      </div>
+      <StickyBottomNav
+        buttonsRight={[
+          {
+            text: "Save",
+            onClick: () => { triggerUpdateToParent(true); handleSave(); },
+            disabled: isLoading,
+            className: "px-6 py-2",
+            icon: MdSave
+          }
+        ]}
+        position="bottom"
+      />
     </div>
   );
 });
