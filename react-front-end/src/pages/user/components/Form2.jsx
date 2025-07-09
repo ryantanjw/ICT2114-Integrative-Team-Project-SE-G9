@@ -269,10 +269,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             expanded: true,
             hazards: initializeHazards([]) // Initialize with empty hazards
           }))
-        }));
-
-        setRaProcesses(processesWithEmptyHazards);
-      }
+        }));          setRaProcesses(processesWithEmptyHazards);
+          
+          // Trigger parent update during initialization
+          setTimeout(() => {
+            triggerUpdateToParent(true);
+          }, 100);
+        }
 
       updateFormId(id);
 
@@ -284,6 +287,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Store form ID in session
       await storeFormIdInSession(id);
       setDataLoaded(true);
+      
+      // Trigger parent update during initialization
+      setTimeout(() => {
+        triggerUpdateToParent(true);
+      }, 100);
     } catch (error) {
       console.error('Error fetching form data:', error);
     } finally {
@@ -337,6 +345,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
           setRaProcesses(processesWithHazards);
           setDataLoaded(true);
+          
+          // Trigger parent update during initialization
+          setTimeout(() => {
+            triggerUpdateToParent(true);
+          }, 100);
+          
           return true;
         } else {
           // formData doesn't have hazard data, don't initialize from it
@@ -389,14 +403,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     });
   }, [formData]);
 
-  // Batched update function to avoid excessive parent updates
+  // Batched update function - now only updates the pending data, doesn't trigger parent updates
   const scheduleBatchedUpdate = useCallback(() => {
     // Cancel any pending update
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
 
-    // Create the current form data
+    // Only store the current form data for later use, don't send to parent
     pendingUpdatesRef.current = {
       form_id: formId,
       title,
@@ -404,17 +418,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       processes: raProcesses
     };
 
-    // Schedule an update for later - only update when user is idle for 2 seconds
-    updateTimeoutRef.current = setTimeout(() => {
-      if (pendingUpdatesRef.current && updateFormData && dataLoaded) {
-        console.log("Sending batched update to parent");
-        updateFormData(pendingUpdatesRef.current, false);
-        pendingUpdatesRef.current = null;
-      }
-    }, 2000);
-  }, [title, division, raProcesses, formId, updateFormData, dataLoaded]);
+    // Clear any existing timeout - we don't automatically update parent anymore
+    updateTimeoutRef.current = null;
+  }, [title, division, raProcesses, formId]);
 
-  // Only update parent when explicitly requested (Save button) or after a long idle period
+  // Only update parent when explicitly requested (Save button) or during initialization
   const triggerUpdateToParent = useCallback((force = false) => {
     // Cancel any pending update
     if (updateTimeoutRef.current) {
@@ -422,7 +430,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       updateTimeoutRef.current = null;
     }
 
-    // Prevent too frequent updates
+    // Prevent too frequent updates unless forced
     const now = Date.now();
     if (!force && now - lastUpdateTime.current < 1000) {
       console.log("Skipping parent update - too soon");
@@ -431,7 +439,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     lastUpdateTime.current = now;
 
     if (updateFormData && dataLoaded) {
-      const updatedFormData = {
+      // Use pending updates if available, otherwise create fresh data
+      const updatedFormData = pendingUpdatesRef.current || {
         form_id: formId,
         title,
         division,
@@ -440,6 +449,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
       console.log("Explicitly updating parent", force ? "(forced)" : "");
       updateFormData(updatedFormData, force);
+      
+      // Clear pending updates after sending
+      pendingUpdatesRef.current = null;
     }
   }, [title, division, raProcesses, formId, updateFormData, dataLoaded]);
 
@@ -530,10 +542,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         updateTimeoutRef.current = null;
       }
 
-      // Force update to parent before saving
-      triggerUpdateToParent(true);
-
-      // Then call the save handler
+      // Call the save handler (which will trigger parent update after successful save)
       return handleSave();
     },
     validateForm: () => {
@@ -1483,11 +1492,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       <div className="flex justify-end mt-4">
         <CTAButton
           text="Save"
-          onClick={() => {
-            // Force update to parent before saving
-            triggerUpdateToParent(true);
-            handleSave();
-          }}
+          onClick={handleSave}
           className="px-6 py-2"
           disabled={isLoading}
         />
