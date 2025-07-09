@@ -497,11 +497,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       </div>
 
       {/* Save button */}
-      <div className="flex justify-end mt-4">
+      <div className="fixed bottom-6 right-6 z-50">
         <CTAButton
           text="Save"
           onClick={handleSave}
-          className="px-6 py-2"
+          className="px-6 py-2 shadow-lg"
           disabled={isLoading}
         />
       </div>

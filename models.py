@@ -97,6 +97,10 @@ class Risk(db.Model):
     severity = db.Column(db.Integer, nullable=False)
     likelihood = db.Column(db.Integer, nullable=False)
     RPN = db.Column(db.Integer, nullable=False)
+    newSeverity = db.Column(db.Integer, nullable=True)
+    newLikelihood = db.Column(db.Integer, nullable=True)
+    newRPN = db.Column(db.Integer, nullable=True)
+    implementation_person = db.Column(db.String(124), nullable=True)
     
 class Activity(db.Model):
     __tablename__ = 'activity'
@@ -121,6 +125,7 @@ class RA_team_member(db.Model):
     # Define fields
     RA_team_id = db.Column(db.Integer, db.ForeignKey('RA_team.RA_team_id'),primary_key=True, nullable=False)
     RA_team_member = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
+    RA_team_member_name = db.Column(db.String(124), nullable=False)
 
 class share_access(db.Model):
     __tablename__ = 'share_access'
