@@ -133,3 +133,9 @@ class share_access(db.Model):
     # Define fields
     shared_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), primary_key=True)
     shared_form_id = db.Column(db.Integer, db.ForeignKey('form.form_id'), primary_key=True)
+
+class division(db.Model):
+    __tablename__ = 'division'
+
+    division_id = db.Column(db.Integer, primary_key=True, nullable=False)
+    division_name = db.Column(db.String(100), nullable=True)

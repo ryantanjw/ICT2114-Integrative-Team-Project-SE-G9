@@ -656,6 +656,14 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             id="form-division"
             value={division}
             onChange={(e) => setDivision(e.target.value)}
+            type="select"
+            options={[
+              { value: "", label: "Select Division" },
+              { value: "division1", label: "Division 1" },
+              { value: "division2", label: "Division 2" },
+              { value: "division3", label: "Division 3" },
+              // Add more options as needed
+            ]}
           />
         </div>
         <CTAButton
@@ -674,18 +682,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             className="flex items-center space-x-2 px-4 py-2 rounded-lg"
             style={{ backgroundColor: proc.headerColor }}
           >
-            <span className="font-semibold text-lg">{`Process ${proc.processNumber} - `}</span>
-            <input
-              type="text"
-              value={proc.header}
-              placeholder="Enter Process Title Here"
-              onChange={(e) =>
-                setProcesses(processes.map(p =>
-                  p.id === proc.id ? { ...p, header: e.target.value } : p
-                ))
-              }
-              className="flex-1 bg-transparent border-none font-semibold text-lg"
-            />
+            <span className="font-semibold text-lg flex-1">{`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}</span>
             <CTAButton
               icon={<MdDelete />}
               text="Remove"
@@ -696,12 +693,19 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
           {/* Content wrapper */}
           <div className="border border-gray-200 bg-white p-4 space-y-4 rounded-b">
-            {/* Process Number */}
+            {/* Process Title Input */}
             <div>
-              <label className="block text-sm font-medium mb-1">Process Number</label>
-              <div className="px-2 py-1 bg-gray-100 rounded inline-block">
-                {proc.processNumber}
-              </div>
+              <InputGroup
+                label="Process Title"
+                id={`title-${proc.id}`}
+                value={proc.header}
+                placeholder="Enter Process Title Here"
+                onChange={(e) =>
+                  setProcesses(processes.map(p =>
+                    p.id === proc.id ? { ...p, header: e.target.value } : p
+                  ))
+                }
+              />
             </div>
 
             {/* Location */}
