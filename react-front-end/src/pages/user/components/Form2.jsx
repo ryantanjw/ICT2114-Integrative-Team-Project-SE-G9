@@ -1218,7 +1218,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       {/* Render a section for each process */}
       {raProcesses.map((proc) => (
         <div key={proc.id} className="hello">
-        <div className="sticky top-2 inset-x-0 z-10 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
+        <div className="inset-x-0 z-50 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
             <span className="font-semibold text-lg">
               {`Process ${proc.processNumber} - ${proc.header}`}
             </span>
@@ -1235,8 +1235,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           </div>
           <div className="bg-white p-4 space-y-4 rounded-b">
             {proc.activities.map((act, idx) => (
-              <div key={act.id} className="border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between bg-gray-100 p-3 rounded-t">
+              <div key={act.id} className="">
+                <div className="sticky top-5 border border-gray-200 rounded-lg inset-x-0 z-20 flex items-center justify-between bg-gray-100 p-3 rounded-t">
                   <div
                     className="flex items-center space-x-2 cursor-pointer flex"
                     onClick={() => toggleExpand(proc.id, act.id)}
