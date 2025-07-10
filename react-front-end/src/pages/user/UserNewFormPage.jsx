@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Header from "../../components/Header.jsx";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import FormTabs from "./components/FormTabs.jsx";
+import FormTabsMobile from "./components/FormTabsMobile.jsx";
 import Form1 from "./components/Form1.jsx";
 import Form2 from "./components/Form2.jsx";
 import Form3 from "./components/Form3.jsx";
@@ -655,17 +656,23 @@ export default function UserNewForm() {
           RA Form Submission
         </h3>
         <div className="mt-5">
-          <FormTabs
-            onTabChange={handleTabChange}
-            currentTab={currentTab}
-            isForm1Valid={isForm1Valid}
-            isForm2Valid={isForm2Valid}
-          />
+          <div className="block lg:hidden">
+            <FormTabsMobile
+              currentTab={currentTab}
+              onTabChange={handleTabChange}
+            />
+          </div>
+          <div className="hidden lg:block">
+            <FormTabs
+              onTabChange={handleTabChange}
+              currentTab={currentTab}
+              isForm1Valid={isForm1Valid}
+              isForm2Valid={isForm2Valid}
+            />
+          </div>
         </div>
         <div className="mt-6">
           {currentTab === 0 && (
-
-
             <Form3
               ref={form3Ref}
               formData={formData}

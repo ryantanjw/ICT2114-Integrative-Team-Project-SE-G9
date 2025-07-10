@@ -1298,7 +1298,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       >
                         {/* header with remove/add hazard */}
                         <div className="flex justify-between items-center">
-                          <h6 className="font-semibold">Hazard {hi + 1}</h6>
+                          <h6 className="font-semibold text-lg">Hazard {hi + 1}</h6>
                           <div className="space-x-2 flex">
                             <button
                               onClick={() => removeHazard(proc.id, act.id, h.id)}
@@ -1327,7 +1327,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                         />
 
                         <div>
-                          <label className="block text-sm font-medium mb-1">
+                          <label className="block text-base font-medium mb-2">
                             Type of Hazard
                           </label>
                           <div className="flex flex-wrap gap-2">
@@ -1381,7 +1381,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium mb-1">
+                          <label className="block text-base font-medium mb-2">
                             Possible Injuries
                           </label>
                           <div className="flex flex-wrap gap-2 mb-2">
@@ -1440,7 +1440,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium mb-1">
+                          <label className="block text-base font-medium mb-1">
                             Existing Risk Controls*
                           </label>
                           <textarea
