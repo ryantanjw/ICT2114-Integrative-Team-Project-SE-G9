@@ -1258,7 +1258,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     onClick={() => toggleExpand(proc.id, act.id)}
                   >
                     {act.expanded ? <FiChevronUp /> : <FiChevronDown />}
-                    <span className="font-semibold text-3xl">
+                    <span className="font-semibold text-xl">
                       Work Activity {idx + 1} {act.description && `- ${act.description}`}
                     </span>
                   </div>
