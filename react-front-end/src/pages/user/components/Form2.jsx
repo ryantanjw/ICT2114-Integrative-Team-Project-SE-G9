@@ -59,6 +59,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         severity: 1,
         likelihood: 1,
         rpn: 1,
+        implementationPerson: "",
       }];
     }
 
@@ -101,6 +102,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         severity: hazard.severity || 1,
         likelihood: hazard.likelihood || 1,
         rpn: hazard.rpn || (hazard.severity || 1) * (hazard.likelihood || 1),
+        implementationPerson: hazard.implementationPerson || hazard.implementation_person || "",
 
         // UI state fields
         newInjury: "",
@@ -692,6 +694,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       severity: 1,
                       likelihood: 1,
                       rpn: 1,
+                      implementationPerson: "",
                     },
                   ],
                 }
@@ -995,7 +998,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               additionalControls: h.additionalControls,
               severity: h.severity || 1,
               likelihood: h.likelihood || 1,
-              rpn: (h.severity || 1) * (h.likelihood || 1)
+              rpn: (h.severity || 1) * (h.likelihood || 1),
+              implementationPerson: h.implementationPerson || ""
             }))
           }))
         })),
@@ -1074,7 +1078,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     existingControls = "",
     severity = 1,
     likelihood = 1,
-    rpn = 1
+    rpn = 1,
+    implementationPerson = ""
   } = {}) => ({
     id: uuidv4(),
     hazard_id: uuidv4(),
@@ -1098,6 +1103,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     showTypeInput: false,
     showInjuryInput: false,
     existingControls,
+    implementationPerson: implementationPerson || "",
     additionalControls: "",
     severity,
     likelihood,
@@ -1527,9 +1533,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                           <InputGroup
                             label="Implementation Person"
                             id={`impl-${h.id}`}
-                            value={currentUserName ? `${currentUserName} (${currentUserDesignation})` : "Loading..."}
-                            onChange={() => { }}
-                            
+                            value={h.implementationPerson || ""}
+                            onChange={(e) =>
+                              updateHazard(proc.id, act.id, h.id, "implementationPerson", e.target.value)
+                            }
                             className="flex-1"
                           />
                         </div>
