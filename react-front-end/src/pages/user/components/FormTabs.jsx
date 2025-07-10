@@ -56,7 +56,7 @@ export default function FormTabs({ onTabChange, currentTab: externalTab, isForm1
         </div>
       </div>
 
-      <div className="mt-4 flex justify-between">
+      <div className="mt-4 flex justify-between hidden">
         <button
           onClick={() => handleTabClick(currentTab - 1)}
           disabled={currentTab === 0}
