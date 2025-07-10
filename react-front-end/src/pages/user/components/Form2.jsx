@@ -1,9 +1,12 @@
 import { MdSave } from "react-icons/md";
+import { IoWarning } from "react-icons/io5";
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
+import WarningDialog from "./WarningDialog.jsx";
 import StickyBottomNav from "../../../components/StickyBottomNav.jsx";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
-import { MdAdd, MdDelete } from "react-icons/md";
+import { MdAdd} from "react-icons/md";
+import { LuMinus } from "react-icons/lu";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { MdCheck } from "react-icons/md";
 import { RiCollapseVerticalFill, RiExpandVerticalLine } from "react-icons/ri";
@@ -24,6 +27,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const [currentUserName, setCurrentUserName] = useState("");
   const [currentUserDesignation, setCurrentUserDesignation] = useState("");
   const [lastSaveTime, setLastSaveTime] = useState(0); // Track when we last saved
+
+  // For warning dialog on hazard removal
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [warningInfo, setWarningInfo] = useState({ processId: null, activityId: null, hazardId: null });
+  // For warning dialog on activity removal
+  const [activityWarningOpen, setActivityWarningOpen] = useState(false);
+  const [activityWarningInfo, setActivityWarningInfo] = useState({ processId: null, activityId: null });
 
 
   const formIdRef = useRef(null);
@@ -1248,9 +1258,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                   </div>
                   {proc.activities.length > 1 && (
                     <CTAButton
-                      icon={MdDelete}
+                      icon={LuMinus}
                       text="Remove"
-                      onClick={() => removeActivity(proc.id, act.id)}
+                      onClick={() => {
+                        setActivityWarningInfo({ processId: proc.id, activityId: act.id });
+                        setActivityWarningOpen(true);
+                      }}
                       className="text-black"
                     />
                   )}
@@ -1301,11 +1314,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                           <h6 className="font-semibold text-lg">Hazard {hi + 1}</h6>
                           <div className="space-x-2 flex">
                             <button
-                              onClick={() => removeHazard(proc.id, act.id, h.id)}
+                              onClick={() => {
+                                setWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id });
+                                setWarningOpen(true);
+                              }}
                               className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
                               disabled={act.hazards.length === 1}
                             >
-                              <MdDelete />
+                              <LuMinus />
                             </button>
                             <button
                               onClick={() => addHazard(proc.id, act.id)}
@@ -1401,7 +1417,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                     }
                                   }}
                                 >
-                                  <MdDelete size={12} className="text-white" />
+                                  <LuMinus size={12} className="text-white" />
                                 </div>
                               </div>
                             ))}
@@ -1554,6 +1570,28 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           }
         ]}
         position="bottom"
+      />
+      <WarningDialog
+        isOpen={warningOpen}
+        icon={<IoWarning />}
+        title="Removing Hazard"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          removeHazard(warningInfo.processId, warningInfo.activityId, warningInfo.hazardId);
+          setWarningOpen(false);
+        }}
+        onClose={() => setWarningOpen(false)}
+      />
+      <WarningDialog
+        isOpen={activityWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Activity"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          removeActivity(activityWarningInfo.processId, activityWarningInfo.activityId);
+          setActivityWarningOpen(false);
+        }}
+        onClose={() => setActivityWarningOpen(false)}
       />
     </div>
   );

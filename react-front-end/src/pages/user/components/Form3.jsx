@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, forwardRef } from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdAdd, MdDelete } from "react-icons/md";
+import { LuMinus } from "react-icons/lu";
+
 
 const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Initialize simple fields, falling back to sample if provided
@@ -558,7 +560,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center ${raTeam.length === 1 ? "opacity-50 cursor-not-allowed" : ""
                 }`}
             >
-              <MdDelete />
+              <LuMinus />
             </button>
             <button
               type="button"
