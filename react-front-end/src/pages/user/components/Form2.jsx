@@ -1590,7 +1590,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                             </div>
                             
                             <div className="bg-blue-600 text-white p-2 rounded text-sm mb-2">
-                              After implementing additional controls. Note: Severity remains constant, only likelihood can be reduced.
                               {(h.severity || 0) * (h.likelihood || 0) >= 15 && <span className="font-bold"> For high-risk hazards (RPN ≥ 15), the new RPN must be below 15 to submit.</span>}
                             </div>
 
