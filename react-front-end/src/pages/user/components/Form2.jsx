@@ -1485,10 +1485,44 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                         {/* Only show the rest of the form if there's at least one injury added */}
                         {h.injuries.length > 0 ? (
                           <>
-                            <div>
-                              <label className="block text-base font-medium mb-1">
-                                Existing Risk Controls*
-                              </label>
+                            <div className="mb-2">
+                            {/* Label + Buttons */}
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-base font-medium">Existing Risk Controls*</span>
+                                <div className="flex space-x-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      console.log("Remove control");
+                                    }}
+                                    className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                                  >
+                                    <LuMinus />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      console.log("Add control");
+                                    }}
+                                    className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                                  >
+                                    <MdAdd />
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              {/* Hardcoded Dropdown - to change */}
+                              <select
+                                defaultValue=""
+                                className="w-50 border border-gray-300 rounded px-2 py-1 mb-4 shadow-md focus:outline-none focus:ring-2 "
+                              >
+                                <option value="" disabled>Select Type</option>
+                                <option value="Elimination">Elimination</option>
+                                <option value="Substitution">Substitution</option>
+                                <option value="Engineering Controls">Engineering Controls</option>
+                                <option value="Administrative Controls">Administrative Controls</option>
+                                <option value="PPE">PPE</option>
+                              </select>
                               <textarea
                                 rows={3}
                                 value={h.existingControls}
@@ -1589,9 +1623,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                               />
                             </div>
                             
-                            <div className="bg-blue-600 text-white p-2 rounded text-sm mb-2">
-                              {(h.severity || 0) * (h.likelihood || 0) >= 15 && <span className="font-bold"> For high-risk hazards (RPN ≥ 15), the new RPN must be below 15 to submit.</span>}
-                            </div>
+                            {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
+                              <div className="bg-blue-600 text-white p-2 rounded text-sm mb-2">
+                                <span className="font-bold">
+                                  For high-risk hazards (RPN ≥ 15), the new RPN must be below 15 to submit.
+                                </span>
+                              </div>
+                            )}
 
                             {/* After Controls Risk Assessment Fields */}
                             <div className="flex space-x-4">
