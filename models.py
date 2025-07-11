@@ -76,6 +76,8 @@ class Hazard(db.Model):
     hazard_type_id = db.Column(db.Integer, db.ForeignKey('hazard_type.hazard_type_id'), nullable=True)
     remarks = db.Column(db.Text, nullable=True)
     approval = db.Column(db.Integer, nullable=True)  # 0 for no approval, 1 for approval required
+    hazard_implementation_person = db.Column(db.String(255), nullable=False)
+    hazard_due_date = db.Column(db.DateTime, nullable=True)
     
 class HazardType(db.Model):
     __tablename__ = 'hazard_type'
@@ -92,6 +94,7 @@ class Risk(db.Model):
     # Define fields
     risk_id = db.Column(db.Integer, primary_key=True)
     risk_hazard_id = db.Column(db.Integer, db.ForeignKey('hazard.hazard_id'), nullable=False)
+    risk_type = db.Enum("Elimination", "Substitution", "Engineering Controls", "Administrative Controls", "PPE")
     existing_risk_control = db.Column(db.Text, nullable=True)
     additional_risk_control = db.Column(db.Text, nullable=True)
     severity = db.Column(db.Integer, nullable=False)
@@ -100,7 +103,6 @@ class Risk(db.Model):
     newSeverity = db.Column(db.Integer, nullable=True)
     newLikelihood = db.Column(db.Integer, nullable=True)
     newRPN = db.Column(db.Integer, nullable=True)
-    implementation_person = db.Column(db.String(124), nullable=True)
     
 class Activity(db.Model):
     __tablename__ = 'activity'

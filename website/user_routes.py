@@ -788,7 +788,7 @@ def get_form2_data(form_id):
                     "severity": risk.severity if risk else 1,
                     "likelihood": risk.likelihood if risk else 1,
                     "rpn": risk.RPN if risk else 1,
-                    "implementation_person": risk.implementation_person if risk else ""
+                    "hazard_implementation_person": hazard.hazard_implementation_person if risk else ""
                 }
                 
                 act_data["hazards"].append(hazard_data)
@@ -1016,7 +1016,7 @@ def form2_save():
                     risk.risk_rating = risk.RPN  # Set risk_rating based on RPN
                     
                     # Always save implementation person, whether empty or not
-                    risk.implementation_person = haz_data.get('implementationPerson', '')
+                    hazard.hazard_implementation_person = haz_data.get('implementationPerson', '')
                     
                     db.session.flush()
                 

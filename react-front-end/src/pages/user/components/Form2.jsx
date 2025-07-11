@@ -111,9 +111,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         additionalControls: hazard.additionalControls || "",
         severity: hazard.severity || 1,
         likelihood: hazard.likelihood || 1,
-        rpn: hazard.rpn || (hazard.severity || 1) * (hazard.likelihood || 1),
-        implementationPerson: hazard.implementationPerson || hazard.implementation_person || "",
-
+        rpn: hazard.rpn || (hazard.severity || 1) * (hazard.likelihood || 1),        
+        implementationPerson: hazard.implementationPerson || 
+                              hazard.implementation_person || 
+                              hazard.hazard_implementation_person || "",
         // UI state fields
         newInjury: "",
         newType: "",
