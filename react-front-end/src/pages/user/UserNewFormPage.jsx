@@ -215,9 +215,9 @@ export default function UserNewForm() {
     // Only validate if we're not forcing a save (to reduce unnecessary processing)
     if (!forceSave) {
       // Validate forms based on current tab
-      if (currentTab === 0) {
+      if (currentTab === 1) {
         validateForm1(newFormData);
-      } else if (currentTab === 1) {
+      } else if (currentTab === 2) {
         validateForm2(newFormData);
       }
     }
@@ -383,8 +383,8 @@ export default function UserNewForm() {
         }
 
         console.log("Saving Form 3 before tab change...");
-        if (form3Ref.current.saveData) {
-          const savedData = await form3Ref.current.saveData();
+        if (form3Ref.current.saveForm) {
+          const savedData = await form3Ref.current.saveForm();
           if (!savedData) {
             console.error("Failed to save Form 3");
             alert("Failed to save Overall Details. Please try again.");
@@ -470,12 +470,12 @@ export default function UserNewForm() {
 
   // Save handler for current tab
   const handleSaveClick = async () => {
-    if (currentTab === 0 && form1Ref.current) {
+    if (currentTab === 0 && form3Ref.current) {
+      await form3Ref.current.saveForm();
+    } else if (currentTab === 1 && form1Ref.current) {
       await form1Ref.current.saveForm();
-    } else if (currentTab === 1 && form2Ref.current) {
+    } else if (currentTab === 2 && form2Ref.current) {
       await form2Ref.current.saveForm();
-    } else if (currentTab === 2 && form3Ref.current && form3Ref.current.saveData) {
-      await form3Ref.current.saveData();
     }
   };
   // Check user session on initial load and when formId changes
@@ -723,13 +723,15 @@ export default function UserNewForm() {
             icon: IoArrowForward
           }
         ]}
-        buttonsRight={[
-          {
-            text: "Save",
-            onClick: handleSaveClick,
-            icon: MdSave
-          }
-        ]}
+        buttonsRight={
+          currentTab !== 3 ? [  
+            {
+              text: "Save",
+              onClick: handleSaveClick,
+              icon: MdSave
+            }
+          ] : []  
+        }
         position="bottom"
       />
     </div>

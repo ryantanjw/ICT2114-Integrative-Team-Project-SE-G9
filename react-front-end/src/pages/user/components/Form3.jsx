@@ -319,7 +319,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   useEffect(() => {
     if (ref) {
       ref.current = {
-        saveData: async () => {
+        saveForm: async () => {
           try {
             // Only check for duplicates if there are non-empty team members
             const nonEmptyTeamMembers = raTeam.filter(member => member.trim() !== "");
