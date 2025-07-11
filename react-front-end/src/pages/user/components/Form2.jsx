@@ -5,7 +5,7 @@ import WarningDialog from "./WarningDialog.jsx";
 import StickyBottomNav from "../../../components/StickyBottomNav.jsx";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
-import { MdAdd} from "react-icons/md";
+import { MdAdd } from "react-icons/md";
 import { LuMinus } from "react-icons/lu";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { MdCheck } from "react-icons/md";
@@ -77,6 +77,16 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     return hazards.map(hazard => {
       console.log('Processing hazard:', hazard);
 
+      let formattedDueDate = null;
+      if (hazard.hazard_due_date) {
+        try {
+          // Convert from ISO to YYYY-MM-DD
+          formattedDueDate = hazard.hazard_due_date.split('T')[0];
+        } catch (e) {
+          console.error("Failed to parse due date:", hazard.hazard_due_date);
+        }
+      }
+
       return {
         id: hazard.id || hazard.hazard_id || uuidv4(),
         hazard_id: hazard.hazard_id || hazard.id,
@@ -90,17 +100,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         injuries: (() => {
           if (Array.isArray(hazard.injuries)) {
             // If it's already an array, flatten and split any comma-separated strings
-            return hazard.injuries.flatMap(injury => 
+            return hazard.injuries.flatMap(injury =>
               typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
             );
           } else if (hazard.injury) {
             // Handle single injury field (split by comma)
-            return typeof hazard.injury === 'string' 
+            return typeof hazard.injury === 'string'
               ? hazard.injury.split(',').map(i => i.trim()).filter(i => i)
               : [hazard.injury];
           } else if (hazard.injuries) {
             // Handle injuries as string (split by comma)
-            return typeof hazard.injuries === 'string' 
+            return typeof hazard.injuries === 'string'
               ? hazard.injuries.split(',').map(i => i.trim()).filter(i => i)
               : [hazard.injuries];
           }
@@ -111,10 +121,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         additionalControls: hazard.additionalControls || "",
         severity: hazard.severity || 1,
         likelihood: hazard.likelihood || 1,
-        rpn: hazard.rpn || (hazard.severity || 1) * (hazard.likelihood || 1),        
-        implementationPerson: hazard.implementationPerson || 
-                              hazard.implementation_person || 
-                              hazard.hazard_implementation_person || "",
+        rpn: hazard.rpn || (hazard.severity || 1) * (hazard.likelihood || 1),
+        dueDate: formattedDueDate || "",
+        implementationPerson: hazard.implementationPerson ||
+          hazard.implementation_person ||
+          hazard.hazard_implementation_person || "",
         // UI state fields
         newInjury: "",
         newType: "",
@@ -307,13 +318,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             expanded: true,
             hazards: initializeHazards([]) // Initialize with empty hazards
           }))
-        }));          setRaProcesses(processesWithEmptyHazards);
-          
-          // Trigger parent update during initialization
-          setTimeout(() => {
-            triggerUpdateToParent(true);
-          }, 100);
-        }
+        })); setRaProcesses(processesWithEmptyHazards);
+
+        // Trigger parent update during initialization
+        setTimeout(() => {
+          triggerUpdateToParent(true);
+        }, 100);
+      }
 
       updateFormId(id);
 
@@ -325,7 +336,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Store form ID in session
       await storeFormIdInSession(id);
       setDataLoaded(true);
-      
+
       // Trigger parent update during initialization
       setTimeout(() => {
         triggerUpdateToParent(true);
@@ -396,12 +407,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
           setRaProcesses(processesWithHazards);
           setDataLoaded(true);
-          
+
           // Trigger parent update during initialization
           setTimeout(() => {
             triggerUpdateToParent(true);
           }, 100);
-          
+
           return true;
         } else {
           // formData doesn't have hazard data, don't initialize from it
@@ -500,7 +511,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
       console.log("Explicitly updating parent", force ? "(forced)" : "");
       updateFormData(updatedFormData, force);
-      
+
       // Clear pending updates after sending
       pendingUpdatesRef.current = null;
     }
@@ -959,6 +970,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               severity: h.severity || 1,
               likelihood: h.likelihood || 1,
               rpn: (h.severity || 1) * (h.likelihood || 1),
+              dueDate: h.dueDate || "",
               implementationPerson: h.implementationPerson || ""
             }))
           }))
@@ -995,10 +1007,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
         // Force update to parent after successful save
         triggerUpdateToParent(true);
-        
+
         // Record the save time to prevent reinitialization from stale data
         setLastSaveTime(Date.now());
-        
+
         toast.success("Form Saved");
 
         setIsLoading(false);
@@ -1048,11 +1060,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // Handle injuries - split by comma if string, handle arrays
     injuries: (() => {
       if (Array.isArray(injuries)) {
-        return injuries.flatMap(injury => 
+        return injuries.flatMap(injury =>
           typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
         );
       } else if (injuries) {
-        return typeof injuries === 'string' 
+        return typeof injuries === 'string'
           ? injuries.split(',').map(i => i.trim()).filter(i => i)
           : [injuries];
       }
@@ -1184,7 +1196,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       {/* Render a section for each process */}
       {raProcesses.map((proc) => (
         <div key={proc.id} className="hello">
-        <div className="inset-x-0 z-50 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
+          <div className="inset-x-0 z-50 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
             <span className="font-semibold text-lg">
               {`Process ${proc.processNumber} - ${proc.header}`}
             </span>
@@ -1261,7 +1273,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
                     {/* Hazard sections */}
                     {act.hazards.map((h, hi) => (
-                        <div
+                      <div
                         key={h.id}
                         className="border border-gray-200 rounded-lg p-4 space-y-4"
                       >
@@ -1462,10 +1474,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                           <InputGroup
                             label="Due Date"
                             id={`due-${h.id}`}
-                            value="14/05/2025"
-                            onChange={() => { }}
-                            
+                            type="date"
+                            value={h.dueDate || ""}
+                            min={new Date().toISOString().split('T')[0]} // Prevent selecting dates earlier than today
+                            onChange={(e) => updateHazard(proc.id, act.id, h.id, "dueDate", e.target.value)}
                             className="flex-1"
+                            required
                           />
                           <InputGroup
                             label="Implementation Person"

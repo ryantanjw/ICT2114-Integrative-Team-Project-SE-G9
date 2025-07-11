@@ -788,7 +788,9 @@ def get_form2_data(form_id):
                     "severity": risk.severity if risk else 1,
                     "likelihood": risk.likelihood if risk else 1,
                     "rpn": risk.RPN if risk else 1,
-                    "hazard_implementation_person": hazard.hazard_implementation_person if risk else ""
+                    "hazard_implementation_person": hazard.hazard_implementation_person if risk else "",
+                    "hazard_due_date": hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else None
+
                 }
                 
                 act_data["hazards"].append(hazard_data)
@@ -1015,8 +1017,13 @@ def form2_save():
                     risk.RPN = risk.severity * risk.likelihood
                     risk.risk_rating = risk.RPN  # Set risk_rating based on RPN
                     
-                    # Always save implementation person, whether empty or not
                     hazard.hazard_implementation_person = haz_data.get('implementationPerson', '')
+                    due_date = haz_data.get('dueDate')
+                    if due_date:
+                        try:
+                            hazard.hazard_due_date = datetime.fromisoformat(due_date)
+                        except ValueError:
+                            print(f"Invalid due date format: {due_date}")
                     
                     db.session.flush()
                 
