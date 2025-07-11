@@ -1017,6 +1017,11 @@ def form2_save():
                     risk.RPN = risk.severity * risk.likelihood
                     risk.risk_rating = risk.RPN  # Set risk_rating based on RPN
                     
+                    # New fields for after controls are applied
+                    risk.newSeverity = haz_data.get('newSeverity', risk.severity)
+                    risk.newLikelihood = haz_data.get('newLikelihood', risk.likelihood)
+                    risk.newRPN = risk.newSeverity * risk.newLikelihood
+                    
                     hazard.hazard_implementation_person = haz_data.get('implementationPerson', '')
                     due_date = haz_data.get('dueDate')
                     if due_date:

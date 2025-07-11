@@ -52,9 +52,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Fixed initializeHazards function - replace your existing one
   const initializeHazards = (hazards) => {
-    console.log('Initializing hazards with data:', hazards);
-
-    if (!hazards || hazards.length === 0) {
+    console.log('Initializing hazards with data:', hazards);      if (!hazards || hazards.length === 0) {
       return [{
         id: uuidv4(),
         description: "",
@@ -66,9 +64,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         showInjuryInput: false,
         existingControls: "",
         additionalControls: "",
-        severity: 1,
-        likelihood: 1,
-        rpn: 1,
+        severity: 0,
+        likelihood: 0,
+        rpn: 0,
+        newSeverity: 0,
+        newLikelihood: 0,
+        newRpn: 0,
         implementationPerson: "",
       }];
     }
@@ -119,9 +120,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
         existingControls: hazard.existingControls || "",
         additionalControls: hazard.additionalControls || "",
-        severity: hazard.severity || 1,
-        likelihood: hazard.likelihood || 1,
-        rpn: hazard.rpn || (hazard.severity || 1) * (hazard.likelihood || 1),
+        severity: hazard.severity ?? 0,
+        likelihood: hazard.likelihood ?? 0,
+        rpn: hazard.rpn ?? 0,
+        newSeverity: hazard.severity ?? 0,  // Always equal to severity
+        newLikelihood: hazard.newLikelihood ?? hazard.likelihood ?? 0,
+        newRpn: (hazard.severity ?? 0) * (hazard.newLikelihood ?? hazard.likelihood ?? 0),
         dueDate: formattedDueDate || "",
         implementationPerson: hazard.implementationPerson ||
           hazard.implementation_person ||
@@ -713,9 +717,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       showInjuryInput: false,
                       existingControls: "",
                       additionalControls: "",
-                      severity: 1,
-                      likelihood: 1,
-                      rpn: 1,
+                      severity: 0,
+                      likelihood: 0,
+                      rpn: 0,
+                      newSeverity: 0,
+                      newLikelihood: 0,
+                      newRpn: 0,
                       implementationPerson: "",
                     },
                   ],
@@ -809,7 +816,16 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 ? {
                   ...a,
                   hazards: a.hazards.map(h =>
-                    h.id === hazardId ? { ...h, [key]: value } : h
+                    h.id === hazardId 
+                      ? { 
+                        ...h, 
+                        [key]: value,
+                        // If severity is updated, sync newSeverity too
+                        ...(key === 'severity' ? { newSeverity: value } : {}),
+                        // If newSeverity is updated, sync severity too
+                        ...(key === 'newSeverity' ? { severity: value } : {})
+                      } 
+                      : h
                   ),
                 }
                 : a
@@ -967,9 +983,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               injuries: h.injuries,
               existingControls: h.existingControls,
               additionalControls: h.additionalControls,
-              severity: h.severity || 1,
-              likelihood: h.likelihood || 1,
-              rpn: (h.severity || 1) * (h.likelihood || 1),
+              severity: h.severity ?? 0,
+              likelihood: h.likelihood ?? 0,
+              rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
+              newSeverity: h.severity ?? 0,  // Always use severity value
+              newLikelihood: h.newLikelihood ?? 0,
+              newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
               dueDate: h.dueDate || "",
               implementationPerson: h.implementationPerson || ""
             }))
@@ -1029,6 +1048,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
   // Determine dropdown background based on value
   const getDropdownColor = (key, value) => {
+    // For unselected values (0), use gray
+    if (value === 0) return "bg-gray-200";
+    
     if (key === "severity" || key === "likelihood") {
       if (value >= 4) return "bg-red-600";
       if (value === 3) return "bg-yellow-400";
@@ -1048,9 +1070,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     type = [],
     injuries = [],
     existingControls = "",
-    severity = 1,
-    likelihood = 1,
-    rpn = 1,
+    severity = 0,
+    likelihood = 0,
+    rpn = 0,
+    newSeverity = 0,
+    newLikelihood = 0,
+    newRpn = 0,
     implementationPerson = ""
   } = {}) => ({
     id: uuidv4(),
@@ -1079,7 +1104,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     additionalControls: "",
     severity,
     likelihood,
-    rpn
+    rpn,
+    newSeverity: severity,  // Always set newSeverity equal to severity
+    newLikelihood,
+    newRpn
   });
 
   const addHazardsToProcess = async (targetProcessId) => {
@@ -1407,16 +1435,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                             className="w-full border border-gray-300 rounded p-2"
                           />
                         </div>
-
-                        <InputGroup
-                          label="Additional Existing Risk Controls"
-                          id={`add-controls-${h.id}`}
-                          value={h.additionalControls}
-                          onChange={(e) =>
-                            updateHazard(proc.id, act.id, h.id, "additionalControls", e.target.value)
-                          }
-                        />
-
                         <div className="bg-blue-600 text-white p-2 rounded text-sm">
                           Risk Controls only reduce likelihood; Severity is constant
                         </div>
@@ -1429,22 +1447,22 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                               </label>
                               {label === "RPN" ? (
                                 <select
-                                  value={(h.severity || 1) * (h.likelihood || 1)}
+                                  value={(h.severity ?? 0) * (h.likelihood ?? 0)}
                                   disabled
                                   className={`${getDropdownColor(
                                     "rpn",
-                                    (h.severity || 1) * (h.likelihood || 1)
+                                    (h.severity ?? 0) * (h.likelihood ?? 0)
                                   )} text-white rounded px-2 py-1`}
                                 >
-                                  {[...Array(25)].map((_, i) => (
-                                    <option key={i + 1} value={i + 1}>
-                                      {i + 1}
+                                  {[...Array(26)].map((_, i) => (
+                                    <option key={i} value={i}>
+                                      {i}
                                     </option>
                                   ))}
                                 </select>
                               ) : (
                                 <select
-                                  value={h[label.toLowerCase()] || 1}
+                                  value={h[label.toLowerCase()] ?? 0}
                                   onChange={(e) =>
                                     updateHazard(
                                       proc.id,
@@ -1456,9 +1474,80 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                   }
                                   className={`${getDropdownColor(
                                     label.toLowerCase(),
-                                    h[label.toLowerCase()] || 1
+                                    h[label.toLowerCase()] ?? 0
                                   )} text-white rounded px-2 py-1`}
                                 >
+                                  <option value={0}>Select</option>
+                                  {[1, 2, 3, 4, 5].map((v) => (
+                                    <option key={v} value={v}>
+                                      {v}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div>
+                          <label className="block text-base font-medium mb-1">
+                            Additional Risk Controls
+                          </label>
+                          <textarea
+                            rows={3}
+                            id={`add-controls-${h.id}`}
+                            value={h.additionalControls}
+                            onChange={(e) =>
+                              updateHazard(proc.id, act.id, h.id, "additionalControls", e.target.value)
+                            }
+                            className="w-full border border-gray-300 rounded p-2"
+                          />
+                        </div>
+                        
+                        <div className="bg-blue-600 text-white p-2 rounded text-sm mb-2">
+                          After implementing additional controls. Note: Severity remains constant, only likelihood can be reduced.
+                        </div>
+
+                        <div className="flex space-x-4">
+                          {["Severity", "Likelihood", "RPN"].map((label) => (
+                            <div key={label}>
+                              <label className="block text-sm font-medium mb-1">
+                                {label}
+                              </label>
+                              {label === "RPN" ? (
+                                <select
+                                  value={(h.newSeverity ?? 0) * (h.newLikelihood ?? 0)}
+                                  disabled
+                                  className={`${getDropdownColor(
+                                    "rpn",
+                                    (h.newSeverity ?? 0) * (h.newLikelihood ?? 0)
+                                  )} text-white rounded px-2 py-1`}
+                                >
+                                  {[...Array(26)].map((_, i) => (
+                                    <option key={i} value={i}>
+                                      {i}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <select
+                                  value={label === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)}
+                                  onChange={(e) =>
+                                    updateHazard(
+                                      proc.id,
+                                      act.id,
+                                      h.id,
+                                      label === "Severity" ? "severity" : "newLikelihood",
+                                      parseInt(e.target.value)
+                                    )
+                                  }
+                                  disabled={label === "Severity"} // Disable severity since it should match original
+                                  className={`${getDropdownColor(
+                                    label.toLowerCase(),
+                                    label === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)
+                                  )} text-white rounded px-2 py-1`}
+                                >
+                                  <option value={0}>Select</option>
                                   {[1, 2, 3, 4, 5].map((v) => (
                                     <option key={v} value={v}>
                                       {v}
