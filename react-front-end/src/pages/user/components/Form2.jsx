@@ -719,57 +719,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     scheduleBatchedUpdate();
   };
 
-  const handleConfirmNewType = (processId, activityId, hazardId) => {
-    // Get the new hazard type value
-    const newTypeValue = raProcesses.find(p => p.id === processId)
-      ?.activities.find(a => a.id === activityId)
-      ?.hazards.find(h => h.id === hazardId)?.newType.trim();
-
-    if (newTypeValue) {
-      // Also add to the hazardTypesList so it persists on the page
-      if (!hazardTypesList.includes(newTypeValue)) {
-        setHazardTypesList(prev => [...prev, newTypeValue]);
-      }
-    }
-
-    setRaProcesses(
-      raProcesses.map(proc =>
-        proc.id === processId
-          ? {
-            ...proc,
-            activities: proc.activities.map(a =>
-              a.id === activityId
-                ? {
-                  ...a,
-                  hazards: a.hazards.map(h =>
-                    h.id === hazardId && h.newType.trim() !== ""
-                      ? {
-                        ...h,
-                        // Fix: Add the new type to the existing array instead of replacing
-                        type: [...h.type, h.newType],
-                        newType: "",
-                        showTypeInput: false,
-                      }
-                      : h
-                  ),
-                }
-                : a
-            ),
-          }
-          : proc
-      )
-    );
-    // Schedule a batched update
-    scheduleBatchedUpdate();
-  };
-
-  const handleHazardTypeKeyPress = (e, processId, activityId, hazardId) => {
-    if (e.key === 'Enter' && e.target.value.trim() !== '') {
-      e.preventDefault(); // Prevent form submission
-      handleConfirmNewType(processId, activityId, hazardId);
-    }
-  };
-
   const handleInjuryKeyPress = (e, processId, activityId, hazardId) => {
     if (e.key === 'Enter' && e.target.value.trim() !== '') {
       e.preventDefault(); // Prevent form submission
@@ -1365,41 +1314,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                 {type}
                               </button>
                             ))}
-                            <button
-                              className="px-3 py-1 rounded-full bg-gray-200"
-                              onClick={() =>
-                                updateHazard(proc.id, act.id, h.id, "showTypeInput", true)
-                              }
-                            >
-                              + Add More
-                            </button>
                             {h.type.length > 0 && !hazardTypesList.includes(h.type[0]) && (
                               <span className="px-3 py-1 rounded-full bg-black text-white">
                                 {h.type[0]}
                               </span>
                             )}
                           </div>
-                          {h.showTypeInput && (
-                            <div className="flex items-center space-x-2 mt-2">
-                              <input
-                                type="text"
-                                value={h.newType}
-                                onChange={e =>
-                                  updateHazard(proc.id, act.id, h.id, "newType", e.target.value)
-                                }
-                                onKeyPress={e => handleHazardTypeKeyPress(e, proc.id, act.id, h.id)}
-                                placeholder="Enter New Hazard"
-                                className="flex-1 border border-gray-300 rounded px-3 py-2"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleConfirmNewType(proc.id, act.id, h.id)}
-                                className="bg-black text-white rounded-full w-8 h-8 flex items-center justify-center"
-                              >
-                                <MdCheck />
-                              </button>
-                            </div>
-                          )}
                         </div>
 
                         <div>
