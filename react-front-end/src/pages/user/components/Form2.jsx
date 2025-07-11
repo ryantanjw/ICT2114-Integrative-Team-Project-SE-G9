@@ -965,7 +965,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             if (!hazard.implementationPerson.trim()) missingFields.push('Implementation Person');
             
             // Ensure that new RPN is less than 15 after additional controls
-            if (newRpn >= 15) missingFields.push('More effective Additional Risk Controls (New RPN must be below 15)');
+            if (newRpn >= 15) missingFields.push('Stronger controls needed (RPN must be <15)');
           }
           
           // If any fields are missing, add to invalid hazards list
@@ -987,10 +987,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       valid: isValid,
       message: isValid 
         ? "" 
-        : `Please address the following issues before submitting: ${invalidHazards.map(h => 
-            `\n• ${h.process}, ${h.activity}, ${h.hazard}${h.rpn >= 15 ? ` (High Risk - RPN: ${h.rpn})` : ''}: ${h.missingFields.join(', ')}`
-          ).join('')}${invalidHazards.some(h => h.missingFields.includes('More effective Additional Risk Controls (New RPN must be below 15)')) ? 
-            '\n\nHigh-risk hazards require additional controls that reduce the risk level below 15 before submission.' : 
+        : `Missing required fields:${invalidHazards.map(h => 
+            `\n• ${h.process}, ${h.activity}, ${h.hazard}${h.rpn >= 15 ? ` (RPN: ${h.rpn})` : ''}:\n  ${h.missingFields.map(field => `   - ${field}`).join('\n  ')}`
+          ).join('')}${invalidHazards.some(h => h.missingFields.includes('Stronger controls needed (RPN must be <15)')) ? 
+            '\n\nReminder: High-risk hazards (RPN ≥ 15) must have controls that reduce risk below 15.' : 
             ''}`,
       invalidHazards
     };

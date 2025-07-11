@@ -11,6 +11,7 @@ import Form2 from "./components/Form2.jsx";
 import Form3 from "./components/Form3.jsx";
 import ConfirmForm from "./components/ConfirmForm.jsx"; // will be used for Confirmation Details
 import axios from "axios";
+import { toast } from "react-hot-toast";
 
 export default function UserNewForm() {
   const location = useLocation();
@@ -378,7 +379,7 @@ export default function UserNewForm() {
       if (currentTab === 0 && form3Ref.current) {
         // Save Form 3 data (Overall Details)
         if (form3Ref.current.validate && !form3Ref.current.validate()) {
-          alert("Please complete the Overall Details before proceeding.");
+          toast.error("Please complete the Overall Details before proceeding.");
           return;
         }
 
@@ -387,7 +388,7 @@ export default function UserNewForm() {
           const savedData = await form3Ref.current.saveForm();
           if (!savedData) {
             console.error("Failed to save Form 3");
-            alert("Failed to save Overall Details. Please try again.");
+            toast.error("Failed to save Overall Details. Please try again.");
             return;
           }
           
@@ -404,7 +405,7 @@ export default function UserNewForm() {
         // Validate before attempting to save
         const validation = form1Ref.current.validateForm();
         if (!validation.valid) {
-          alert(validation.message || "Please complete Form 1 before proceeding.");
+          toast.error(validation.message || "Please complete Form 1 before proceeding.");
           return;
         }
 
@@ -413,7 +414,7 @@ export default function UserNewForm() {
 
         if (!saveSuccess) {
           console.error("Failed to save Form 1");
-          alert("Failed to save Form 1. Please try again.");
+          toast.error("Failed to save Form 1. Please try again.");
           return;
         }
 
@@ -429,14 +430,14 @@ export default function UserNewForm() {
           updateFormData(formData);
         } else {
           console.error("Form saved but no form_id returned!");
-          alert("Error: Form saved but no ID was generated. Please try again.");
+          toast.error("Error: Form saved but no ID was generated. Please try again.");
           return;
         }
       }
       else if (currentTab === 2 && form2Ref.current) {
         const validation = form2Ref.current.validateForm();
         if (!validation.valid) {
-          alert(validation.message || "Please complete Form 2 before proceeding.");
+          toast.error(validation.message || "Please complete Form 2 before proceeding.");
           return;
         }
 
@@ -445,7 +446,7 @@ export default function UserNewForm() {
 
         if (!saveSuccess) {
           console.error("Failed to save Form 2");
-          alert("Failed to save Form 2. Please try again.");
+          toast.error("Failed to save Form 2. Please try again.");
           return;
         }
 
@@ -464,7 +465,7 @@ export default function UserNewForm() {
       }
     } catch (error) {
       console.error("Error during tab change:", error);
-      alert("An error occurred while changing tabs. Please try again.");
+      toast.error("An error occurred while changing tabs. Please try again.");
     }
   }
 
