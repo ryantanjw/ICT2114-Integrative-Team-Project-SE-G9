@@ -34,6 +34,15 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Current user data
   const [currentUser, setCurrentUser] = useState(null);
 
+  useEffect(() => {
+    if (formData) {
+      if (formData.title !== undefined) setTitle(formData.title);
+      if (formData.division !== undefined) setDivision(formData.division);
+      if (formData.form_id !== undefined) setFormId(formData.form_id);
+    }
+  }, [formData]);
+
+
   // Fetch users for the dropdown search
   useEffect(() => {
     const fetchUsers = async () => {
@@ -95,7 +104,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
           // Update form fields
           setTitle(data.title || "");
-          setDivision(data.division || "");
+          setDivision(prev => prev || data.division || ""); // Only set if not already set
           setLocation(data.location || "");
           setReferenceNumber(data.form_reference_number || "");
           setFormId(data.form_id);
@@ -412,11 +421,6 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           // Validate required fields
           if (!title.trim()) {
             alert("Error: Title is required");
-            return false;
-          }
-          
-          if (!division.trim()) {
-            alert("Error: Division is required");
             return false;
           }
           

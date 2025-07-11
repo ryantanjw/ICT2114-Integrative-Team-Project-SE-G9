@@ -4,7 +4,7 @@ from sqlalchemy import text
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
-from models import RA_team, RA_team_member, User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData
+from models import RA_team, RA_team_member, User, Form, Activity, Process, Hazard, Risk, HazardType, KnownData, Division
 from models import db
 import random
 import string
@@ -21,6 +21,22 @@ import tempfile
 # Create a new blueprint for user routes
 user = Blueprint('user', __name__,static_folder='static')
 CORS(user, supports_credentials=True)  # Enable credentials support for cookies
+
+@user.route('/retrieveDivisions', methods=['GET'])
+def retrieve_divisions():
+    try:
+        divisions = Division.query.all()
+        divisions_data = []
+        for division in divisions:
+            divisions_data.append({
+                'division_id': division.division_id,
+                'division_name': division.division_name
+            })
+        return jsonify(divisions_data)
+
+    except Exception as e:
+        print(f"Error retrieving divisions: {e}")
+        return jsonify({'error': 'Failed to retrieve divisions'}), 500       
 
 #Route for retrieving user forms
 @user.route('/retrieveForms', methods=['GET'])
@@ -1604,7 +1620,7 @@ def get_form(form_id):
         return jsonify({
             "form_id": form.form_id,
             "title": form.title,
-            "division": form.division,
+            "division": form.division_ref.division_name if form.division_ref else None,  # Changed this line
             "processes": processes
         }), 200
     

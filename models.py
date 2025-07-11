@@ -46,7 +46,7 @@ class Form(db.Model):
     approved_by = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
     location = db.Column(db.String(255), nullable=True)
     title = db.Column(db.String(124), nullable=True)
-    division = db.Column(db.String(124), nullable=True)
+    division = db.Column(db.Integer, db.ForeignKey('division.division_id'), nullable=True)    
     process = db.Column(db.Text, nullable=True) # to be removed after done
     approval = db.Column(db.Integer, default=False, nullable=True)
     signature = db.Column(db.String(255), nullable=True)  
@@ -54,6 +54,8 @@ class Form(db.Model):
     last_review_date = db.Column(db.DateTime, nullable=True)
     next_review_date = db.Column(db.DateTime, nullable=True)
     status = db.Column(db.Integer, default=False, nullable=True)
+    division_ref = db.relationship('Division', backref='forms')
+
     
 class Process(db.Model):
     __tablename__ = 'process'
@@ -136,7 +138,7 @@ class share_access(db.Model):
     shared_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), primary_key=True)
     shared_form_id = db.Column(db.Integer, db.ForeignKey('form.form_id'), primary_key=True)
 
-class division(db.Model):
+class Division(db.Model):
     __tablename__ = 'division'
 
     division_id = db.Column(db.Integer, primary_key=True, nullable=False)

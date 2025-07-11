@@ -54,7 +54,6 @@ export default function UserNewForm() {
     // and at least one process exists with valid activities
     const isValid =
       data.title?.trim() !== "" &&
-      data.division?.trim() !== "" &&
       data.processes?.length > 0 &&
       data.processes.every(p => {
         // Make sure header exists
@@ -90,6 +89,17 @@ export default function UserNewForm() {
     return isValid;
   }, []);
 
+
+  const fetchDivisionName = async (divisionId) => {
+  try {
+    const response = await axios.get(`/api/divisions/${divisionId}`);
+    return response.data.name || `Division ${divisionId}`;
+  } catch (error) {
+    console.error("Error fetching division name:", error);
+    return `Division ${divisionId}`;
+  }
+  };
+
   const loadExistingForm = useCallback(async (targetFormId) => {
     if (!targetFormId) return false;
 
@@ -104,9 +114,15 @@ export default function UserNewForm() {
       console.log("remarks:", response.data.activity_remarks || response.data.remarks);
 
       if (response.data) {
+
+        let divisionName = response.data.division;
+        if (typeof response.data.division === 'number') {
+          divisionName = await fetchDivisionName(response.data.division);
+        }
+
         const loadedFormData = {
           title: response.data.title || "",
-          division: response.data.division || "",
+          division: divisionName,
           processes: response.data.processes || [],
           form_id: response.data.form_id,
           remarks: response.data.activity_remarks || response.data.remarks || "",
@@ -251,9 +267,15 @@ export default function UserNewForm() {
       const response = await axios.get(`/api/user/get_form/${formData.form_id}`);
 
       if (response.data) {
+
+        let divisionName = response.data.division;
+        if (typeof response.data.division === 'number') {
+          divisionName = await fetchDivisionName(response.data.division);
+        }
+
         const freshData = {
           title: response.data.title || "",
-          division: response.data.division || "",
+          division: divisionName,
           processes: response.data.processes || [],
           form_id: response.data.form_id
         };
@@ -547,10 +569,15 @@ export default function UserNewForm() {
               const formResponse = await axios.get(`/api/user/get_form/${formIdToUse}`);
 
               if (formResponse.data) {
+
+                let divisionName = response.data.division;
+                if (typeof response.data.division === 'number') {
+                  divisionName = await fetchDivisionName(response.data.division);
+                }
                 // Update the form data
                 const loadedFormData = {
                   title: formResponse.data.title || "",
-                  division: formResponse.data.division || "",
+                  division: divisionName,
                   processes: formResponse.data.processes || [],
                   form_id: formResponse.data.form_id
                 };

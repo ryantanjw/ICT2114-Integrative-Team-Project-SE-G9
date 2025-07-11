@@ -25,12 +25,60 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   const [formId, setFormId] = useState(formData?.form_id || null);
   const [title, setTitle] = useState(formData?.title || sample?.title || "");
   const [division, setDivision] = useState(formData?.division || sample?.division || "");
+  const [divisions, setDivisions] = useState([]); // State for division options
+  const [divisionsLoading, setDivisionsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false); // Track if data has been loaded
   const formIdRef = useRef(formData?.form_id || null);
   const lastFetchTime = useRef(0);
   const [deletedProcessIds, setDeletedProcessIds] = useState([]); //Use this state to track deleted processes
   const [deletedActivityIds, setDeletedActivityIds] = useState([]); //Use this state to track deleted activities
+
+  // Fetch divisions from API
+  const fetchDivisions = useCallback(async () => {
+    if (divisionsLoading) return; // Prevent multiple concurrent requests
+    
+    setDivisionsLoading(true);
+    try {
+      const response = await fetch('/api/user/retrieveDivisions');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Divisions fetched:', data);
+        
+        // Transform the data to match the expected format for dropdown options
+        // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
+        const divisionOptions = data.map(div => ({
+          value: String(div.division_id), // Ensure string type
+          label: div.division_name // Use division_name as display text
+        }));
+        
+        setDivisions(divisionOptions);
+      } else {
+        console.error('Failed to fetch divisions');
+        // Fallback to default options if API fails
+        setDivisions([
+          { value: "division1", label: "Division 1" },
+          { value: "division2", label: "Division 2" },
+          { value: "division3", label: "Division 3" },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching divisions:', error);
+      // Fallback to default options if API fails
+      setDivisions([
+        { value: "division1", label: "Division 1" },
+        { value: "division2", label: "Division 2" },
+        { value: "division3", label: "Division 3" },
+      ]);
+    } finally {
+      setDivisionsLoading(false);
+    }
+  }, [divisionsLoading]);
+
+  // Fetch divisions on component mount
+  useEffect(() => {
+    fetchDivisions();
+  }, []);
 
 
   // Helper function to update both state and ref
@@ -244,7 +292,6 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     validateForm: () => {
       // Validate required fields
       if (!title.trim()) return { valid: false, message: 'Title is required' };
-      if (!division.trim()) return { valid: false, message: 'Division is required' };
 
       // Check if any process has no title
       const invalidProcess = processes.find(p => !p.header?.trim());
@@ -664,11 +711,10 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             type="select"
             options={[
               { value: "", label: "Select Division" },
-              { value: "division1", label: "Division 1" },
-              { value: "division2", label: "Division 2" },
-              { value: "division3", label: "Division 3" },
+                ...divisions
               // Add more options as needed
             ]}
+            disabled={divisionsLoading}
           />
         </div>
         <CTAButton
