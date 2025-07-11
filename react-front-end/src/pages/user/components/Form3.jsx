@@ -1,14 +1,19 @@
-import { useState, useEffect, useRef, forwardRef } from "react";
+import { useState, useEffect, useRef, forwardRef, useCallback} from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdAdd, MdDelete } from "react-icons/md";
 import { LuMinus } from "react-icons/lu";
 
 
-const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
+const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref) => {
   // Initialize simple fields, falling back to sample if provided
   const [referenceNumber, setReferenceNumber] = useState("");
-  const [division, setDivision] = useState("");
+  const [division, setDivision] = useState(
+    formData?.division ? String(formData.division) :
+    sample?.division ? String(sample.division) : ""
+  );    
+  const [divisions, setDivisions] = useState([]); // State for division options
+  const [divisionsLoading, setDivisionsLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [lastReviewDate, setLastReviewDate] = useState("");
@@ -36,12 +41,68 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   useEffect(() => {
     if (formData) {
+      console.log("Form3 received formData.divisionId:", formData?.divisionId);
       if (formData.title !== undefined) setTitle(formData.title);
       if (formData.division !== undefined) setDivision(formData.division);
       if (formData.form_id !== undefined) setFormId(formData.form_id);
     }
   }, [formData]);
 
+  // Fetch divisions from API
+    const fetchDivisions = useCallback(async () => {
+      if (divisionsLoading) return; // Prevent multiple concurrent requests
+      
+      setDivisionsLoading(true);
+      try {
+        const response = await fetch('/api/user/retrieveDivisions');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Divisions fetched:', data);
+          
+          // Transform the data to match the expected format for dropdown options
+          // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
+          const divisionOptions = data.map(div => ({
+            value: String(div.division_id), // Ensure string type
+            label: div.division_name // Use division_name as display text
+          }));
+          
+          setDivisions(divisionOptions);
+        } else {
+          console.error('Failed to fetch divisions');
+          // Fallback to default options if API fails
+          setDivisions([
+            { value: "division1", label: "Division 1" },
+            { value: "division2", label: "Division 2" },
+            { value: "division3", label: "Division 3" },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching divisions:', error);
+        // Fallback to default options if API fails
+        setDivisions([
+          { value: "division1", label: "Division 1" },
+          { value: "division2", label: "Division 2" },
+          { value: "division3", label: "Division 3" },
+        ]);
+      } finally {
+        setDivisionsLoading(false);
+      }
+    }, [divisionsLoading]);
+  
+    // Fetch divisions on component mount
+    useEffect(() => {
+      fetchDivisions();
+    }, []);
+  
+    useEffect(() => {
+    if (divisions.length > 0 && division && isNaN(division)) {
+      // division holds a name, find matching ID
+      const matchedDivision = divisions.find(d => d.label === division);
+      if (matchedDivision) {
+        setDivision(matchedDivision.value); // Set division state to ID string
+      }
+    }
+  }, [divisions, division]);
 
   // Fetch users for the dropdown search
   useEffect(() => {
@@ -250,6 +311,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const handleSave = async () => {
+    console.log("handlesave was clicked");
     try {
       // Only check for duplicates if there are non-empty team members
       const nonEmptyTeamMembers = raTeam.filter(member => member.trim() !== "");
@@ -260,13 +322,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   
       setIsLoading(true);
   
-      console.log("divisionId:", divisionId);
-
       // Prepare form data
       const formData = {
         title,
         location,
-        division_id: divisionId, 
+        divisionId: formData.divisionId,
         form_reference_number: referenceNumber,
         last_review_date: lastReviewDate,
         next_review_date: nextReviewDate,
@@ -276,6 +336,8 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         signature,
         designation
       };
+
+      console.log("formData HERE:", formData);
 
       // Only include form_id if it exists (for updates)
       if (formId) {
@@ -342,9 +404,9 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             setIsLoading(true);
         
             // Prepare form data
-            const formData = {
+            const dataToSave = {
               title,
-              division,
+              divisionId: formData?.divisionId, // ✅ Include divisionId from props
               location,
               form_reference_number: referenceNumber,
               last_review_date: lastReviewDate,
@@ -358,7 +420,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
             // Only include form_id if it exists (for updates)
             if (formId) {
-              formData.form_id = formId;
+              dataToSave.form_id = formId;
             }
 
             // Call /form3 endpoint (which handles both creation and updates)
@@ -367,7 +429,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify(formData),
+              body: JSON.stringify(dataToSave),
             });
 
             if (response.ok) {
@@ -383,7 +445,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               // Update parent component if needed
               if (updateFormData) {
                 updateFormData({
-                  ...formData,
+                  ...dataToSave,
                   form_id: updatedFormId
                 });
               }
@@ -472,12 +534,20 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           onChange={(e) => setReferenceNumber(e.target.value)}
           disabled
         />
-        <InputGroup
-          label="Division"
-          id="form3-division"
-          value={division}
-          onChange={(e) => setDivision(e.target.value)}
-        />
+        <div className="flex-1">
+          <InputGroup
+            label="Division"
+            id="form-division"
+            value={division}
+            onChange={(e) => setDivision(e.target.value)}
+            type="select"
+            options={[
+              { value: "", label: "Select Division" },
+                ...divisions
+            ]}
+            disabled={divisionsLoading}
+          />
+        </div>
         <InputGroup
           label="Title"
           id="form3-title"

@@ -125,7 +125,8 @@ export default function UserNewForm() {
 
         const loadedFormData = {
           title: response.data.title || "",
-          division: divisionName,
+          division: response.data.division || "",
+          // division: divisionName, --> use this if i want to show the name
           divisionId: divisionId,
           processes: response.data.processes || [],
           form_id: response.data.form_id,
@@ -501,6 +502,7 @@ export default function UserNewForm() {
 
   // Save handler for current tab
   const handleSaveClick = async () => {
+    console.log("Calling form3Ref.current.saveForm()");
     if (currentTab === 0 && form3Ref.current) {
       await form3Ref.current.saveForm();
     } else if (currentTab === 1 && form1Ref.current) {
@@ -578,19 +580,19 @@ export default function UserNewForm() {
 
               if (formResponse.data) {
 
-                let divisionName = response.data.division;
-                if (typeof response.data.division === 'number') {
-                  divisionName = await fetchDivisionName(response.data.division);
-                  divisionId = response.data.division;
-                }
-                // Update the form data
-                const loadedFormData = {
-                  title: formResponse.data.title || "",
-                  division: divisionName,
-                  divisionId: divisionId,
-                  processes: formResponse.data.processes || [],
-                  form_id: formResponse.data.form_id
-                };
+                // let divisionName = response.data.division;
+                // if (typeof response.data.division === 'number') {
+                //   divisionName = await fetchDivisionName(response.data.division);
+                //   divisionId = response.data.division;
+                // }
+                // // Update the form data
+                // const loadedFormData = {
+                //   title: formResponse.data.title || "",
+                //   division: divisionName,
+                //   divisionId: divisionId,
+                //   processes: formResponse.data.processes || [],
+                //   form_id: formResponse.data.form_id
+                // };
 
                 console.log("Loading existing form data:", loadedFormData);
                 setFormData(loadedFormData);
@@ -711,12 +713,15 @@ export default function UserNewForm() {
         </div>
         <div className="mt-6">
           {currentTab === 0 && (
+            <>
+                {console.log("Passing formData to Form3:", formData)}
             <Form3
               ref={form3Ref}
               formData={formData}
               sessionData={userData}
               updateFormData={updateFormData}
             />
+            </>
           )}
           {currentTab === 1 && (
             <Form1

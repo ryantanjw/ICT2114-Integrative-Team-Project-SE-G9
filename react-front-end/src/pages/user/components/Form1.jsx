@@ -24,7 +24,10 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   // Initialize with formData if available
   const [formId, setFormId] = useState(formData?.form_id || null);
   const [title, setTitle] = useState(formData?.title || sample?.title || "");
-  const [division, setDivision] = useState(formData?.division || sample?.division || "");
+  const [division, setDivision] = useState(
+    formData?.division ? String(formData.division) :
+    sample?.division ? String(sample.division) : ""
+  );  
   const [divisions, setDivisions] = useState([]); // State for division options
   const [divisionsLoading, setDivisionsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,6 +83,15 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     fetchDivisions();
   }, []);
 
+  useEffect(() => {
+  if (divisions.length > 0 && division && isNaN(division)) {
+    // division holds a name, find matching ID
+    const matchedDivision = divisions.find(d => d.label === division);
+    if (matchedDivision) {
+      setDivision(matchedDivision.value); // Set division state to ID string
+    }
+  }
+}, [divisions, division]);
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {
@@ -712,7 +724,6 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             options={[
               { value: "", label: "Select Division" },
                 ...divisions
-              // Add more options as needed
             ]}
             disabled={divisionsLoading}
           />
