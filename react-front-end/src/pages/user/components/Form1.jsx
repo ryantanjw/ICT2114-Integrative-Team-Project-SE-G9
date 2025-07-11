@@ -7,8 +7,7 @@ import { toast } from "react-hot-toast";
 // Convert to forwardRef to expose methods to parent
 const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNavigate }, ref) => {
   // Use formData if provided (from parent state), otherwise use sample or default
-  const [processes, setProcesses] = useState(
-    formData?.processes || sample?.processes || [
+  const [processes, setProcesses] = useState([
       {
         id: 1,
         processNumber: 1,
@@ -16,7 +15,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         activities: [
           { id: 1, description: "", remarks: "" }
         ],
-        header: "Practical lesson and Projects",
+        header: "",
         headerColor: "#EEF1F4",
       }
     ]
@@ -113,7 +112,9 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           console.log('Using form data from props:', formData);
           setTitle(formData.title || "");
           setDivision(formData.division || "");
-          setProcesses(formData.processes || []);
+          if (formData.processes && formData.processes.length > 0) {
+            setProcesses(formData.processes);
+          }          
           updateFormId(formData.form_id);
           setDataLoaded(true);
           setIsLoading(false);
@@ -191,18 +192,22 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           setDivision(data.division || "");
 
           // Ensure all processes have valid IDs
-          const processesWithIds = data.processes.map(proc => ({
-            ...proc,
-            id: proc.id || proc.process_id,
-            process_id: proc.process_id || proc.id,
-            activities: proc.activities.map(act => ({
-              ...act,
-              id: act.id || act.activity_id,
-              activity_id: act.activity_id || act.id
-            }))
-          }));
+          // Only update processes if they exist and have data
+          if (data.processes && data.processes.length > 0) {
+            // Ensure all processes have valid IDs
+            const processesWithIds = data.processes.map(proc => ({
+              ...proc,
+              id: proc.id || proc.process_id,
+              process_id: proc.process_id || proc.id,
+              activities: proc.activities.map(act => ({
+                ...act,
+                id: act.id || act.activity_id,
+                activity_id: act.activity_id || act.id
+              }))
+            }));
+            setProcesses(processesWithIds);
+          }
 
-          setProcesses(processesWithIds || []);
           updateFormId(data.form_id);
 
           // Also store in session
