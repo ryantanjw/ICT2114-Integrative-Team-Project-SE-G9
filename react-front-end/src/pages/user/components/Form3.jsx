@@ -41,7 +41,6 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
 
   useEffect(() => {
     if (formData) {
-      console.log("Form3 received formData.divisionId:", formData?.divisionId);
       if (formData.title !== undefined) setTitle(formData.title);
       if (formData.division !== undefined) setDivision(formData.division);
       if (formData.form_id !== undefined) setFormId(formData.form_id);
@@ -326,7 +325,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
       const formData = {
         title,
         location,
-        divisionId: formData.divisionId,
+        division: division,
         form_reference_number: referenceNumber,
         last_review_date: lastReviewDate,
         next_review_date: nextReviewDate,
@@ -406,7 +405,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
             // Prepare form data
             const dataToSave = {
               title,
-              divisionId: formData?.divisionId, // ✅ Include divisionId from props
+              division: division,
               location,
               form_reference_number: referenceNumber,
               last_review_date: lastReviewDate,

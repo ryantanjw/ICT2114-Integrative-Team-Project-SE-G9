@@ -1274,12 +1274,12 @@ def form3_save():
             return jsonify({"error": "Current user not found"}), 400
         
         # Validate required fields for form creation
-        if not data or not data.get('title') or not data.get('divisionId'):
+        if not data or not data.get('title') or not data.get('division'):
             return jsonify({"success": False, "error": "Title and division are required"}), 400
         
         form_id = data.get('form_id')
         title = data.get('title')
-        division = data.get('divisionId')
+        division = data.get('division')
         print(f"Updating existing form division:", division)
         current_time = datetime.now()
         
