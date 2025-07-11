@@ -260,11 +260,13 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   
       setIsLoading(true);
   
+      console.log("divisionId:", divisionId);
+
       // Prepare form data
       const formData = {
         title,
-        division,
         location,
+        division_id: divisionId, 
         form_reference_number: referenceNumber,
         last_review_date: lastReviewDate,
         next_review_date: nextReviewDate,

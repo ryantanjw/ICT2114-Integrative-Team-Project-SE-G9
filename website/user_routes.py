@@ -1279,7 +1279,7 @@ def form3_save():
         
         form_id = data.get('form_id')
         title = data.get('title')
-        division = data.get('division')
+        division = data.get('divisionId')
         current_time = datetime.now()
         
         if form_id:
@@ -1620,7 +1620,8 @@ def get_form(form_id):
         return jsonify({
             "form_id": form.form_id,
             "title": form.title,
-            "division": form.division_ref.division_name if form.division_ref else None,  # Changed this line
+            "division_id": form.division_ref.division_id if form.division_ref else None,
+            "division_name": form.division_ref.division_name if form.division_ref else None,            
             "processes": processes
         }), 200
     

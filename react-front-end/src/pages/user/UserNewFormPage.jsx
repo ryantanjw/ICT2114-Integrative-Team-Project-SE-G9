@@ -115,14 +115,18 @@ export default function UserNewForm() {
 
       if (response.data) {
 
-        let divisionName = response.data.division;
+        let divisionName = response.data.division_name;
+        let divisionId = response.data.division_id; 
+
         if (typeof response.data.division === 'number') {
           divisionName = await fetchDivisionName(response.data.division);
+          divisionId = response.data.division_id;
         }
 
         const loadedFormData = {
           title: response.data.title || "",
           division: divisionName,
+          divisionId: divisionId,
           processes: response.data.processes || [],
           form_id: response.data.form_id,
           remarks: response.data.activity_remarks || response.data.remarks || "",
@@ -268,14 +272,18 @@ export default function UserNewForm() {
 
       if (response.data) {
 
-        let divisionName = response.data.division;
+        let divisionName = response.data.division_name;
+        let divisionId = response.data.division_id; 
+
         if (typeof response.data.division === 'number') {
           divisionName = await fetchDivisionName(response.data.division);
+          divisionId = response.data.division_id;
         }
 
         const freshData = {
           title: response.data.title || "",
           division: divisionName,
+          divisionId: divisionId,
           processes: response.data.processes || [],
           form_id: response.data.form_id
         };
@@ -573,11 +581,13 @@ export default function UserNewForm() {
                 let divisionName = response.data.division;
                 if (typeof response.data.division === 'number') {
                   divisionName = await fetchDivisionName(response.data.division);
+                  divisionId = response.data.division;
                 }
                 // Update the form data
                 const loadedFormData = {
                   title: formResponse.data.title || "",
                   division: divisionName,
+                  divisionId: divisionId,
                   processes: formResponse.data.processes || [],
                   form_id: formResponse.data.form_id
                 };
