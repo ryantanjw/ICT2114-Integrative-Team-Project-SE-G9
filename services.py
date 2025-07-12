@@ -53,6 +53,12 @@ class DocxTemplateGenerator:
                 assessment_data = self._get_sample_data(assessment_id)
             else:
                 print("Transforming form_data")
+
+                print(f"DEBUG: 'division' in form_data: {'division' in form_data}")
+                print(f"DEBUG: form_data.get('division'): {form_data.get('division')}")
+                print(f"DEBUG: 'divisionName' in form_data: {'divisionName' in form_data}")
+                print(f"DEBUG: form_data.get('divisionName'): {form_data.get('divisionName')}")
+
                 # Transform the form data into the expected structure
                 assessment_data = self._transform_form_data(form_data, assessment_id)
                 
@@ -331,13 +337,13 @@ class DocxTemplateGenerator:
             form_info = form_data.get('form', {})
             activities_data = form_data.get('activities_data', [])
             
-            print(f"=== TRANSFORM DEBUG: form_info: {form_info}")
+            print(f"=== TRANSFORM DEBUGG: form_info: {form_info}")
             print(f"=== TRANSFORM DEBUG: activities_data count: {len(activities_data)}")
             
             # Extract basic info from form data
             basic_info = {
                 'assessment_id': assessment_id,
-                'division': form_info.get('division', 'N/A'),
+                'division': form_data.get('divisionName', 'N/A'),
                 'department': form_info.get('department', 'N/A'),
                 'location': form_info.get('location', 'N/A'),
                 'supervisor': form_info.get('supervisor', 'N/A'),

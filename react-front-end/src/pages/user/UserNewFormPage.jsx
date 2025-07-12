@@ -278,7 +278,7 @@ export default function UserNewForm() {
 
         if (typeof response.data.division === 'number') {
           divisionName = await fetchDivisionName(response.data.division);
-          divisionId = response.data.division_id;
+          divisionId = response.data.division;
         }
 
         const freshData = {
@@ -733,6 +733,8 @@ export default function UserNewForm() {
             />
           )}
           {currentTab === 2 && (
+            <>
+            {console.log("form2 division:", formData.division)}
             <Form2
               ref={form2Ref}
               sample={null}
@@ -740,6 +742,7 @@ export default function UserNewForm() {
               updateFormData={updateFormData}
               formData={formData}
             />
+            </>
           )}
           {currentTab === 3 && (
             <ConfirmForm

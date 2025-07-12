@@ -18,7 +18,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Initialize with empty array instead of hardcoded values
   const [hazardTypesList, setHazardTypesList] = useState([]);
   const [title, setTitle] = useState("");
-  const [division, setDivision] = useState("");
+  const [division, setDivision] = useState("");  // Initialize as empty string
+  const [divisions, setDivisions] = useState([]); // State for division options
+  const [divisionsLoading, setDivisionsLoading] = useState(false);
   const [raProcesses, setRaProcesses] = useState([]);
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [formId, setFormId] = useState(null);
@@ -42,6 +44,63 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const updateTimeoutRef = useRef(null);
   const lastUpdateTime = useRef(0);
   const initialLoadRef = useRef(true);
+
+
+  // Fetch divisions from API
+  const fetchDivisions = useCallback(async () => {
+    if (divisionsLoading) return; // Prevent multiple concurrent requests
+    
+    setDivisionsLoading(true);
+    try {
+      const response = await fetch('/api/user/retrieveDivisions');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Divisions fetched:', data);
+        
+        // Transform the data to match the expected format for dropdown options
+        // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
+        const divisionOptions = data.map(div => ({
+          value: String(div.division_id), // Ensure string type
+          label: div.division_name // Use division_name as display text
+        }));
+        
+        setDivisions(divisionOptions);
+      } else {
+        console.error('Failed to fetch divisions');
+        // Fallback to default options if API fails
+        setDivisions([
+          { value: "division1", label: "Division 1" },
+          { value: "division2", label: "Division 2" },
+          { value: "division3", label: "Division 3" },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching divisions:', error);
+      // Fallback to default options if API fails
+      setDivisions([
+        { value: "division1", label: "Division 1" },
+        { value: "division2", label: "Division 2" },
+        { value: "division3", label: "Division 3" },
+      ]);
+    } finally {
+      setDivisionsLoading(false);
+    }
+  }, [divisionsLoading]);
+
+  // Fetch divisions on component mount
+  useEffect(() => {
+    fetchDivisions();
+  }, []);
+
+  useEffect(() => {
+    if (divisions.length > 0 && division && isNaN(division)) {
+      // division holds a name, find matching ID
+      const matchedDivision = divisions.find(d => d.label === division);
+      if (matchedDivision) {
+        setDivision(matchedDivision.value); // Set division state to ID string
+      }
+    }
+  }, [divisions, division]);
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {
@@ -272,7 +331,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
       // Set basic form data
       setTitle(basicData.title || "");
-      setDivision(basicData.division || "");
+      setDivision(basicData.division_id || "");
 
       // Then fetch complete hazard data for this form
       const hazardResponse = await fetch(`/api/user/get_form2_data/${id}`);
@@ -1266,12 +1325,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         <div className="flex-1">
           <InputGroup
             label="Division"
-            id="form2-division"
+            id="form-division"
             value={division}
-            onChange={(e) => {
-              setDivision(e.target.value);
-              scheduleBatchedUpdate();
-            }}
+            onChange={(e) => setDivision(e.target.value)}
+            type="select"
+            options={[
+              { value: "", label: "Select Division" },
+                ...divisions
+            ]}
+            disabled={divisionsLoading}
           />
         </div>
         <CTAButton

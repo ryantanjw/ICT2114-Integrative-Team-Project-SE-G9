@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
 export default function ConfirmForm({ formData, sessionData, updateFormData }) {
@@ -8,8 +8,72 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [useFallbackPdf, setUseFallbackPdf] = useState(false);
 
+  const [division, setDivision] = useState(
+    formData?.division ? String(formData.division) :
+    sample?.division ? String(sample.division) : ""
+  );  
+  const [divisions, setDivisions] = useState([]); // State for division options
+  const [divisionsLoading, setDivisionsLoading] = useState(false);
+
+  // Fetch divisions from API
+  const fetchDivisions = useCallback(async () => {
+    if (divisionsLoading) return; // Prevent multiple concurrent requests
+    
+    setDivisionsLoading(true);
+    try {
+      const response = await fetch('/api/user/retrieveDivisions');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Divisions fetched:', data);
+        
+        // Transform the data to match the expected format for dropdown options
+        // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
+        const divisionOptions = data.map(div => ({
+          value: String(div.division_id), // Ensure string type
+          label: div.division_name // Use division_name as display text
+        }));
+        
+        setDivisions(divisionOptions);
+      } else {
+        console.error('Failed to fetch divisions');
+        // Fallback to default options if API fails
+        setDivisions([
+          { value: "division1", label: "Division 1" },
+          { value: "division2", label: "Division 2" },
+          { value: "division3", label: "Division 3" },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching divisions:', error);
+      // Fallback to default options if API fails
+      setDivisions([
+        { value: "division1", label: "Division 1" },
+        { value: "division2", label: "Division 2" },
+        { value: "division3", label: "Division 3" },
+      ]);
+    } finally {
+      setDivisionsLoading(false);
+    }
+  }, [divisionsLoading]);
+
+  // Fetch divisions on component mount
+  useEffect(() => {
+    fetchDivisions();
+  }, []);
+  
+
   // Define fallback PDF URL
   const fallbackPdfUrl = "/forms/Risk_Assessment_Form_Template.pdf";
+
+  useEffect(() => {
+  if (divisions.length > 0 && division && isNaN(division)) {
+    // division holds a name, find matching ID
+    const matchedDivision = divisions.find(d => d.label === division);
+    if (matchedDivision) {
+      setDivision(matchedDivision.value); // Set division state to ID string
+    }
+  }
+  }, [divisions, division]);
 
   // Check for previously generated PDFs when component mounts
   useEffect(() => {
@@ -91,6 +155,8 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
       const completeFormData = await dataResponse.json();
       console.log("Complete form data retrieved:", completeFormData);
 
+      const divisionName = divisions.find(d => d.value === String(formData.division))?.label || formData.division;
+
       // Now send this complete data to the PDF endpoint
       const response = await fetch(`/api/user/generate-pdf/${formData.form_id}`, {
         method: 'POST',
@@ -100,6 +166,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
         credentials: 'include',
         body: JSON.stringify({
           ...completeFormData.data,
+          divisionName: divisionName, // Add this line
           format: 'pdf'  // Match the format parameter from DownloadDialogue
         }),
       });
@@ -157,7 +224,11 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
       }
 
       const completeFormData = await dataResponse.json();
-      
+
+      const divisionName = divisions.find(d => d.value === String(formData.division))?.label || formData.division;
+
+      console.log("Data fetched IN CONFIRM FORM:", completeFormData);
+
       // Use the test-generate-document endpoint for DOCX (same as in DownloadDialogue)
       const response = await fetch(`/api/user/test-generate-document/${formData.form_id}`, {
         method: 'POST',
@@ -167,6 +238,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
         credentials: 'include',
         body: JSON.stringify({
           ...completeFormData.data,
+          divisionName: divisionName, // Add this line
           format: 'docx'
         }),
       });
