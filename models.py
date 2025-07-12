@@ -31,7 +31,7 @@ class User(db.Model):
     user_email = db.Column(db.String(255), unique=True, nullable=False)
     user_designation = db.Column(db.String(255), nullable=True)
     user_role = db.Column(db.Integer, nullable=False)  # 0 for admin, 1 for user
-    user_cluster = db.Column(db.Enum('ENG', 'FCB', 'ICT', 'HSS', 'BCD'), nullable=False)
+    user_cluster = db.Column(db.Integer, db.ForeignKey('division.division_id'),nullable=True)
     password = db.Column(db.String(255), nullable=False)
 
 #No Changes

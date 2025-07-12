@@ -1,7 +1,7 @@
 # Fix the import statements
 from flask import Blueprint, jsonify, request, session, make_response
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity, Process, Hazard, Risk, HazardType
+from models import User, Form, Activity, Process, Hazard, Risk, HazardType, Division
 from models import db
 import random
 import string
@@ -335,6 +335,22 @@ def reset_password():
         print(f"Error resetting password: {str(e)}")
         db.session.rollback()
         return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500
+    
+@admin.route('/retrieveDivisions', methods=['GET'])
+def retrieve_divisions():
+    try:
+        divisions = Division.query.all()
+        divisions_data = []
+        for division in divisions:
+            divisions_data.append({
+                'division_id': division.division_id,
+                'division_name': division.division_name
+            })
+        return jsonify(divisions_data)
+
+    except Exception as e:
+        print(f"Error retrieving divisions: {e}")
+        return jsonify({'error': 'Failed to retrieve divisions'}), 500     
     
     
 # Add user (admin only)
