@@ -71,9 +71,9 @@ export default function UserTable({ users, onRemove, onReset, onEdit }) {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                        getClusterColor(user.cluster)
+                                        getClusterColor(user.divisionName)
                                     }`}>
-                                        {getClusterDisplayName(user.cluster)}
+                                        {getClusterDisplayName(user.divisionName)}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -117,12 +117,19 @@ function getClusterColor(cluster) {
     
     // Map string values to colors
     const colorMap = {
-        "ENG": "bg-purple-100 text-purple-800",
-        "FCB": "bg-pink-100 text-pink-800",
-        "ICT": "bg-blue-100 text-blue-800",
-        "HSS": "bg-green-100 text-green-800",
-        "BCD": "bg-yellow-100 text-yellow-800"
+        "Business, Communication and Design": "bg-yellow-100 text-yellow-800",
+        "Food, Chemical and Biotechnology": "bg-pink-100 text-pink-800",
+        "Engineering": "bg-purple-100 text-purple-800",
+        "Health and Social Sciences": "bg-green-100 text-green-800",
+        "Infocomm Technology": "bg-blue-100 text-blue-800",
+        "POD": "bg-orange-100 text-orange-800",
+        "APA": "bg-red-100 text-red-800",
+        "PRS-HSE": "bg-indigo-100 text-indigo-800",
+        "AO": "bg-teal-100 text-teal-800",
+        "Estate": "bg-amber-100 text-amber-800",
+        "OSE": "bg-cyan-100 text-cyan-800"
     };
+
     
     return colorMap[cluster] || "bg-gray-100 text-gray-800";
 }

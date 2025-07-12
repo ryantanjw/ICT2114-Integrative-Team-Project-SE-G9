@@ -87,7 +87,8 @@ export default function AdminUser() {
                 email: user.user_email,
                 role: user.user_role === 0 ? "Admin" : "User",
                 designation: user.user_designation || "Not specified",
-                cluster: user.user_cluster
+                cluster: user.user_cluster,
+                divisionName: user.division_name || 'No Division'
               }));
 
               console.log("Formatted users:", formattedUsers);
@@ -121,8 +122,8 @@ export default function AdminUser() {
                   email: user.user_email,
                   role: user.user_role === 0 ? "Admin" : "User",
                   designation: user.user_designation || "Not specified",
-                  cluster: user.user_cluster
-
+                  cluster: user.user_cluster,
+                  divisionName: user.division_name || 'No Division'
                 }));
 
                 setUsers(formattedUsers);
@@ -298,7 +299,8 @@ export default function AdminUser() {
             email: newUser.user_email,
             role: newUser.user_role === 0 ? "Admin" : "User",
             designation: newUser.user_designation || "Not specified",
-            cluster: newUser.user_cluster
+            cluster: newUser.user_cluster,
+            divisionName: newUser.division_name || 'No Division'
           }]);
           setModalOpen(false);
         }}

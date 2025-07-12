@@ -180,56 +180,47 @@ def get_new_hazard():
 
     
 
-# Get all users (admin only)
+# In your get_users route, modify the query to join with divisions table
 @admin.route('/get_users', methods=['GET'])
 def get_users():
     print("\n=== GET USERS CALLED ===")
     print("Checking authentication and authorization...")
     
-    # Check if user is logged in and is an admin
-    # if 'user_id' not in session:
-    #     print("No active session found")
-    #     return jsonify({"success": False, "error": "Not authenticated"}), 401
-    
-    # if session.get('user_role') != 0:  # 0 = admin
-    #     print(f"Non-admin user attempted to access users list. Role: {session.get('user_role')}")
-    #     return jsonify({"success": False, "error": "Not authorized"}), 403
-    
     try:
-
-        # Query all users from the database
-        users = User.query.all()
+        # Query users with division information
+        users = db.session.query(User, Division).outerjoin(
+            Division, User.user_cluster == Division.division_id
+        ).all()
         
-        # Convert users to a list of dictionaries (exclude password for security)
         users_list = []
         
         print("\n=== USERS LIST ===")
-        print("| {:<5} | {:<25} | {:<35} | {:<15} | {:<10} |".format(
-            "ID", "Name", "Email", "Designation", "Role"
+        print("| {:<5} | {:<25} | {:<35} | {:<15} | {:<10} | {:<20} |".format(
+            "ID", "Name", "Email", "Designation", "Role", "Division"
         ))
-        print("|" + "-" * 7 + "|" + "-" * 27 + "|" + "-" * 37 + "|" + "-" * 17 + "|" + "-" * 12 + "|")
+        print("|" + "-" * 7 + "|" + "-" * 27 + "|" + "-" * 37 + "|" + "-" * 17 + "|" + "-" * 12 + "|" + "-" * 22 + "|")
         
-        for user in users:
-            # Add user to the list
+        for user, division in users:
             users_list.append({
                 "user_id": user.user_id,
                 "user_name": user.user_name,
                 "user_email": user.user_email,
                 "user_designation": user.user_designation,
                 "user_role": user.user_role,
-                "user_cluster": user.user_cluster
-
+                "user_cluster": user.user_cluster,
+                "division_name": division.division_name if division else "No Division"
             })
             
             # Print user details in a formatted table
             role_text = "Admin" if user.user_role == 0 else "User"
-            print("| {:<5} | {:<25} | {:<35} | {:<15} | {:<10} |".format(
+            division_name = division.division_name if division else "No Division"
+            print("| {:<5} | {:<25} | {:<35} | {:<15} | {:<10} | {:<20} |".format(
                 user.user_id,
                 user.user_name[:23] + "..." if len(user.user_name) > 23 else user.user_name,
                 user.user_email[:33] + "..." if len(user.user_email) > 33 else user.user_email,
                 user.user_designation[:13] + "..." if len(user.user_designation) > 13 else (user.user_designation or "N/A"),
                 role_text,
-                user.user_cluster if user.user_cluster else "N/A"
+                division_name[:18] + "..." if len(division_name) > 18 else division_name
             ))
         
         print("\n=== END OF USERS LIST ===")
@@ -239,7 +230,7 @@ def get_users():
     except Exception as e:
         print(f"Error retrieving users: {str(e)}")
         import traceback
-        traceback.print_exc()  # Print the full traceback for debugging
+        traceback.print_exc()
         return jsonify({"success": False, "error": "Failed to retrieve users"}), 500
 
 # Remove user (admin only)
