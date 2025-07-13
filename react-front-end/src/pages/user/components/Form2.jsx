@@ -40,11 +40,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Temporary hardcoded list of risk control categories
   const riskcontrolTypesList = [
-    "Elimination",
-    "Substitution",
-    "Engineering Controls",
-    "Administrative Controls",
-    "Personal Protective Equipment (PPE)"
+    { value: "Elimination", display: "Elimination" },
+    { value: "Substitution", display: "Substitution" },
+    { value: "Engineering Controls", display: "Engineering Controls" },
+    { value: "Administrative Controls", display: "Administrative Controls" },
+    { value: "PPE", display: "Personal Protective Equipment (PPE)" }
   ];
 
 
@@ -948,7 +948,19 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   // Toggle the selected risk control category for a hazard
-  const toggleRiskControlType = (processId, activityId, hazardId, type) => {
+  const toggleRiskControlType = (processId, activityId, hazardId, type, controlId) => {
+    console.log("Toggling risk control type:", { processId, activityId, hazardId, type, controlId });
+    
+    // Find the hazard to check its current state
+    const hazard = raProcesses
+      .find(p => p.id === processId)
+      ?.activities.find(a => a.id === activityId)
+      ?.hazards.find(h => h.id === hazardId);
+      
+    console.log("Current hazard:", hazard);
+    console.log("Risk controls:", hazard?.riskControls);
+    console.log("Risk control to toggle:", hazard?.riskControls?.find(rc => rc.id === controlId));
+    
     setRaProcesses(prev =>
       prev.map(proc =>
         proc.id === processId
@@ -960,7 +972,16 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       ...a,
                       hazards: a.hazards.map(h =>
                         h.id === hazardId
-                          ? { ...h, riskControlType: h.riskControlType === type ? "" : type }
+                          ? { 
+                              ...h, 
+                              riskControls: (h.riskControls || []).map(rc => {
+                                if (rc.id === controlId) {
+                                  console.log("Updating risk control:", rc);
+                                  return { ...rc, riskControlType: rc.riskControlType === type ? "" : type };
+                                }
+                                return rc;
+                              })
+                            }
                           : h
                       )
                     }
@@ -1162,7 +1183,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               newLikelihood: h.newLikelihood ?? 0,
               newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
               dueDate: h.dueDate || "",
-              implementationPerson: h.implementationPerson || ""
+              implementationPerson: h.implementationPerson || "",
+              additionalControlType: h.additionalControlType || ""
             }))
           }))
         })),
@@ -1282,6 +1304,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     newRpn,
     // Collapse/expand flags
     additionalControlsExpanded: true,
+    additionalControlType: "", // Add this field for additional risk control type
     riskControls: [{
       id: uuidv4(),
       existingControls: existingControls || "",
@@ -1318,8 +1341,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Toggle collapse on Additional Risk Controls block
   const toggleAdditionalControlsSection = (processId, activityId, hazardId) => {
-    setRaProcesses(prev =>
-      prev.map(proc =>
+    setRaProcesses(prev => {
+      const hazard = prev
+        .find(p => p.id === processId)
+        ?.activities.find(a => a.id === activityId)
+        ?.hazards.find(h => h.id === hazardId);
+      
+      // Check if we need to create an additionalControlId
+      const isExpanding = !(hazard?.additionalControlsExpanded || false);
+      const additionalControlId = hazard?.additionalControlId || uuidv4();
+      
+      return prev.map(proc =>
         proc.id !== processId ? proc : {
           ...proc,
           activities: proc.activities.map(act =>
@@ -1328,14 +1360,28 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               hazards: act.hazards.map(haz =>
                 haz.id !== hazardId ? haz : {
                   ...haz,
-                  additionalControlsExpanded: !haz.additionalControlsExpanded
+                  additionalControlsExpanded: !haz.additionalControlsExpanded,
+                  additionalControlId: haz.additionalControlId || additionalControlId,
+                  // If expanding and there's no additionalControlId, ensure there's a risk control entry
+                  riskControls: isExpanding && !haz.additionalControlId 
+                    ? [
+                        ...(haz.riskControls || []),
+                        {
+                          id: additionalControlId,
+                          existingControls: haz.additionalControls || "",
+                          riskControlType: "",
+                          expanded: true,
+                          isAdditionalControl: true
+                        }
+                      ]
+                    : haz.riskControls
                 }
               )
             }
           )
         }
-      )
-    );
+      );
+    });
     scheduleBatchedUpdate();
   };
 
@@ -1706,17 +1752,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           Risk Control Category*
                                         </label>
                                         <div className="flex flex-wrap gap-2 mb-3">
-                                          {riskcontrolTypesList.map(type => (
+                                          {riskcontrolTypesList.map(typeObj => (
                                             <button
                                               type="button"
-                                              key={type}
-                                              onClick={() => { console.log("toggleRiskControlType clicked:", type); toggleRiskControlType(proc.id, act.id, h.id, type); }}
-                                              className={`px-3 py-1 rounded-full ${h.riskControlType === type
+                                              key={typeObj.value}
+                                              onClick={() => { console.log("toggleRiskControlType clicked:", typeObj.value); toggleRiskControlType(proc.id, act.id, h.id, typeObj.value, rc.id); }}
+                                              className={`px-3 py-1 rounded-full ${rc.riskControlType === typeObj.value
                                                 ? "bg-black text-white"
                                                 : "bg-gray-200"
                                               }`}
                                             >
-                                              {type}
+                                              {typeObj.display}
                                             </button>
                                           ))}
                                         </div>
@@ -1858,17 +1904,40 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                       Risk Control Category*
                                     </label>
                                     <div className="flex flex-wrap gap-2 mb-3">
-                                      {riskcontrolTypesList.map(type => (
+                                      {riskcontrolTypesList.map(typeObj => (
                                         <button
                                           type="button"
-                                          key={type}
-                                          onClick={() => { console.log("toggleRiskControlType clicked:", type); toggleRiskControlType(proc.id, act.id, h.id, type); }}
-                                          className={`px-3 py-1 rounded-full ${h.riskControlType === type
-                                            ? "bg-black text-white"
-                                            : "bg-gray-200"
+                                          key={typeObj.value}
+                                          onClick={() => { 
+                                            console.log("toggleRiskControlType clicked for additional controls:", typeObj.value); 
+                                            // Directly update the additionalControlType in the hazard
+                                            setRaProcesses(prev =>
+                                              prev.map(p =>
+                                                p.id === proc.id ? {
+                                                  ...p,
+                                                  activities: p.activities.map(a =>
+                                                    a.id === act.id ? {
+                                                      ...a,
+                                                      hazards: a.hazards.map(hz =>
+                                                        hz.id === h.id ? {
+                                                          ...hz,
+                                                          additionalControlType: hz.additionalControlType === typeObj.value ? "" : typeObj.value
+                                                        } : hz
+                                                      )
+                                                    } : a
+                                                  )
+                                                } : p
+                                              )
+                                            );
+                                            setTimeout(scheduleBatchedUpdate, 0);
+                                          }}
+                                          className={`px-3 py-1 rounded-full ${
+                                            h.additionalControlType === typeObj.value
+                                              ? "bg-black text-white"
+                                              : "bg-gray-200"
                                           }`}
                                         >
-                                          {type}
+                                          {typeObj.display}
                                         </button>
                                       ))}
                                     </div>
@@ -1888,9 +1957,41 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                         rows={3}
                                         id={`add-controls-${h.id}`}
                                         value={h.additionalControls}
-                                        onChange={(e) =>
-                                          updateHazard(proc.id, act.id, h.id, "additionalControls", e.target.value)
-                                        }
+                                        onChange={(e) => {
+                                          const newValue = e.target.value;
+                                          
+                                          // Update the hazard's additionalControls
+                                          updateHazard(proc.id, act.id, h.id, "additionalControls", newValue);
+                                          
+                                          // If there's an additionalControlId, also update the risk control
+                                          if (h.additionalControlId) {
+                                            setRaProcesses(prev =>
+                                              prev.map(p =>
+                                                p.id === proc.id ? {
+                                                  ...p,
+                                                  activities: p.activities.map(a =>
+                                                    a.id === act.id ? {
+                                                      ...a,
+                                                      hazards: a.hazards.map(hz =>
+                                                        hz.id === h.id ? {
+                                                          ...hz,
+                                                          riskControls: (hz.riskControls || []).map(rc =>
+                                                            rc.id === hz.additionalControlId && rc.isAdditionalControl
+                                                              ? { ...rc, existingControls: newValue }
+                                                              : rc
+                                                          )
+                                                        } : hz
+                                                      )
+                                                    } : a
+                                                  )
+                                                } : p
+                                              )
+                                            );
+                                            
+                                            // Schedule batched update
+                                            setTimeout(scheduleBatchedUpdate, 0);
+                                          }
+                                        }}
                                         placeholder={(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ?
                                           "Add more effective controls that will reduce the risk level below 15..." :
                                           "Add additional risk controls..."}
