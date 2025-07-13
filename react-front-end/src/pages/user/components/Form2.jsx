@@ -961,6 +961,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     console.log("Risk controls:", hazard?.riskControls);
     console.log("Risk control to toggle:", hazard?.riskControls?.find(rc => rc.id === controlId));
     
+    // Find the display name for this risk control type
+    const typeObj = riskcontrolTypesList.find(item => item.value === type);
+    const typeDisplay = typeObj ? typeObj.display : type;
+    
+    // Determine if we're adding, changing, or removing this type
+    const currentRiskControl = hazard?.riskControls?.find(rc => rc.id === controlId);
+    const isToggling = currentRiskControl?.riskControlType === type; // If same type is clicked, we're removing it
+    
     setRaProcesses(prev =>
       prev.map(proc =>
         proc.id === processId
@@ -974,13 +982,63 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                         h.id === hazardId
                           ? { 
                               ...h, 
+                              // Update the risk control type - ensure only one selection at a time
                               riskControls: (h.riskControls || []).map(rc => {
                                 if (rc.id === controlId) {
                                   console.log("Updating risk control:", rc);
-                                  return { ...rc, riskControlType: rc.riskControlType === type ? "" : type };
+                                  const newRiskControlType = isToggling ? "" : type;
+                                  
+                                  // Update the existingControls field to include/exclude the risk control type
+                                  let existingText = h.existingControls || "";
+                                  
+                                  // Extract the type prefix if it exists
+                                  const typeRegex = /^\[(.*?)\]\s*/;
+                                  const match = existingText.match(typeRegex);
+                                  
+                                  if (newRiskControlType) {
+                                    // Adding or changing type
+                                    if (match) {
+                                      // Replace existing type
+                                      existingText = existingText.replace(typeRegex, `[${typeDisplay}] `);
+                                    } else {
+                                      // Add new type prefix
+                                      existingText = `[${typeDisplay}] ${existingText}`;
+                                    }
+                                  } else {
+                                    // Removing type
+                                    if (match) {
+                                      existingText = existingText.replace(typeRegex, '');
+                                    }
+                                  }
+                                  
+                                  return { 
+                                    ...rc, 
+                                    riskControlType: newRiskControlType,
+                                    existingControls: existingText
+                                  };
                                 }
                                 return rc;
-                              })
+                              }),
+                              // Also update the main existingControls field for the hazard
+                              existingControls: (() => {
+                                const typeRegex = /^\[(.*?)\]\s*/;
+                                const currentText = h.existingControls || "";
+                                const match = currentText.match(typeRegex);
+                                
+                                if (isToggling) {
+                                  // Removing the current type
+                                  return match ? currentText.replace(typeRegex, "") : currentText;
+                                } else {
+                                  // Adding or changing the type
+                                  if (match) {
+                                    // Replace existing type
+                                    return currentText.replace(typeRegex, `[${typeDisplay}] `);
+                                  } else {
+                                    // Add new type prefix
+                                    return `[${typeDisplay}] ${currentText}`;
+                                  }
+                                }
+                              })()
                             }
                           : h
                       )
@@ -1264,14 +1322,29 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     type = [],
     injuries = [],
     existingControls = "",
+    additionalControls = "",
     severity = 0,
     likelihood = 0,
     rpn = 0,
     newSeverity = 0,
     newLikelihood = 0,
     newRpn = 0,
-    implementationPerson = ""
-  } = {}) => ({
+    implementationPerson = "",
+    additionalControlType = ""
+  } = {}) => {
+    // Extract any existing risk control type from existingControls
+    const typeRegex = /^\[(.*?)\]\s*/;
+    const match = existingControls.match(typeRegex);
+    let riskControlType = "";
+    
+    // If there's a type in the existingControls, extract it
+    if (match) {
+      const typeLabel = match[1];
+      const typeObj = riskcontrolTypesList.find(item => item.display === typeLabel);
+      riskControlType = typeObj ? typeObj.value : "";
+    }
+    
+    return {
     id: uuidv4(),
     hazard_id: uuidv4(),
     description,
@@ -1304,14 +1377,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     newRpn,
     // Collapse/expand flags
     additionalControlsExpanded: true,
-    additionalControlType: "", // Add this field for additional risk control type
+    additionalControlType: additionalControlType || "", // Use provided or empty string
     riskControls: [{
       id: uuidv4(),
       existingControls: existingControls || "",
-      riskControlType: "",
+      riskControlType, // Set the extracted risk control type
       expanded: true
     }]
-  });
+  };
+};
   // Toggle collapse on a specific Risk Controls sub-section
   const toggleRiskControlSection = (processId, activityId, hazardId, sectionId) => {
     setRaProcesses(prev =>
@@ -1771,9 +1845,31 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                         <textarea
                                           rows={3}
                                           value={h.existingControls}
-                                          onChange={(e) =>
-                                            updateHazard(proc.id, act.id, h.id, "existingControls", e.target.value)
-                                          }
+                                          onChange={(e) => {
+                                            // Extract any existing risk control type from the beginning of the text
+                                            const typeRegex = /^\[(.*?)\]\s*/;
+                                            const oldValue = h.existingControls || "";
+                                            const match = oldValue.match(typeRegex);
+                                            
+                                            // Get the selected risk control type if any
+                                            const riskControl = h.riskControls?.find(rc => rc.riskControlType);
+                                            const hasRiskType = riskControl && riskControl.riskControlType;
+                                            
+                                            // If we have a risk type selected, make sure it stays at the beginning
+                                            if (hasRiskType) {
+                                              const typeObj = riskcontrolTypesList.find(item => item.value === riskControl.riskControlType);
+                                              const typeText = typeObj ? `[${typeObj.display}] ` : '';
+                                              
+                                              // Remove any existing type prefix from the new value
+                                              const newText = e.target.value.replace(typeRegex, '');
+                                              
+                                              // Update with the type prefix preserved
+                                              updateHazard(proc.id, act.id, h.id, "existingControls", typeText + newText);
+                                            } else {
+                                              // No risk type selected, just update normally
+                                              updateHazard(proc.id, act.id, h.id, "existingControls", e.target.value);
+                                            }
+                                          }}
                                           placeholder="Describe existing risk controls..."
                                           className="w-full border border-gray-300 rounded p-2"
                                         />
@@ -1910,7 +2006,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           key={typeObj.value}
                                           onClick={() => { 
                                             console.log("toggleRiskControlType clicked for additional controls:", typeObj.value); 
-                                            // Directly update the additionalControlType in the hazard
+                                            // Directly update the additionalControlType in the hazard and add it to the additionalControls text
                                             setRaProcesses(prev =>
                                               prev.map(p =>
                                                 p.id === proc.id ? {
@@ -1921,7 +2017,31 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                       hazards: a.hazards.map(hz =>
                                                         hz.id === h.id ? {
                                                           ...hz,
-                                                          additionalControlType: hz.additionalControlType === typeObj.value ? "" : typeObj.value
+                                                          additionalControlType: hz.additionalControlType === typeObj.value ? "" : typeObj.value,
+                                                          // Update the additionalControls text to include the selected type
+                                                          additionalControls: (() => {
+                                                            const isAdding = hz.additionalControlType !== typeObj.value;
+                                                            const existingText = hz.additionalControls || "";
+                                                            const typeRegex = /^\[(.*?)\]\s*/;
+                                                            const match = existingText.match(typeRegex);
+                                                            
+                                                            if (isAdding) {
+                                                              // Adding or changing type
+                                                              if (match) {
+                                                                // Replace existing type
+                                                                return existingText.replace(typeRegex, `[${typeObj.display}] `);
+                                                              } else {
+                                                                // Add new type prefix
+                                                                return `[${typeObj.display}] ${existingText}`;
+                                                              }
+                                                            } else {
+                                                              // Removing type
+                                                              if (match) {
+                                                                return existingText.replace(typeRegex, '');
+                                                              }
+                                                              return existingText;
+                                                            }
+                                                          })()
                                                         } : hz
                                                       )
                                                     } : a
@@ -1958,10 +2078,28 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                         id={`add-controls-${h.id}`}
                                         value={h.additionalControls}
                                         onChange={(e) => {
-                                          const newValue = e.target.value;
+                                          // Extract any existing risk control type from the beginning of the text
+                                          const typeRegex = /^\[(.*?)\]\s*/;
+                                          const oldValue = h.additionalControls || "";
+                                          const match = oldValue.match(typeRegex);
                                           
-                                          // Update the hazard's additionalControls
-                                          updateHazard(proc.id, act.id, h.id, "additionalControls", newValue);
+                                          // Check if a risk control type is selected
+                                          const hasRiskType = h.additionalControlType;
+                                          
+                                          // If we have a risk type selected, make sure it stays at the beginning
+                                          if (hasRiskType) {
+                                            const typeObj = riskcontrolTypesList.find(item => item.value === h.additionalControlType);
+                                            const typeText = typeObj ? `[${typeObj.display}] ` : '';
+                                            
+                                            // Remove any existing type prefix from the new value
+                                            const newText = e.target.value.replace(typeRegex, '');
+                                            
+                                            // Update with the type prefix preserved
+                                            updateHazard(proc.id, act.id, h.id, "additionalControls", typeText + newText);
+                                          } else {
+                                            // No risk type selected, just update normally
+                                            updateHazard(proc.id, act.id, h.id, "additionalControls", e.target.value);
+                                          }
                                           
                                           // If there's an additionalControlId, also update the risk control
                                           if (h.additionalControlId) {
