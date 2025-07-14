@@ -1845,6 +1845,102 @@ def get_activities():
     except Exception as e:
         print(f"Error getting activities: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+# ctrl f tag AI
+@user.route('/filtered_activities', methods=['POST'])
+def filtered_activities():
+    print("\n=== FILTERED ACTIVITIES CALLED ===")
+    try:
+        data = request.get_json()
+        activities = data.get("activities", [])  # a list
+        filtered_activities = []
+        for activity in activities:
+            result = KnownData.query.filter(
+                KnownData.activity_name.ilike(f"%{activity}%"),
+                # KnownData.title.ilike(f"%{data.get('formTitle')}%"),
+                # KnownData.process.ilike(f"%{data.get('processName')}%")
+            ).all()
+            if result:
+                filtered_activities.append(activity)
+        return jsonify({
+            "success": True,
+            "filtered_activities": filtered_activities 
+        }), 200
+
+    except Exception as e:
+        print(f"Error getting activities: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# ctrl f tag AI
+@user.route('/generate_from_db_only', methods=['POST'])
+def generate_from_db_only():
+    print("\n=== GENERATE FROM DB ONLY CALLED ===")
+    try:
+        data = request.get_json()
+        user_input = data.get('activityName')
+        
+        if not user_input:
+            return jsonify({"error": "No input provided"}), 400
+        
+        # activities = get_matched_activities_only_db(str(data.get('formTitle')), str(data.get('processName')))  # Call RAG.py function
+        # # hazard_rows = KnownData.query.filter_by(activity_name=str(user_input), process=str(data.get('processName')), title=str(data.get('formTitle'))).all()
+        # hazard_data = [for activity in activities if activity.activity_name == user_input]
+
+        activities = get_matched_activities_only_db(
+            str(data.get('formTitle')),
+            str(data.get('processName'))
+        )
+
+        # hazard_data = [
+        #     activity for activity in activities 
+        #     if activity.activity_name == user_input
+        # ]
+
+
+        # If rows found, convert each row to a dict and store in a list
+        hazard_data = [
+            {
+            "description": row.hazard_des,
+            "type": [t.strip() for t in row.hazard_type.split(",")] if row.hazard_type else [],
+            "injuries": [row.injury] if row.injury else [],
+            "risk_type": row.risk_type,
+            "existingControls": row.control,
+            "severity": row.severity,
+            "likelihood": row.likelihood,
+            "rpn": row.rpn
+            }
+            for row in activities if row.activity_name == user_input
+        ]
+        return jsonify({
+            "success": True,
+            "hazard_data": hazard_data
+        }), 200
+
+    except Exception as e:
+        print(f"Error getting hazards: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+@user.route("/store_has_run", methods=["POST"])
+def store_has_run():
+    data = request.get_json()
+    form_id = str(data.get("form_id"))
+    session[f"has_run_{form_id}"] = True
+    return jsonify(success=True)
+
+@user.route("/get_has_run", methods=["GET"])
+def get_has_run():
+    form_id = request.args.get("form_id")
+    has_run = session.get(f"has_run_{form_id}", False)
+    return jsonify(has_run=has_run)
+
+@user.route("/reset_has_run", methods=["POST"])
+def reset_has_run():
+    data = request.get_json()
+    form_id = str(data.get("form_id"))
+    session.pop(f"has_run_{form_id}", None)
+    return jsonify(success=True)
+
+
 
 # Reset user password (user only)
 @user.route('/reset_password', methods=['POST'])
