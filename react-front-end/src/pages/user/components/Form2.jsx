@@ -645,8 +645,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         console.log('No form ID available for fetching');
       }
     }
+    
   }, [formData?.form_id, sessionData?.current_form_id, formData?.processes?.length]); // Also depend on processes length changes
 
+  // Autocomplete starts from here
   useEffect(() => {
     console.log("DEBUGGING HERE");
     console.log("Form2 received formData:", formData);
@@ -1485,6 +1487,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     description = "",
     type = [],
     injuries = [],
+    riskControlType = "",   // newly added for rag function
     existingControls = "",
     additionalControls = "",
     severity = 0,
@@ -1496,18 +1499,31 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     implementationPerson = "",
     additionalControlType = ""
   } = {}) => {
-    // Extract any existing risk control type from existingControls
-    const typeRegex = /^\[(.*?)\]\s*/;
-    const match = existingControls.match(typeRegex);
-    let riskControlType = "";
+    // // Extract any existing risk control type from existingControls
+    // const typeRegex = /^\[(.*?)\]\s*/;
+    // const match = existingControls.match(typeRegex);
+    // let riskControlType = "";
     
-    // If there's a type in the existingControls, extract it
-    if (match) {
-      const typeLabel = match[1];
-      const typeObj = riskcontrolTypesList.find(item => item.display === typeLabel);
-      riskControlType = typeObj ? typeObj.value : "";
+    // // If there's a type in the existingControls, extract it
+    // if (match) {
+    //   const typeLabel = match[1];
+    //   const typeObj = riskcontrolTypesList.find(item => item.display === typeLabel);
+    //   riskControlType = typeObj ? typeObj.value : "";
+    // }
+    // newly added for rag function 
+    let finalRiskControlType = riskControlType; // if provided, use it
+    if (!finalRiskControlType) {
+      // If there's a type in the existingControls, extract it
+      const typeRegex = /^\[(.*?)\]\s*/;
+      const match = existingControls.match(typeRegex);
+
+      if (match) {
+        const typeLabel = match[1];
+        const typeObj = riskcontrolTypesList.find(item => item.display === typeLabel);
+        finalRiskControlType = typeObj ? typeObj.value : "";
+      }
     }
-    
+    // end of newly added for rag function
     return {
     id: uuidv4(),
     hazard_id: uuidv4(),
@@ -1545,7 +1561,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     riskControls: [{
       id: uuidv4(),
       existingControls: existingControls || "",
-      riskControlType, // Set the extracted risk control type
+      // riskControlType, // Set the extracted risk control type
+      riskControlType: finalRiskControlType, // newly added for rag function
       expanded: true
     }],
     // Add additionalRiskControls array
@@ -1655,11 +1672,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               ? data.hazard_data
               : [data.hazard_data];
 
+            console.log("Generated hazards:", hazardsArray);
+
             const newHazards = hazardsArray.map(h =>
               createNewHazard({
                 description: h.description,
                 type: h.type,
                 injuries: h.injuries,
+                riskControlType: h.risk_type, // newly added for rag function
                 existingControls: h.existingControls,
                 severity: h.severity,
                 likelihood: h.likelihood,
@@ -1669,8 +1689,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
             return {
               ...act,
-              hazards: [...act.hazards, ...newHazards]
+              hazards: [...newHazards, ...act.hazards]
             };
+
           } else {
             console.error('Failed to get from AI');
             return act;

@@ -18,6 +18,7 @@ class KnownData(db.Model):
     hazard_type = db.Column(db.String(225), nullable=True)
     hazard_des = db.Column(db.Text, nullable=True)
     injury = db.Column(db.Text, nullable=True)
+    risk_type = db.Column(db.Text, nullable=True)
     control = db.Column(db.Text, nullable=True)
     severity = db.Column(db.Integer, nullable=True)
     likelihood = db.Column(db.Integer, nullable=True)

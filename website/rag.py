@@ -72,6 +72,7 @@ def generate_answer(user_input, context):
             Hazard Type:
             Hazard Description:
             Possible Injuries:
+            Risk Control Type:
             Risk Controls:
             Severity Score:
             Likelihood Score:
@@ -80,10 +81,12 @@ def generate_answer(user_input, context):
             Take note for hazard types just give the type of hazard, no need explanation or examples.
             Take note for the severity score and likelihood score, its between 1 to 5, where 1 is the lowest and 5 is the highest.
             Take note for the RPN, it is the product of severity score and likelihood score and just give the final number e.g. RPN: 9
+            Take note for the risk control type, it can be one type.
             For example:
             Hazard Type: Physical
             Hazard Description: Working at heights without proper fall protection.
             Possible Injuries: Falls leading to fractures or head injuries.
+            Risk Control Type: Engineering Controls
             Risk Controls: Use of harnesses, guardrails, and safety nets.
             Severity Score: 4
             Likelihood Score: 4
@@ -120,6 +123,7 @@ def parse_multiple_risk_assessments(response_text):
             "type": [t.strip() for t in hazard_type.split(",")],
             "description": hazard_description.group(1).strip() if hazard_description else None,
             "injuries": [injuries.group(1).strip()] if injuries else [],
+            "risk_type": risk_control.group(1).strip() if risk_control else None,
             "existingControls": risk_control.group(1).strip() if risk_control else None,
             "severity": int(severity.group(1)) if severity else None,
             "likelihood": int(likelihood.group(1)) if likelihood else None,
@@ -133,7 +137,6 @@ def parse_multiple_risk_assessments(response_text):
 def ai_function(activity):
     # Load KB
     knowledge_base = load_knowledge_base_from_file(kb_path)
-
     # Precompute or load cached embeddings
     if os.path.exists(embedding_cache_path):
         print("Loading cached embeddings...")
@@ -146,7 +149,7 @@ def ai_function(activity):
     # Retrieve most relevant
     top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
     context_text, similarity = top_matches[0]
-
+    print(f"Context text: {context_text}, Similarity: {similarity}")
     if similarity >= 0.35:
         # Query all matching rows by activity_name
         hazard_rows = KnownData.query.filter_by(activity_name=context_text).all()
@@ -157,6 +160,7 @@ def ai_function(activity):
             "description": row.hazard_des,
             "type": [t.strip() for t in row.hazard_type.split(",")] if row.hazard_type else [],
             "injuries": [row.injury] if row.injury else [],
+            "risk_type": row.risk_type,
             "existingControls": row.control,
             "severity": row.severity,
             "likelihood": row.likelihood,
@@ -175,6 +179,7 @@ def ai_function(activity):
                 "description": row.hazard_des,
                 "type": [row.hazard_type] if row.hazard_type else [],
                 "injuries": [row.injury] if row.injury else [],
+                "risk_type": row.risk_type,
                 "existingControls": row.control,
                 "severity": row.severity,
                 "likelihood": row.likelihood,
@@ -183,6 +188,7 @@ def ai_function(activity):
             for row in hazard_rows
         ]
         response = generate_answer(activity, hazard_data)
+        print("Response from AI:", response)
         result = parse_multiple_risk_assessments(response)
 
     return result
@@ -286,30 +292,8 @@ def get_matched_activities(title, processName):
     db_result = list(dict.fromkeys(db_result))
 
     if similarity >= 0.35:
-        # title, processName = context_text.split("%%", 1)
-        # query_result = KnownData.query.filter(
-        #         KnownData.title.ilike(title),
-        #         KnownData.process_name.ilike(processName)
-        #         ).all()
-        # result = [row.activity_name for row in query_result]
         return db_result
     else:
-        # Generate response
-        # hazard_rows = KnownData.query.filter_by(activity_name=context_text).all()
-
-        # # If rows found, convert each row to a dict and store in a list
-        # hazard_data = [
-        #     {
-        #         "description": row.hazard_des,
-        #         "type": [row.hazard_type] if row.hazard_type else [],
-        #         "injuries": [row.injury] if row.injury else [],
-        #         "existingControls": row.control,
-        #         "severity": row.severity,
-        #         "likelihood": row.likelihood,
-        #         "rpn": row.rpn
-        #     }
-        #     for row in hazard_rows
-        # ]
         response = generate_ai_work_activities(title, processName, db_result)
 
         return response
