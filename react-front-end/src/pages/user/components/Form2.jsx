@@ -1218,37 +1218,56 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         }));
       } catch (err) {
         console.warn('Unable to cache data in localStorage:', err);
-      }
-
-      const requestBody = {
-        title,
-        division,
-        processes: raProcesses.map(proc => ({
-          ...proc,
-          activities: proc.activities.map(act => ({
-            ...act,
-            hazards: act.hazards.map(h => ({
-              id: h.id,
-              hazard_id: h.hazard_id,
-              description: h.description,
-              type: h.type,
-              injuries: h.injuries,
-              existingControls: h.existingControls,
-              additionalControls: h.additionalControls,
-              severity: h.severity ?? 0,
-              likelihood: h.likelihood ?? 0,
-              rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
-              newSeverity: h.severity ?? 0,  // Always use severity value
-              newLikelihood: h.newLikelihood ?? 0,
-              newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
-              dueDate: h.dueDate || "",
-              implementationPerson: h.implementationPerson || "",
-              additionalControlType: h.additionalControlType || ""
+      }        const requestBody = {
+          title,
+          division,
+          processes: raProcesses.map(proc => ({
+            ...proc,
+            activities: proc.activities.map(act => ({
+              ...act,
+              hazards: act.hazards.map(h => {
+                // Format existing risk controls with alphabetical prefixes
+                let formattedExistingControls = "";
+                if (h.riskControls && h.riskControls.length > 0) {
+                  formattedExistingControls = h.riskControls.map((rc, idx) => {
+                    // Create alphabetical prefix (a, b, c, etc.)
+                    const prefix = String.fromCharCode(97 + idx) + ") ";
+                    
+                    // Find the risk control type display text
+                    const typeObj = riskcontrolTypesList.find(type => type.value === rc.riskControlType);
+                    const typeText = typeObj ? typeObj.display : "";
+                    
+                    // Format as "a) risk control category - existing risk control"
+                    return `${prefix}${typeText ? typeText + " - " : ""}${rc.existingControls}`;
+                  }).join("\n");
+                } else if (h.existingControls) {
+                  // Fallback to use the legacy field if no riskControls array
+                  formattedExistingControls = `a) ${h.existingControls}`;
+                }
+                
+                return {
+                  id: h.id,
+                  hazard_id: h.hazard_id,
+                  description: h.description,
+                  type: h.type,
+                  injuries: h.injuries,
+                  existingControls: formattedExistingControls, // Use formatted controls
+                  additionalControls: h.additionalControls,
+                  severity: h.severity ?? 0,
+                  likelihood: h.likelihood ?? 0,
+                  rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
+                  newSeverity: h.severity ?? 0,  // Always use severity value
+                  newLikelihood: h.newLikelihood ?? 0,
+                  newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
+                  dueDate: h.dueDate || "",
+                  implementationPerson: h.implementationPerson || "",
+                  additionalControlType: h.additionalControlType || ""
+                };
+              })
             }))
-          }))
-        })),
-        userId: sessionData?.user_id
-      };
+          })),
+          userId: sessionData?.user_id
+        };
 
       if (currentFormId) {
         requestBody.form_id = currentFormId;
