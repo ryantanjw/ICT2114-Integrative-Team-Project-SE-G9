@@ -44,7 +44,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     { value: "Substitution", display: "Substitution" },
     { value: "Engineering Controls", display: "Engineering Controls" },
     { value: "Administrative Controls", display: "Administrative Controls" },
-    { value: "PPE", display: "Personal Protective Equipment (PPE)" }
+    { value: "Personal Protective Equipment (PPE)", display: "Personal Protective Equipment (PPE)" }
   ];
 
 
