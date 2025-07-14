@@ -220,6 +220,61 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           expanded: true
         });
       }
+      
+      // Parse additional risk controls (format: "a) risk control category - additional risk control")
+      const parsedAdditionalRiskControls = [];
+      if (hazard.additionalControls) {
+        // Check if the string contains formatted controls (with a) b) c) prefixes)
+        const controlLines = hazard.additionalControls.split(/\n|(?=[a-z]\))/);
+        
+        // If we have properly formatted controls
+        if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
+          console.log('Parsing formatted additional controls:', controlLines);
+          
+          controlLines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (trimmedLine) {
+              // Match the pattern: a) Category - Text
+              const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+              if (match) {
+                const [, category, controlText] = match;
+                parsedAdditionalRiskControls.push({
+                  id: uuidv4(),
+                  controlType: category,
+                  controlText: controlText.trim(),
+                  expanded: true
+                });
+              } else {
+                // If not matching expected format, just add as-is
+                parsedAdditionalRiskControls.push({
+                  id: uuidv4(),
+                  controlType: "",
+                  controlText: trimmedLine.replace(/^[a-z]\)\s*/, ''), // Remove the prefix if present
+                  expanded: true
+                });
+              }
+            }
+          });
+        } else {
+          // If no proper formatting, use the old format
+          parsedAdditionalRiskControls.push({
+            id: uuidv4(),
+            controlText: hazard.additionalControls,
+            controlType: hazard.additionalControlType || "",
+            expanded: true
+          });
+        }
+      }
+
+      // If no additional risk controls were parsed, add an empty one
+      if (parsedAdditionalRiskControls.length === 0) {
+        parsedAdditionalRiskControls.push({
+          id: uuidv4(),
+          controlText: "",
+          controlType: "",
+          expanded: true
+        });
+      }
 
       return {
         id: hazard.id || hazard.hazard_id || uuidv4(),
@@ -271,7 +326,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         // Collapse/expand flags
         additionalControlsExpanded: true,
         // Use the parsed risk controls
-        riskControls: parsedRiskControls
+        riskControls: parsedRiskControls,
+        // Use the parsed additional risk controls
+        additionalRiskControls: parsedAdditionalRiskControls
       };
     });
   };
@@ -848,6 +905,22 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       newLikelihood: 0,
                       newRpn: 0,
                       implementationPerson: "",
+                      // Collapse/expand flags
+                      additionalControlsExpanded: true,
+                      // Add empty risk controls
+                      riskControls: [{
+                        id: uuidv4(),
+                        existingControls: "",
+                        riskControlType: "",
+                        expanded: true
+                      }],
+                      // Add empty additional risk controls
+                      additionalRiskControls: [{
+                        id: uuidv4(),
+                        controlText: "",
+                        controlType: "",
+                        expanded: true
+                      }]
                     },
                   ],
                 }
@@ -1303,7 +1376,27 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                   type: h.type,
                   injuries: h.injuries,
                   existingControls: formattedExistingControls, // Use formatted controls
-                  additionalControls: h.additionalControls,
+                  additionalControls: (() => {
+                    // Format additional risk controls with alphabetical prefixes just like existing controls
+                    let formattedAdditionalControls = "";
+                    if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
+                      formattedAdditionalControls = h.additionalRiskControls.map((ac, idx) => {
+                        // Create alphabetical prefix (a, b, c, etc.)
+                        const prefix = String.fromCharCode(97 + idx) + ") ";
+                        
+                        // Find the risk control type display text
+                        const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
+                        const typeText = typeObj ? typeObj.display : "";
+                        
+                        // Format as "a) risk control category - additional risk control"
+                        return `${prefix}${typeText ? typeText + " - " : ""}${ac.controlText}`;
+                      }).join("\n");
+                    } else if (h.additionalControls) {
+                      // Fallback to use the legacy field if no additionalRiskControls array
+                      formattedAdditionalControls = `a) ${h.additionalControls}`;
+                    }
+                    return formattedAdditionalControls;
+                  })(),
                   severity: h.severity ?? 0,
                   likelihood: h.likelihood ?? 0,
                   rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
@@ -1453,6 +1546,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       id: uuidv4(),
       existingControls: existingControls || "",
       riskControlType, // Set the extracted risk control type
+      expanded: true
+    }],
+    // Add additionalRiskControls array
+    additionalRiskControls: [{
+      id: uuidv4(),
+      controlText: additionalControls || "",
+      controlType: additionalControlType || "",
       expanded: true
     }]
   };
