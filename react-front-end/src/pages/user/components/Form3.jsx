@@ -195,8 +195,8 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
 
           // Set approval information
           if (data.approved_by) {
-            setApprovedBy(data.approved_by.user_name || "");
-            setDesignation(data.approved_by.user_designation || "");
+            setApprovedBy(data.approved_by || "");
+            setDesignation(data.designation || "");
           }
 
           setDataLoaded(true);
@@ -531,7 +531,6 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
           id="ref-number"
           value={referenceNumber}
           onChange={(e) => setReferenceNumber(e.target.value)}
-          disabled
         />
         <div className="flex-1">
           <InputGroup
@@ -649,27 +648,18 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
       </div>
 
       {/* Approval row */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <InputGroup
           label="Approved by"
           id="approved-by"
           value={approvedBy}
           onChange={(e) => setApprovedBy(e.target.value)}
-          disabled
-        />
-        <InputGroup
-          label="Signature"
-          id="signature"
-          value={signature}
-          onChange={(e) => setSignature(e.target.value)}
-          disabled
         />
         <InputGroup
           label="Designation"
           id="designation"
           value={designation}
           onChange={(e) => setDesignation(e.target.value)}
-          disabled
         />
       </div>
 

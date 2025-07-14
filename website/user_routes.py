@@ -1141,7 +1141,9 @@ def get_form3_data(form_id):
             "form_reference_number": form.form_reference_number,
             "approved_by": None,
             "last_review_date": None,
-            "team_data": None
+            "team_data": None,
+            "approved_by": form.approved_by, 
+            "designation": form.designation if hasattr(form, "designation") else None,
         }
         
         # Format dates if they exist
@@ -1155,11 +1157,15 @@ def get_form3_data(form_id):
         if form.approved_by:
             approver = User.query.get(form.approved_by)
             if approver:
-                form_data["approved_by"] = {
-                    "user_id": approver.user_id,
-                    "user_name": approver.user_name,
-                    "user_designation": approver.user_designation
-                }
+                form_data["approved_by"] = approver.user_name
+                form_data["designation"] = approver.user_designation
+            else:
+                form_data["approved_by"] = form.approved_by  # fallback to raw value
+                form_data["designation"] = getattr(form, "designation", None)
+        else:
+            form_data["approved_by"] = None
+            form_data["designation"] = getattr(form, "designation", None)
+
         
         # Get RA Team info if available
         if form.form_RA_team_id:
@@ -1325,6 +1331,10 @@ def form3_save():
                 form.next_review_date = datetime.fromisoformat(data.get('next_review_date'))
             except ValueError:
                 print(f"Invalid next_review_date format: {data.get('next_review_date')}")
+        if 'approvedBy' in data:
+            form.approved_by = data['approvedBy']
+        if 'designation' in data:
+            form.designation = data['designation']
         
         # Handle RA Team
         ra_team_members = data.get('raTeam', [])
