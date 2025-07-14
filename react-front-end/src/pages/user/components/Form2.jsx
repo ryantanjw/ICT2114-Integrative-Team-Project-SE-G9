@@ -1114,61 +1114,51 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     h.id === hazardId
                       ? {
                         ...h,
-                        // Update the risk control type - ensure only one selection at a time
-                        riskControls: (h.riskControls || []).map(rc => {
-                          if (rc.id === controlId) {
-                            console.log("Updating risk control:", rc);
-                            const newRiskControlType = isToggling ? "" : type;
-
-                            // Update the existingControls field to include/exclude the risk control type
-                            let existingText = h.existingControls || "";
-
-                            // Extract the type prefix if it exists
-                            const typeRegex = /^\[(.*?)\]\s*/;
-                            const match = existingText.match(typeRegex);
-
-                            if (newRiskControlType) {
-                              // Adding or changing type
-                              if (match) {
-                                // Replace existing type
-                                existingText = existingText.replace(typeRegex, `[${typeDisplay}] `);
-                              } else {
-                                // Add new type prefix
-                                existingText = `[${typeDisplay}] ${existingText}`;
-                              }
-                            } else {
-                              // Removing type
-                              if (match) {
-                                existingText = existingText.replace(typeRegex, '');
-                              }
-                            }
-
-                            return {
-                              ...rc,
-                              riskControlType: newRiskControlType,
-                              existingControls: existingText
-                            };
+                        riskControls: (() => {
+                          // If no risk controls, create one
+                          if (!h.riskControls || h.riskControls.length === 0) {
+                            return [{
+                              id: controlId || uuidv4(),
+                              riskControlType: isToggling ? "" : type,
+                              existingControls: isToggling ? h.existingControls.replace(/^\[(.*?)\]\s*/, "") : `[${typeDisplay}] ${h.existingControls}`,
+                              expanded: true
+                            }];
                           }
-                          return rc;
-                        }),
-                        // Also update the main existingControls field for the hazard
+                          // Otherwise, update the correct one
+                          return h.riskControls.map(rc => {
+                            if (rc.id === controlId) {
+                              const typeRegex = /^\[(.*?)\]\s*/;
+                              let existingText = h.existingControls || "";
+                              const match = existingText.match(typeRegex);
+
+                              if (!isToggling) {
+                                existingText = match
+                                  ? existingText.replace(typeRegex, `[${typeDisplay}] `)
+                                  : `[${typeDisplay}] ${existingText}`;
+                              } else if (match) {
+                                existingText = existingText.replace(typeRegex, "");
+                              }
+
+                              return {
+                                ...rc,
+                                riskControlType: isToggling ? "" : type,
+                                existingControls: existingText
+                              };
+                            }
+                            return rc;
+                          });
+                        })(),
                         existingControls: (() => {
                           const typeRegex = /^\[(.*?)\]\s*/;
                           const currentText = h.existingControls || "";
                           const match = currentText.match(typeRegex);
 
                           if (isToggling) {
-                            // Removing the current type
                             return match ? currentText.replace(typeRegex, "") : currentText;
                           } else {
-                            // Adding or changing the type
-                            if (match) {
-                              // Replace existing type
-                              return currentText.replace(typeRegex, `[${typeDisplay}] `);
-                            } else {
-                              // Add new type prefix
-                              return `[${typeDisplay}] ${currentText}`;
-                            }
+                            return match
+                              ? currentText.replace(typeRegex, `[${typeDisplay}] `)
+                              : `[${typeDisplay}] ${currentText}`;
                           }
                         })()
                       }
@@ -1184,6 +1174,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
     setTimeout(scheduleBatchedUpdate, 0);
   };
+
 
   const addInjury = (processId, activityId, hazardId) => {
     setRaProcesses(
@@ -1273,7 +1264,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           if (!hazard.description.trim()) missingFields.push('Hazard Description');
           if (hazard.type.length === 0) missingFields.push('Hazard Type');
           if (hazard.injuries.length === 0) missingFields.push('Possible Injuries');
-          if (!hazard.existingControls.trim()) missingFields.push('Existing Risk Controls');
+          if (
+            !(
+              Array.isArray(hazard.riskControls) &&
+              hazard.riskControls.some(rc => rc.existingControls && rc.existingControls.trim())
+            ) &&
+            !(hazard.existingControls && hazard.existingControls.trim())
+          ) {
+            missingFields.push('Existing Risk Controls');
+          }
           if (hazard.severity === 0) missingFields.push('Severity');
           if (hazard.likelihood === 0) missingFields.push('Likelihood');
 
@@ -2348,8 +2347,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                 setTimeout(scheduleBatchedUpdate, 0);
                                               }}
                                               className={`px-3 py-1 rounded-full ${additionalControl.controlType === typeObj.value
-                                                  ? "bg-black text-white"
-                                                  : "bg-gray-200"
+                                                ? "bg-black text-white"
+                                                : "bg-gray-200"
                                                 }`}
                                             >
                                               {typeObj.display}
