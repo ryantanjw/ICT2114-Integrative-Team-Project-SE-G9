@@ -75,16 +75,11 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   }
   }, [divisions, division]);
 
-  // Check for previously generated PDFs when component mounts
+  // Always generate PDF on mount
   useEffect(() => {
-    // Check if this form has a previously generated PDF flag
-    const hasGeneratedPdf = localStorage.getItem(`generatedPdf_${formData.form_id}`);
-    
-    if (hasGeneratedPdf === "true" && !generatedPdfUrl) {
-      console.log("Found previously generated PDF for this form, auto-generating...");
-      generatePdf();
-    }
-  }, [formData.form_id]); // Only run when form_id changes
+    generatePdf();
+    // eslint-disable-next-line
+  }, []);
 
   // Cleanup object URL when component unmounts or URL changes
   useEffect(() => {
