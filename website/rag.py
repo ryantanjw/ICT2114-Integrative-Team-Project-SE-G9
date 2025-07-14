@@ -213,6 +213,17 @@ def reembed_kbhazard():
 
     return True
 
+def reembed_kbtitleprocess():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_titleprocess_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_titleprocess_cache_path, kb_embeddings)
+
+    return True
+
+
 
 def load_hazard_kb_and_embeddings():
     # Load KB

@@ -77,6 +77,8 @@ def approve_hazard():
     # add the data into the known data table
     try:
         new_known_data = KnownData(
+            title = data.get("form_title"),
+            process = data.get("process"),
             activity_name=data.get("work_activity"),
             hazard_type=data.get("hazard_type"),
             hazard_des=data.get("hazard"),
@@ -115,6 +117,17 @@ def approve_hazard():
     except Exception as e:
         print(f"Error updating kbhazard.txt or reembedding: {e}")
         return jsonify({"success": False, "message": "Failed to update kbhazard.txt"}), 500
+    
+    # add form and process into kbtitleprocess.txt and reembed it
+    try:
+        with open(os.path.join(os.path.dirname(__file__), 'kbtitleprocess.txt'), 'a') as f:
+            f.write(f"&&{data.get('form_title')}%%{data.get('process')}")
+        print("Success: appended to kbtitleprocess.txt")
+        reembed_kbtitleprocess()
+        print("Success: reembed_kbtitleprocess() called")
+    except Exception as e:
+        print(f"Error updating kbtitleprocess.txt or reembedding: {e}")
+        return jsonify({"success": False, "message": "Failed to update kbtitleprocess.txt"}), 500
 
     print("Hazard approval process completed successfully")
     return jsonify({"success": True, "message": "Hazard approved", "hazard_id": data.get("hazard_id")})
@@ -152,10 +165,12 @@ def get_new_hazard():
                 
                 user = User.query.get(form.form_user_id) if form and form.form_user_id else None
                 risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
+                process = Process.query.get(activity.activity_process_id)
                 
                 results.append({
                     'hazard_id': hazard.hazard_id,
                     'hazard_activity_id': hazard.hazard_activity_id,
+                    'process': process.process_title if process else "Unknown Process",
                     'hazard': hazard.hazard or "No hazard description",
                     'injury': hazard.injury or "No injury description",
                     'hazard_type_id': hazard.hazard_type_id,

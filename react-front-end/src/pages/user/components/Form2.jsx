@@ -763,16 +763,20 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
   };
 
+  const hasRun = useRef(false);
+
   useEffect(() => {
     if (raProcesses.length === 0) return;
 
     (async () => {
+      if (hasRun.current) return; // Prevent multiple runs
       const alreadyRun = await hasRunForForm(formId);
 
       if (!alreadyRun) {
         console.log("First time running addHazardsToAllProcesses for this form");
         addHazardsToAllProcesses(title);
         await storeHasRunInSession(formId);
+        hasRun.current = true; // Set flag to prevent future runs
       } else {
         console.log("ℹAlready ran for this form — skipping");
       }
@@ -1840,6 +1844,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     rpn: h.rpn
                   })
                 );
+                
 
                 return {
                   ...act,
