@@ -132,8 +132,8 @@ class RA_team_member(db.Model):
 
     # Define fields
     RA_team_id = db.Column(db.Integer, db.ForeignKey('RA_team.RA_team_id'),primary_key=True, nullable=False)
-    RA_team_member = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
-    RA_team_member_name = db.Column(db.String(124), nullable=False)
+    RA_team_member = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
+    RA_team_member_name = db.Column(db.String(124), nullable=True)
 
 class share_access(db.Model):
     __tablename__ = 'share_access'

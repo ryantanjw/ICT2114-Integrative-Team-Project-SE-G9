@@ -1,17 +1,17 @@
-import { useState, useEffect, useRef, forwardRef, useCallback} from "react";
+import { useState, useEffect, useRef, forwardRef, useCallback } from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdAdd, MdDelete } from "react-icons/md";
 import { LuMinus } from "react-icons/lu";
 
 
-const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref) => {
+const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Initialize simple fields, falling back to sample if provided
   const [referenceNumber, setReferenceNumber] = useState("");
   const [division, setDivision] = useState(
     formData?.division ? String(formData.division) :
-    sample?.division ? String(sample.division) : ""
-  );    
+      sample?.division ? String(sample.division) : ""
+  );
   const [divisions, setDivisions] = useState([]); // State for division options
   const [divisionsLoading, setDivisionsLoading] = useState(false);
   const [title, setTitle] = useState("");
@@ -48,52 +48,52 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
   }, [formData]);
 
   // Fetch divisions from API
-    const fetchDivisions = useCallback(async () => {
-      if (divisionsLoading) return; // Prevent multiple concurrent requests
-      
-      setDivisionsLoading(true);
-      try {
-        const response = await fetch('/api/user/retrieveDivisions');
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Divisions fetched:', data);
-          
-          // Transform the data to match the expected format for dropdown options
-          // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
-          const divisionOptions = data.map(div => ({
-            value: String(div.division_id), // Ensure string type
-            label: div.division_name // Use division_name as display text
-          }));
-          
-          setDivisions(divisionOptions);
-        } else {
-          console.error('Failed to fetch divisions');
-          // Fallback to default options if API fails
-          setDivisions([
-            { value: "division1", label: "Division 1" },
-            { value: "division2", label: "Division 2" },
-            { value: "division3", label: "Division 3" },
-          ]);
-        }
-      } catch (error) {
-        console.error('Error fetching divisions:', error);
+  const fetchDivisions = useCallback(async () => {
+    if (divisionsLoading) return; // Prevent multiple concurrent requests
+
+    setDivisionsLoading(true);
+    try {
+      const response = await fetch('/api/user/retrieveDivisions');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Divisions fetched:', data);
+
+        // Transform the data to match the expected format for dropdown options
+        // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
+        const divisionOptions = data.map(div => ({
+          value: String(div.division_id), // Ensure string type
+          label: div.division_name // Use division_name as display text
+        }));
+
+        setDivisions(divisionOptions);
+      } else {
+        console.error('Failed to fetch divisions');
         // Fallback to default options if API fails
         setDivisions([
           { value: "division1", label: "Division 1" },
           { value: "division2", label: "Division 2" },
           { value: "division3", label: "Division 3" },
         ]);
-      } finally {
-        setDivisionsLoading(false);
       }
-    }, [divisionsLoading]);
-  
-    // Fetch divisions on component mount
-    useEffect(() => {
-      fetchDivisions();
-    }, []);
-  
-    useEffect(() => {
+    } catch (error) {
+      console.error('Error fetching divisions:', error);
+      // Fallback to default options if API fails
+      setDivisions([
+        { value: "division1", label: "Division 1" },
+        { value: "division2", label: "Division 2" },
+        { value: "division3", label: "Division 3" },
+      ]);
+    } finally {
+      setDivisionsLoading(false);
+    }
+  }, [divisionsLoading]);
+
+  // Fetch divisions on component mount
+  useEffect(() => {
+    fetchDivisions();
+  }, []);
+
+  useEffect(() => {
     if (divisions.length > 0 && division && isNaN(division)) {
       // division holds a name, find matching ID
       const matchedDivision = divisions.find(d => d.label === division);
@@ -318,9 +318,9 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
         alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
         return false;
       }
-  
+
       setIsLoading(true);
-  
+
       // Prepare form data
       const formData = {
         title,
@@ -399,9 +399,9 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
               alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
               return null;
             }
-        
+
             setIsLoading(true);
-        
+
             // Prepare form data
             const dataToSave = {
               title,
@@ -450,7 +450,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
               }
 
               setIsLoading(false);
-              
+
               // Return the saved form data with the correct form_id
               return {
                 form_id: updatedFormId,
@@ -486,13 +486,13 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
             alert("Error: Title is required");
             return false;
           }
-          
+
           // Check for duplicate team members
           if (hasDuplicateMembers(raTeam)) {
             alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
             return false;
           }
-          
+
           // Important: Always return true here for cases with no validation errors
           return true;
         },
@@ -521,7 +521,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
     lastReviewDate, nextReviewDate, raLeader, raTeam,
     approvedBy, signature, designation, hasDuplicateMembers, handleSave
   ]);
-  
+
   return (
     <div className="space-y-6">
       {/* Top row */}
@@ -541,7 +541,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
             type="select"
             options={[
               { value: "", label: "Select Division" },
-                ...divisions
+              ...divisions
             ]}
             disabled={divisionsLoading}
           />
@@ -596,43 +596,15 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
                 id={`ra-team-${idx}`}
                 placeholder={`Team member ${idx + 1}`}
                 value={member}
-                onChange={(e) => {
-                  updateTeamMember(idx, e.target.value);
-                  setSearchTerm(e.target.value);
-                }}
-                onFocus={() => handleTeamMemberFocus(idx)}
+                onChange={(e) => updateTeamMember(idx, e.target.value)}
                 className="flex-1"
               />
-
-              {showDropdown && activeTeamMemberIndex === idx && (
-                <div
-                  ref={dropdownRef}
-                  className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-1 max-h-60 overflow-auto"
-                >
-                  {filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => (
-                      <div
-                        key={user.user_id}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={() => handleUserSelect(user, idx)}
-                      >
-                        <div>{user.user_name}</div>
-                        <div className="text-xs text-gray-500">{user.user_email}</div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-4 py-2 text-gray-500">No users found</div>
-                  )}
-                </div>
-              )}
             </div>
-
             <button
               type="button"
               onClick={() => removeTeamMember(idx)}
               disabled={raTeam.length === 1}
-              className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center ${raTeam.length === 1 ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+              className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center ${raTeam.length === 1 ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <LuMinus />
             </button>
@@ -646,6 +618,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData}, ref)
           </div>
         ))}
       </div>
+
 
       {/* Approval row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
