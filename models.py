@@ -12,6 +12,8 @@ class KnownData(db.Model):
     __tablename__ = 'known_data'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title = db.Column(db.Text, nullable=True)
+    process = db.Column(db.Text, nullable=True)
     activity_name = db.Column(db.Text, nullable=True)
     hazard_type = db.Column(db.String(225), nullable=True)
     hazard_des = db.Column(db.Text, nullable=True)

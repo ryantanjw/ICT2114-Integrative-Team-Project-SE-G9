@@ -1825,6 +1825,27 @@ def ai_generate():
         print(f"Error generating hazard data: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+# ctrl f tag AI
+@user.route('/get_activities', methods=['POST'])
+def get_activities():
+    """Get activities for a given process using AI or query known_data"""
+    try:
+        data = request.get_json()
+        # title_plus_process_name = str(data.get('title')) + ' ' + str(data.get('processName'))
+        
+        # if not title_plus_process_name:
+        #     return jsonify({"error": "No process name provided"}), 400
+
+        activities = get_matched_activities(str(data.get('title')), str(data.get('processName')))  # Call RAG.py function
+        return jsonify({
+            "success": True,
+            "activities": activities 
+        }), 200
+
+    except Exception as e:
+        print(f"Error getting activities: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 # Reset user password (user only)
 @user.route('/reset_password', methods=['POST'])
 def reset_password():

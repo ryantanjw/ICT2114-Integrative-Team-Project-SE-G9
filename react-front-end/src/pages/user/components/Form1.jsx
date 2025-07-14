@@ -336,6 +336,63 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     }
   }));
 
+  // Tag AI generate work acitivities
+  const generateWorkActivities = async () => {
+    // Loop through all processes
+    const updatedProcesses = await Promise.all(
+      processes.map(async (proc, i) => {
+        const processName = proc.header || `(Process ${i + 1})`;
+
+        try {
+          const response = await fetch('/api/user/get_activities', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ title, processName }),
+          });
+
+          if (!response.ok) {
+            console.error(`Failed to fetch activities for ${processName}`);
+            return proc;
+          }
+
+          const data = await response.json();
+
+          // Assuming backend returns an array of activity names
+          const activityNames = Array.isArray(data.activities) ? data.activities : [];
+          console.log(`Generated activities for ${processName}:`, activityNames);
+
+          const newActivities = activityNames.map((name, idx) => ({
+            id: Date.now() + idx, // unique id
+            description: name,
+            remarks: "",
+          }));
+
+          return {
+            ...proc,
+            activities: [
+              ...newActivities,
+              ...proc.activities
+            ]
+            ,
+          };
+
+        } catch (err) {
+          console.error(`Error fetching activities for ${processName}:`, err);
+          return proc; // fallback to original
+        }
+      })
+    );
+
+    // After all processes updated, set state
+    setProcesses(updatedProcesses);
+    console.log("Updated processes with new activities:", updatedProcesses);
+  };
+
+
+
+
   const addProcess = () => {
     setProcesses([
       ...processes,
@@ -728,6 +785,12 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             disabled={divisionsLoading}
           />
         </div>
+        <CTAButton
+          icon="+"
+          text="Generate Work Activities"
+          onClick={generateWorkActivities}
+          className="ml-2"
+        />
         <CTAButton
           icon="+"
           text="Add Process"

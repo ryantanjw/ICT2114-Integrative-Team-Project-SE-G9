@@ -1,5 +1,6 @@
 # RAG (Retrieval-Augmented Generation) Example
 import openai, os, re
+import json
 import numpy as np
 from models import KnownData
 from dotenv import load_dotenv
@@ -11,8 +12,10 @@ openai.api_key = os.getenv("OPEN_AI_API_KEY")
 base_dir = os.path.dirname(os.path.abspath(__file__))
 kb_path = os.path.join(base_dir, "kb.txt")
 kb_hazard_path = os.path.join(base_dir, "kbhazard.txt")
+kb_titleprocess_path = os.path.join(base_dir, "kbtitleprocess.txt")
 embedding_cache_path = os.path.join(base_dir, "kb_embeddings.npy")
 embedding_hazard_cache_path = os.path.join(base_dir, "kbhazard_embeddings.npy")
+embedding_titleprocess_cache_path = os.path.join(base_dir, "kbtitleprocess_embeddings.npy")
 
 # load existing data from file
 def load_knowledge_base_from_file(filepath):
@@ -184,28 +187,6 @@ def ai_function(activity):
 
     return result
 
-# def get_hazard_match(activity):
-#     # Load KB
-#     knowledge_base = load_knowledge_base_from_file(kb_hazard_path)
-
-#     # Precompute or load cached embeddings
-#     if os.path.exists(embedding_hazard_cache_path):
-#         print("Loading cached embeddings...")
-#         kb_embeddings = load_embeddings(embedding_hazard_cache_path)
-#     else:
-#         print("Generating and caching embeddings using batch processing...")
-#         kb_embeddings = get_embeddings_batched(knowledge_base)
-#         save_embeddings(embedding_hazard_cache_path, kb_embeddings)
-
-#     # Retrieve most relevant
-#     top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
-#     context_text, similarity = top_matches[0]
-
-#     if similarity <= 0.35:
-#         return True
-#     else:
-#         return False
-
 def reembed_kb():
     # Load KB
     knowledge_base = load_knowledge_base_from_file(kb_path)
@@ -247,3 +228,88 @@ def get_hazard_match(activity, knowledge_base, kb_embeddings):
     context_text, similarity = top_matches[0]
     return similarity <= 0.35
 
+def generate_ai_work_activities(title, processName, db_result):
+    user_prompt = (
+        f"""
+            You are a workplace safety risk assessor.
+
+            Based on this title "{title}" and process: "{processName}", and considering similar past activites format associated with the title and process:
+            {db_result}
+
+            Please provide 3 new potential work activities in a list format i.e. ["activity1", "activity2", "activity3"].
+            """
+    )
+
+    response = openai.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are a workplace safety and health risk assessor."},
+            {"role": "user", "content": user_prompt}
+        ]
+    )
+    content = response.choices[0].message.content
+    try:
+        activities = json.loads(content)
+        return activities
+    except json.JSONDecodeError:
+        print("Failed to parse AI response as JSON. Response was:", content)
+        return []
+
+def get_matched_activities(title, processName):
+    '''
+    Step 1: Check if the title and processName exists in the knowledge base (minimum similarity of 0.35)
+    Step 2: If exists, return the activities associated with the title and processName
+    Step 3: If not exists, generate a response using the AI model and return the generted activities
+    '''
+
+    knowledge_base = load_knowledge_base_from_file(kb_titleprocess_path)
+
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_titleprocess_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_titleprocess_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_titleprocess_cache_path, kb_embeddings)
+
+    # Retrieve most relevant
+    titleprocessName = f"{title} {processName}"
+    top_matches = retrieve_most_relevant(titleprocessName, knowledge_base, kb_embeddings, top_k=1)
+    context_text, similarity = top_matches[0]
+    title, processName = context_text.split("%%", 1)
+    query_result = KnownData.query.filter(
+            KnownData.title.ilike(title),
+            KnownData.process.ilike(processName)
+            ).all()
+    db_result = [row.activity_name for row in query_result]
+    db_result = list(dict.fromkeys(db_result))
+
+    if similarity >= 0.35:
+        # title, processName = context_text.split("%%", 1)
+        # query_result = KnownData.query.filter(
+        #         KnownData.title.ilike(title),
+        #         KnownData.process_name.ilike(processName)
+        #         ).all()
+        # result = [row.activity_name for row in query_result]
+        return db_result
+    else:
+        # Generate response
+        # hazard_rows = KnownData.query.filter_by(activity_name=context_text).all()
+
+        # # If rows found, convert each row to a dict and store in a list
+        # hazard_data = [
+        #     {
+        #         "description": row.hazard_des,
+        #         "type": [row.hazard_type] if row.hazard_type else [],
+        #         "injuries": [row.injury] if row.injury else [],
+        #         "existingControls": row.control,
+        #         "severity": row.severity,
+        #         "likelihood": row.likelihood,
+        #         "rpn": row.rpn
+        #     }
+        #     for row in hazard_rows
+        # ]
+        response = generate_ai_work_activities(title, processName, db_result)
+
+        return response
