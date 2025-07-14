@@ -119,7 +119,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     formIdRef.current = id; // This is immediately available
   };
 
-  // Fixed initializeHazards function - replace your existing one
+  // Updated initializeHazards function that parses formatted risk controls
   const initializeHazards = (hazards) => {
     console.log('Initializing hazards with data:', hazards);
     if (!hazards || hazards.length === 0) {
@@ -164,6 +164,61 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         } catch (e) {
           console.error("Failed to parse due date:", hazard.hazard_due_date);
         }
+      }
+
+      // Parse existing risk controls (format: "a) risk control category - existing risk control")
+      const parsedRiskControls = [];
+      if (hazard.existingControls) {
+        // Check if the string contains formatted controls (with a) b) c) prefixes)
+        const controlLines = hazard.existingControls.split(/\n|(?=[a-z]\))/);
+        
+        // If we have properly formatted controls
+        if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
+          console.log('Parsing formatted existing controls:', controlLines);
+          
+          controlLines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (trimmedLine) {
+              // Match the pattern: a) Category - Text
+              const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+              if (match) {
+                const [, category, controlText] = match;
+                parsedRiskControls.push({
+                  id: uuidv4(),
+                  riskControlType: category,
+                  existingControls: controlText.trim(),
+                  expanded: true
+                });
+              } else {
+                // If not matching expected format, just add as-is
+                parsedRiskControls.push({
+                  id: uuidv4(),
+                  riskControlType: "",
+                  existingControls: trimmedLine,
+                  expanded: true
+                });
+              }
+            }
+          });
+        } else {
+          // If no proper formatting, use the old format
+          parsedRiskControls.push({
+            id: uuidv4(),
+            existingControls: hazard.existingControls,
+            riskControlType: hazard.riskControlType || "",
+            expanded: true
+          });
+        }
+      }
+
+      // If no risk controls were parsed, add an empty one
+      if (parsedRiskControls.length === 0) {
+        parsedRiskControls.push({
+          id: uuidv4(),
+          existingControls: "",
+          riskControlType: "",
+          expanded: true
+        });
       }
 
       return {
@@ -215,12 +270,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         showInjuryInput: false,
         // Collapse/expand flags
         additionalControlsExpanded: true,
-        riskControls: [{
-          id: uuidv4(),
-          existingControls: hazard.existingControls || "",
-          riskControlType: hazard.riskControlType || "",
-          expanded: true
-        }]
+        // Use the parsed risk controls
+        riskControls: parsedRiskControls
       };
     });
   };
