@@ -963,7 +963,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     
     // Find the display name for this risk control type
     const typeObj = riskcontrolTypesList.find(item => item.value === type);
-    const typeDisplay = typeObj ? typeObj.display : type;
+    const typeDisplay = typeObj ? typeObj.display : "";
     
     // Determine if we're adding, changing, or removing this type
     const currentRiskControl = hazard?.riskControls?.find(rc => rc.id === controlId);
@@ -1049,6 +1049,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           : proc
       )
     );
+
     setTimeout(scheduleBatchedUpdate, 0);
   };
 
@@ -1780,39 +1781,96 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
                             {/* <-Existing Risk Control Section START --> */}
                             <div className="mb-2 border border-gray-200 rounded-lg">
-                              {/* Only one riskControls section for now */}
-                              {(h.riskControls || [{ id: uuidv4(), existingControls: h.existingControls || "", riskControlType: h.riskControlType || "", expanded: true }]).map((rc) => (
-                                <div key={rc.id}>
-                                  <div
-                                    className="flex items-center justify-between bg-blue-100 px-4 py-2 rounded-t cursor-pointer"
-                                    onClick={() => toggleRiskControlSection(proc.id, act.id, h.id, rc.id)}
-                                  >
-                                    <span className="text-lg font-medium text-blue-800">
-                                      Existing Risk Controls*
-                                    </span>
-                                    <span>
-                                      {rc.expanded ? <FiChevronUp /> : <FiChevronDown />}
-                                    </span>
-                                  </div>
-                                  {rc.expanded && (
-                                    <div className="p-3">
+                              <div
+                                className="flex items-center justify-between bg-blue-100 px-4 py-2 rounded-t cursor-pointer"
+                                onClick={() => toggleRiskControlSection(proc.id, act.id, h.id, (h.riskControls?.[0] || {}).id)}
+                              >
+                                <span className="text-lg font-medium text-blue-800">
+                                  Existing Risk Controls*
+                                </span>
+                                <span>
+                                  {(h.riskControls?.[0] || {}).expanded ? <FiChevronUp /> : <FiChevronDown />}
+                                </span>
+                              </div>
+                              {(h.riskControls?.[0] || {}).expanded && (
+                                <div className="p-3">
+                                  {/* Risk control blocks */}
+                                  {(h.riskControls || [{ id: uuidv4(), existingControls: h.existingControls || "", riskControlType: h.riskControlType || "", expanded: true }]).map((rc, rcIndex) => (
+                                    <div key={rc.id} className="mb-4 pb-4 border-b border-gray-200">
                                       {/* Label + Buttons */}
                                       <div className="flex items-center justify-between mb-1">
-                                        <span className="text-base font-medium">Risk Controls 1</span>
+                                        <span className="text-base font-medium">Existing Risk Controls {rcIndex + 1}</span>
                                         <div className="flex space-x-2">
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              console.log("Remove control");
+                                              // Remove the risk control
+                                              if ((h.riskControls || []).length <= 1) {
+                                                // Don't remove if it's the only control
+                                                return;
+                                              }
+                                              
+                                              setRaProcesses(prev =>
+                                                prev.map(p =>
+                                                  p.id === proc.id ? {
+                                                    ...p,
+                                                    activities: p.activities.map(a =>
+                                                      a.id === act.id ? {
+                                                        ...a,
+                                                        hazards: a.hazards.map(hz =>
+                                                          hz.id === h.id ? {
+                                                            ...hz,
+                                                            riskControls: (hz.riskControls || []).filter(control => control.id !== rc.id)
+                                                          } : hz
+                                                        )
+                                                      } : a
+                                                    )
+                                                  } : p
+                                                )
+                                              );
+                                              scheduleBatchedUpdate();
                                             }}
                                             className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                                            disabled={(h.riskControls || []).length <= 1}
                                           >
                                             <LuMinus />
                                           </button>
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              console.log("Add control");
+                                              // Add a new risk control to the current hazard
+                                              setRaProcesses(prev =>
+                                                prev.map(p =>
+                                                  p.id === proc.id ? {
+                                                    ...p,
+                                                    activities: p.activities.map(a =>
+                                                      a.id === act.id ? {
+                                                        ...a,
+                                                        hazards: a.hazards.map(hz =>
+                                                          hz.id === h.id ? {
+                                                            ...hz,
+                                                            riskControls: [
+                                                              ...(hz.riskControls || [{ 
+                                                                id: uuidv4(), 
+                                                                existingControls: hz.existingControls || "", 
+                                                                riskControlType: hz.riskControlType || "", 
+                                                                expanded: true 
+                                                              }]),
+                                                              {
+                                                                id: uuidv4(),
+                                                                existingControls: "",
+                                                                riskControlType: "",
+                                                                expanded: true
+                                                              }
+                                                            ]
+                                                          } : hz
+                                                        )
+                                                      } : a
+                                                    )
+                                                  } : p
+                                                )
+                                              );
+                                              scheduleBatchedUpdate();
                                             }}
                                             className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
                                           >
@@ -1820,7 +1878,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           </button>
                                         </div>
                                       </div>
-                                      {/* New Risk Control Category Block */}
+                                      {/* Risk Control Category Block */}
                                       <div className="mb-2">
                                         <label className="block text-base text-gray-600 mb-2">
                                           Risk Control Category*
@@ -1830,7 +1888,33 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                             <button
                                               type="button"
                                               key={typeObj.value}
-                                              onClick={() => { console.log("toggleRiskControlType clicked:", typeObj.value); toggleRiskControlType(proc.id, act.id, h.id, typeObj.value, rc.id); }}
+                                              onClick={() => {
+                                                // Update the risk control's type in the array
+                                                setRaProcesses(prev =>
+                                                  prev.map(p =>
+                                                    p.id === proc.id ? {
+                                                      ...p,
+                                                      activities: p.activities.map(a =>
+                                                        a.id === act.id ? {
+                                                          ...a,
+                                                          hazards: a.hazards.map(hz =>
+                                                            hz.id === h.id ? {
+                                                              ...hz,
+                                                              riskControls: (hz.riskControls || []).map(riskCtrl =>
+                                                                riskCtrl.id === rc.id ? {
+                                                                  ...riskCtrl,
+                                                                  riskControlType: riskCtrl.riskControlType === typeObj.value ? "" : typeObj.value
+                                                                } : riskCtrl
+                                                              )
+                                                            } : hz
+                                                          )
+                                                        } : a
+                                                      )
+                                                    } : p
+                                                  )
+                                                );
+                                                scheduleBatchedUpdate();
+                                              }}
                                               className={`px-3 py-1 rounded-full ${rc.riskControlType === typeObj.value
                                                 ? "bg-black text-white"
                                                 : "bg-gray-200"
@@ -1841,113 +1925,118 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           ))}
                                         </div>
                                       </div>
+                                      {/* Risk Control Text Area */}
                                       <div className="mb-4">
                                         <textarea
                                           rows={3}
-                                          value={h.existingControls}
+                                          value={rc.existingControls}
                                           onChange={(e) => {
-                                            // Extract any existing risk control type from the beginning of the text
-                                            const typeRegex = /^\[(.*?)\]\s*/;
-                                            const oldValue = h.existingControls || "";
-                                            const match = oldValue.match(typeRegex);
-                                            
-                                            // Get the selected risk control type if any
-                                            const riskControl = h.riskControls?.find(rc => rc.riskControlType);
-                                            const hasRiskType = riskControl && riskControl.riskControlType;
-                                            
-                                            // If we have a risk type selected, make sure it stays at the beginning
-                                            if (hasRiskType) {
-                                              const typeObj = riskcontrolTypesList.find(item => item.value === riskControl.riskControlType);
-                                              const typeText = typeObj ? `[${typeObj.display}] ` : '';
-                                              
-                                              // Remove any existing type prefix from the new value
-                                              const newText = e.target.value.replace(typeRegex, '');
-                                              
-                                              // Update with the type prefix preserved
-                                              updateHazard(proc.id, act.id, h.id, "existingControls", typeText + newText);
-                                            } else {
-                                              // No risk type selected, just update normally
-                                              updateHazard(proc.id, act.id, h.id, "existingControls", e.target.value);
-                                            }
+                                            // Update the risk control's text in the array
+                                            setRaProcesses(prev =>
+                                              prev.map(p =>
+                                                p.id === proc.id ? {
+                                                  ...p,
+                                                  activities: p.activities.map(a =>
+                                                    a.id === act.id ? {
+                                                      ...a,
+                                                      hazards: a.hazards.map(hz =>
+                                                        hz.id === h.id ? {
+                                                          ...hz,
+                                                          riskControls: (hz.riskControls || []).map(riskCtrl =>
+                                                            riskCtrl.id === rc.id ? {
+                                                              ...riskCtrl,
+                                                              existingControls: e.target.value
+                                                            } : riskCtrl
+                                                          )
+                                                        } : hz
+                                                      )
+                                                    } : a
+                                                  )
+                                                } : p
+                                              )
+                                            );
+                                            scheduleBatchedUpdate();
                                           }}
                                           placeholder="Describe existing risk controls..."
                                           className="w-full border border-gray-300 rounded p-2"
                                         />
                                       </div>
-                                      {/* RPN Alert */}
-                                      {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
-                                        <div className="bg-red-700 text-white p-2 rounded text-base mt-2 mb-2">
-                                          <div className="flex items-center space-x-2">
-                                            <IoIosWarning className="text-xl" />
-                                            <span className="font-medium">High Risk Detected (RPN ≥ 15)</span>
-                                          </div>
-                                          <p>
-                                            Additional Risk Controls, New Likelihood, Due Date, and Implementation Person are required.
-                                            <span className="font-medium inline"> The risk level must be reduced below 15 to submit the form.</span>
-                                          </p>
-                                        </div>
-                                      )}
-                                      {/* Initial Risk Assessment Required Fields */}
-                                      <div className="flex space-x-4">
-                                        {[
-                                          { name: "Severity", required: true },
-                                          { name: "Likelihood", required: true },
-                                          { name: "RPN", required: false }
-                                        ].map((field) => (
-                                          <div key={field.name}>
-                                            <label className="block text-base font-medium mb-1">
-                                              {field.name}{field.required && "*"}
-                                              {field.name === "RPN" && (h.severity ?? 0) * (h.likelihood ?? 0) >= 15 && (
-                                                <span className="ml-1 text-red-700 font-bold">(High Risk!)</span>
-                                              )}
-                                            </label>
-                                            {field.name === "RPN" ? (
-                                              <select
-                                                value={(h.severity ?? 0) * (h.likelihood ?? 0)}
-                                                disabled
-                                                className={`${getDropdownColor(
-                                                  "rpn",
-                                                  (h.severity ?? 0) * (h.likelihood ?? 0)
-                                                )} text-white rounded px-2 py-1`}
-                                              >
-                                                {[...Array(26)].map((_, i) => (
-                                                  <option key={i} value={i}>
-                                                    {i}{i >= 15 ? " (High Risk)" : ""}
-                                                  </option>
-                                                ))}
-                                              </select>
-                                            ) : (
-                                              <select
-                                                value={h[field.name.toLowerCase()] ?? 0}
-                                                onChange={(e) =>
-                                                  updateHazard(
-                                                    proc.id,
-                                                    act.id,
-                                                    h.id,
-                                                    field.name.toLowerCase(),
-                                                    parseInt(e.target.value)
-                                                  )
-                                                }
-                                                className={`${getDropdownColor(
-                                                  field.name.toLowerCase(),
-                                                  h[field.name.toLowerCase()] ?? 0
-                                                )} text-white rounded px-2 py-1`}
-                                              >
-                                                <option value={0}>Select</option>
-                                                {[1, 2, 3, 4, 5].map((v) => (
-                                                  <option key={v} value={v}>
-                                                    {v}
-                                                  </option>
-                                                ))}
-                                              </select>
-                                            )}
-                                          </div>
-                                        ))}
+                                    </div>
+                                  ))}
+                                
+                                  {/* RPN Alert */}
+                                  {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
+                                    <div className="bg-red-700 text-white p-2 rounded text-base mt-2 mb-2">
+                                      <div className="flex items-center space-x-2">
+                                        <IoIosWarning className="text-xl" />
+                                        <span className="font-medium">High Risk Detected (RPN ≥ 15)</span>
                                       </div>
+                                      <p>
+                                        Additional Risk Controls, New Likelihood, Due Date, and Implementation Person are required.
+                                        <span className="font-medium inline"> The risk level must be reduced below 15 to submit the form.</span>
+                                      </p>
                                     </div>
                                   )}
+                                  
+                                  {/* Initial Risk Assessment Required Fields - These are common for all risk controls */}
+                                  <div className="flex space-x-4 mt-4 pt-4 border-t border-gray-200">
+                                    {[
+                                      { name: "Severity", required: true },
+                                      { name: "Likelihood", required: true },
+                                      { name: "RPN", required: false }
+                                    ].map((field) => (
+                                      <div key={field.name}>
+                                        <label className="block text-base font-medium mb-1">
+                                          {field.name}{field.required && "*"}
+                                          {field.name === "RPN" && (h.severity ?? 0) * (h.likelihood ?? 0) >= 15 && (
+                                            <span className="ml-1 text-red-700 font-bold">(High Risk!)</span>
+                                          )}
+                                        </label>
+                                        {field.name === "RPN" ? (
+                                          <select
+                                            value={(h.severity ?? 0) * (h.likelihood ?? 0)}
+                                            disabled
+                                            className={`${getDropdownColor(
+                                              "rpn",
+                                              (h.severity ?? 0) * (h.likelihood ?? 0)
+                                            )} text-white rounded px-2 py-1`}
+                                          >
+                                            {[...Array(26)].map((_, i) => (
+                                              <option key={i} value={i}>
+                                                {i}{i >= 15 ? " (High Risk)" : ""}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <select
+                                            value={h[field.name.toLowerCase()] ?? 0}
+                                            onChange={(e) =>
+                                              updateHazard(
+                                                proc.id,
+                                                act.id,
+                                                h.id,
+                                                field.name.toLowerCase(),
+                                                parseInt(e.target.value)
+                                              )
+                                            }
+                                            className={`${getDropdownColor(
+                                              field.name.toLowerCase(),
+                                              h[field.name.toLowerCase()] ?? 0
+                                            )} text-white rounded px-2 py-1`}
+                                          >
+                                            <option value={0}>Select</option>
+                                            {[1, 2, 3, 4, 5].map((v) => (
+                                              <option key={v} value={v}>
+                                                {v}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              ))}
+                              )}
                             </div>
                             {/* <- Existing Risk Control Section END --> */}
 
@@ -1972,7 +2061,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                 <div className="p-3">
                                   {/* Label + Buttons */}
                                   <div className="flex items-center justify-between mb-1">
-                                    <span className="text-base font-medium">Risk Controls 1</span>
+                                    <span className="text-base font-medium">Additional Risk Controls 1</span>
                                     <div className="flex space-x-2">
                                       <button
                                         type="button"
@@ -1983,13 +2072,45 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                       >
                                         <LuMinus />
                                       </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          console.log("Add control");
-                                        }}
-                                        className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
-                                      >
+                                      <button                                            type="button"
+                                            onClick={() => {
+                                              // Add a new risk control to the current hazard
+                                              setRaProcesses(prev =>
+                                                prev.map(p =>
+                                                  p.id === proc.id ? {
+                                                    ...p,
+                                                    activities: p.activities.map(a =>
+                                                      a.id === act.id ? {
+                                                        ...a,
+                                                        hazards: a.hazards.map(hz =>
+                                                          hz.id === h.id ? {
+                                                            ...hz,
+                                                            riskControls: [
+                                                              ...(hz.riskControls || [{ 
+                                                                id: uuidv4(), 
+                                                                existingControls: hz.existingControls || "", 
+                                                                riskControlType: hz.riskControlType || "", 
+                                                                expanded: true 
+                                                              }]),
+                                                              {
+                                                                id: uuidv4(),
+                                                                existingControls: "",
+                                                                riskControlType: "",
+                                                                expanded: true
+                                                              }
+                                                            ]
+                                                          } : hz
+                                                        )
+                                                      } : a
+                                                    )
+                                                  } : p
+                                                )
+                                              );
+                                              scheduleBatchedUpdate();
+                                            }}
+                                            className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                                          >
+                                            <MdAdd />
                                         <MdAdd />
                                       </button>
                                     </div>
