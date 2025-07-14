@@ -37,9 +37,9 @@ Follow these steps to set up this project:
 > [!IMPORTANT]
 > The frontend has shifted to be React-based, with a Flask backend.
 
-To start the Flask server (interim example providing responses to the React frontend):
+To start the Flask server (interim example providing responses to the React frontend): Run this in the main directory
 
-    run main.py in the parent directory
+    python main.py
 
 To start the React project:
 
