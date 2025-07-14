@@ -364,6 +364,7 @@ const handleDelete = async (formId) => {
                   formId={form.id}
                   currentUser={userData}
                   date={formatDate(form.last_access_date || form.created_at)}
+                  expiryDate={formatDate(form.next_review_date)}
                   title={form.title || "Untitled Form"}
                   owner={form.owner || "Unknown User"}
                   tags={form.tags || [form.status] || ["Unknown"]}

@@ -48,9 +48,8 @@ class DocxTemplateGenerator:
             
             # Use provided form_data or fallback to sample data
             if form_data is None or not form_data:
-                print("No form_data provided, using sample data")
+                print("No form_data provided")
                 # Keep your original sample data as fallback
-                assessment_data = self._get_sample_data(assessment_id)
             else:
                 print("Transforming form_data")
 
@@ -70,6 +69,8 @@ class DocxTemplateGenerator:
             # Process the template
             self._process_template_with_risk_data(doc, assessment_data)
             
+            self._replace_page_placeholders_with_fields(doc)
+
             # Save the document
             doc.save(output_path)
             print(f"Risk assessment document generated: {output_path}")
@@ -80,234 +81,7 @@ class DocxTemplateGenerator:
             import traceback
             traceback.print_exc()
             return None
-
-    def _get_sample_data(self, assessment_id: str) -> dict:
-        """Return the original sample data"""
-        return {
-            'basic_info': {
-                'assessment_id': assessment_id,
-                'division': 'Engineering & Operations',
-                'department': 'Safety & Quality Assurance',
-                'location': 'Main Plant - Building A',
-                'supervisor': 'John Smith',
-                'date_created': '2024-01-15',
-                'title': 'Merged Cell Layout Test'
-            },
-            # Work activity inventory data - designed to test merged cells
-            'work_activities': [
-                # Experiment setup process (3 activities - should merge)
-                {
-                    'location': 'Laboratory',
-                    'process': 'Experiment setup',
-                    'work_activity': 'Transfer sample solutions to TOC sample vials, and load them onto TOC autosampler',
-                    'remarks': 'Handle with care'
-                },
-                {
-                    'location': 'Laboratory',
-                    'process': 'Experiment setup',
-                    'work_activity': 'Switch on/off the TOC analyser',
-                    'remarks': 'Follow startup procedure'
-                },
-                {
-                    'location': 'Laboratory',
-                    'process': 'Experiment setup',
-                    'work_activity': 'Switch on synthetic air gas cylinder',
-                    'remarks': 'Check pressure gauge'
-                },
-                
-                # Manufacturing process (4 activities - should merge)
-                {
-                    'location': 'Workshop A',
-                    'process': 'Manufacturing',
-                    'work_activity': 'CNC machine operation',
-                    'remarks': 'Daily production task'
-                },
-                {
-                    'location': 'Workshop A',
-                    'process': 'Manufacturing',
-                    'work_activity': 'Equipment maintenance',
-                    'remarks': 'Weekly preventive maintenance'
-                },
-                {
-                    'location': 'Workshop A',
-                    'process': 'Manufacturing',
-                    'work_activity': 'Quality control inspection',
-                    'remarks': 'Check dimensions and tolerances'
-                },
-                {
-                    'location': 'Workshop A',
-                    'process': 'Manufacturing',
-                    'work_activity': 'Material handling',
-                    'remarks': 'Raw material preparation'
-                },
-                
-                # Chemical Handling process (3 activities - should merge)
-                {
-                    'location': 'Chemical Store',
-                    'process': 'Chemical Handling',
-                    'work_activity': 'Chemical dispensing',
-                    'remarks': 'PPE mandatory'
-                },
-                {
-                    'location': 'Chemical Store',
-                    'process': 'Chemical Handling',
-                    'work_activity': 'Waste disposal',
-                    'remarks': 'Follow disposal procedures'
-                },
-                {
-                    'location': 'Chemical Store',
-                    'process': 'Chemical Handling',
-                    'work_activity': 'Inventory tracking',
-                    'remarks': 'Daily stock check'
-                },
-                
-                # Assembly process (2 activities - should merge)
-                {
-                    'location': 'Workshop B',
-                    'process': 'Assembly',
-                    'work_activity': 'Product assembly',
-                    'remarks': 'Main assembly line'
-                },
-                {
-                    'location': 'Workshop B',
-                    'process': 'Assembly',
-                    'work_activity': 'Final inspection',
-                    'remarks': 'Quality assurance check'
-                },
-                
-                # Single activity processes (should not merge)
-                {
-                    'location': 'Storage Area',
-                    'process': 'Logistics',
-                    'work_activity': 'Inventory management',
-                    'remarks': 'Stock counting and tracking'
-                },
-                {
-                    'location': 'Office',
-                    'process': 'Administration',
-                    'work_activity': 'Data entry and reporting',
-                    'remarks': 'Daily administrative tasks'
-                },
-                
-                # Testing different location, same process (should be separate groups)
-                {
-                    'location': 'Workshop C',
-                    'process': 'Manufacturing',
-                    'work_activity': 'Machine setup',
-                    'remarks': 'Different location, same process'
-                },
-                {
-                    'location': 'Workshop C',
-                    'process': 'Manufacturing',
-                    'work_activity': 'Production monitoring',
-                    'remarks': 'Continuous oversight'
-                }
-            ],
-            # Risk assessment data that matches your table structure
-            'processes': [
-                {
-                    'process_name': 'Experiment setup',
-                    'risks': [
-                        {
-                            'ref': '1.1',
-                            'activity': 'Sample handling',
-                            'hazard': 'Chemical exposure',
-                            'possible_injury': 'Skin/eye irritation',
-                            'existing_controls': 'PPE, fume hood',
-                            's1': '3',  # Severity
-                            'l1': '2',  # Likelihood  
-                            'rpn1': '6',  # Risk Priority Number
-                            'additional_controls': 'Emergency eyewash station',
-                            's2': '3',  
-                            'l2': '1', 
-                            'rpn2': '3',
-                            'implementation_person': 'Lab Supervisor',
-                            'due_date': '2024-03-01',
-                            'remarks': 'High priority'
-                        },
-                        {
-                            'ref': '1.2',
-                            'activity': 'Equipment operation',
-                            'hazard': 'Electrical hazard',
-                            'possible_injury': 'Electric shock',
-                            'existing_controls': 'Proper grounding, training',
-                            's1': '4',
-                            'l1': '1',
-                            'rpn1': '4',
-                            'additional_controls': 'GFCI protection',
-                            's2': '4',
-                            'l2': '1',
-                            'rpn2': '4',
-                            'implementation_person': 'Electrical Team',
-                            'due_date': '2024-02-15',
-                            'remarks': 'Critical safety item'
-                        }
-                    ]
-                },
-                {
-                    'process_name': 'Manufacturing',
-                    'risks': [
-                        {
-                            'ref': '2.1',
-                            'activity': 'CNC operation',
-                            'hazard': 'Moving machinery',
-                            'possible_injury': 'Crush injury, cuts',
-                            'existing_controls': 'Machine guards, emergency stops',
-                            's1': '4',
-                            'l1': '2',
-                            'rpn1': '8',
-                            'additional_controls': 'Light curtains, additional training',
-                            's2': '4',
-                            'l2': '1',
-                            'rpn2': '4',
-                            'implementation_person': 'Production Manager',
-                            'due_date': '2024-04-01',
-                            'remarks': 'Review monthly'
-                        },
-                        {
-                            'ref': '2.2',
-                            'activity': 'Material handling',
-                            'hazard': 'Manual lifting',
-                            'possible_injury': 'Back injury, strain',
-                            'existing_controls': 'Lifting equipment, training',
-                            's1': '2',
-                            'l1': '3',
-                            'rpn1': '6',
-                            'additional_controls': 'Ergonomic assessment',
-                            's2': '2',
-                            'l2': '2',
-                            'rpn2': '4',
-                            'implementation_person': 'Safety Officer',
-                            'due_date': '2024-03-15',
-                            'remarks': 'Include in safety briefing'
-                        }
-                    ]
-                },
-                {
-                    'process_name': 'Chemical Handling',
-                    'risks': [
-                        {
-                            'ref': '3.1',
-                            'activity': 'Chemical dispensing',
-                            'hazard': 'Chemical spills',
-                            'possible_injury': 'Chemical burns, inhalation',
-                            'existing_controls': 'Spill kits, PPE, ventilation',
-                            's1': '3',
-                            'l1': '2',
-                            'rpn1': '6',
-                            'additional_controls': 'Automated dispensing system',
-                            's2': '3',
-                            'l2': '1',
-                            'rpn2': '3',
-                            'implementation_person': 'Chemical Safety Team',
-                            'due_date': '2024-05-01',
-                            'remarks': 'Budget approval required'
-                        }
-                    ]
-                }
-            ]
-        }
-        
+    
     def _format_possible_injuries(self, injury_text: str) -> str:
         """Format comma-separated injuries as a) b) c) list"""
         if not injury_text:
@@ -1647,3 +1421,11 @@ class DocxTemplateGenerator:
             
         except Exception as e:
             print(f"Warning: Could not set merged cell alignment: {e}")
+
+
+    def _replace_page_placeholders_with_fields(self, doc):
+        """Replace {PAGE} and {NUMPAGES} with actual Word field codes"""
+        for paragraph in doc.paragraphs:
+            if '{PAGE}' in paragraph.text or '{NUMPAGES}' in paragraph.text:
+                self._replace_fields_in_paragraph(paragraph)
+
