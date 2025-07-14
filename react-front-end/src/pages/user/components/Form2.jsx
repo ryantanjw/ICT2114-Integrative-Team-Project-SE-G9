@@ -37,6 +37,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // For warning dialog on activity removal
   const [activityWarningOpen, setActivityWarningOpen] = useState(false);
   const [activityWarningInfo, setActivityWarningInfo] = useState({ processId: null, activityId: null });
+  // For warning dialog on risk control removal
+  const [riskControlWarningOpen, setRiskControlWarningOpen] = useState(false);
+  const [riskControlWarningInfo, setRiskControlWarningInfo] = useState({ processId: null, activityId: null, hazardId: null, riskControlId: null });
+  // For warning dialog on additional risk control removal
+  const [additionalRiskControlWarningOpen, setAdditionalRiskControlWarningOpen] = useState(false);
+  const [additionalRiskControlWarningInfo, setAdditionalRiskControlWarningInfo] = useState({ processId: null, activityId: null, hazardId: null, acIndex: null });
 
   // Temporary hardcoded list of risk control categories
   const riskcontrolTypesList = [
@@ -1995,31 +2001,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              // Remove the risk control
-                                              if ((h.riskControls || []).length <= 1) {
-                                                // Don't remove if it's the only control
-                                                return;
-                                              }
-                                              
-                                              setRaProcesses(prev =>
-                                                prev.map(p =>
-                                                  p.id === proc.id ? {
-                                                    ...p,
-                                                    activities: p.activities.map(a =>
-                                                      a.id === act.id ? {
-                                                        ...a,
-                                                        hazards: a.hazards.map(hz =>
-                                                          hz.id === h.id ? {
-                                                            ...hz,
-                                                            riskControls: (hz.riskControls || []).filter(control => control.id !== rc.id)
-                                                          } : hz
-                                                        )
-                                                      } : a
-                                                    )
-                                                  } : p
-                                                )
-                                              );
-                                              scheduleBatchedUpdate();
+                                              setRiskControlWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id, riskControlId: rc.id });
+                                              setRiskControlWarningOpen(true);
                                             }}
                                             className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
                                             disabled={(h.riskControls || []).length <= 1}
@@ -2267,39 +2250,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              // Don't remove if it's the only control
-                                              if ((h.additionalRiskControls || []).length <= 1) {
-                                                return;
-                                              }
-                                              
-                                              // Remove this specific additional risk control
-                                              setRaProcesses(prev =>
-                                                prev.map(p =>
-                                                  p.id === proc.id ? {
-                                                    ...p,
-                                                    activities: p.activities.map(a =>
-                                                      a.id === act.id ? {
-                                                        ...a,
-                                                        hazards: a.hazards.map(hz =>
-                                                          hz.id === h.id ? {
-                                                            ...hz,
-                                                            additionalRiskControls: (hz.additionalRiskControls || []).filter(
-                                                              (_, index) => index !== acIndex
-                                                            ),
-                                                            // For backward compatibility update the additionalControls field
-                                                            // if we're removing the first control
-                                                            additionalControls: acIndex === 0 && (hz.additionalRiskControls || []).length > 1 
-                                                              ? (hz.additionalRiskControls || [])[1].controlText 
-                                                              : hz.additionalControls
-                                                          } : hz
-                                                        )
-                                                      } : a
-                                                    )
-                                                  } : p
-                                                )
-                                              );
-                                              scheduleBatchedUpdate();
-                                              console.log("Removed additional risk control at index", acIndex);
+                                              setAdditionalRiskControlWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id, acIndex });
+                                              setAdditionalRiskControlWarningOpen(true);
                                             }}
                                             className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
                                             disabled={(h.additionalRiskControls || []).length <= 1}
@@ -2610,6 +2562,69 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           setActivityWarningOpen(false);
         }}
         onClose={() => setActivityWarningOpen(false)}
+      />
+      <WarningDialog
+        isOpen={riskControlWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Risk Control"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          const { processId, activityId, hazardId, riskControlId } = riskControlWarningInfo;
+          setRaProcesses(prev =>
+            prev.map(p =>
+              p.id === processId ? {
+                ...p,
+                activities: p.activities.map(a =>
+                  a.id === activityId ? {
+                    ...a,
+                    hazards: a.hazards.map(hz =>
+                      hz.id === hazardId ? {
+                        ...hz,
+                        riskControls: (hz.riskControls || []).filter(control => control.id !== riskControlId)
+                      } : hz
+                    )
+                  } : a
+                )
+              } : p
+            )
+          );
+          setRiskControlWarningOpen(false);
+          scheduleBatchedUpdate();
+        }}
+        onClose={() => setRiskControlWarningOpen(false)}
+      />
+      <WarningDialog
+        isOpen={additionalRiskControlWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Additional Risk Control"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          const { processId, activityId, hazardId, acIndex } = additionalRiskControlWarningInfo;
+          setRaProcesses(prev =>
+            prev.map(p =>
+              p.id === processId ? {
+                ...p,
+                activities: p.activities.map(a =>
+                  a.id === activityId ? {
+                    ...a,
+                    hazards: a.hazards.map(hz =>
+                      hz.id === hazardId ? {
+                        ...hz,
+                        additionalRiskControls: (hz.additionalRiskControls || []).filter((_, index) => index !== acIndex),
+                        additionalControls: acIndex === 0 && (hz.additionalRiskControls || []).length > 1 
+                          ? (hz.additionalRiskControls || [])[1].controlText 
+                          : hz.additionalControls
+                      } : hz
+                    )
+                  } : a
+                )
+              } : p
+            )
+          );
+          setAdditionalRiskControlWarningOpen(false);
+          scheduleBatchedUpdate();
+        }}
+        onClose={() => setAdditionalRiskControlWarningOpen(false)}
       />
     </div>
   );
