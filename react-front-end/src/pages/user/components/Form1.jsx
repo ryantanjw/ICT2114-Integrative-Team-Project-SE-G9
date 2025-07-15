@@ -705,36 +705,38 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   return (
     <div className="space-y-6">
       {/* Header inputs */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1">
-          <InputGroup
-            label="Title"
-            id="form-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </div>
-        <div className="flex-1">
-          <InputGroup
-            label="Division"
-            id="form-division"
-            value={division}
-            onChange={(e) => setDivision(e.target.value)}
-            type="select"
-            options={[
-              { value: "", label: "Select Division" },
-                ...divisions
-            ]}
-            disabled={divisionsLoading}
-          />
-        </div>
+     <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-end">
+      <div className="xl:col-span-5 w-full">
+        <InputGroup
+          label="Title"
+          id="form-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
+      <div className="xl:col-span-5 w-full">
+        <InputGroup
+          label="Division"
+          id="form-division"
+          value={division}
+          onChange={(e) => setDivision(e.target.value)}
+          type="select"
+          options={[
+            { value: "", label: "Select Division" },
+            ...divisions
+          ]}
+          disabled={divisionsLoading}
+        />
+      </div>
+      <div className="xl:col-span-2 w-full">
         <CTAButton
           icon="+"
           text="Add Process"
           onClick={addProcess}
-          className="ml-auto"
+          className="w-full mb-4"
         />
       </div>
+    </div>
 
       {/* Process sections */}
       {processes.map((proc) => (
