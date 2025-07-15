@@ -381,6 +381,9 @@ def add_user():
     if not data or 'fullName' not in data or 'email' not in data or 'password' not in data:
         return jsonify({"success": False, "error": "Missing required fields"}), 400
     
+    if not data.get('programmeCluster', '').strip():
+        return jsonify({"success": False, "error": "Cluster or Division must be selected"}), 400
+    
     # Check if email already exists
     existing_user = User.query.filter_by(user_email=data['email']).first()
     if existing_user:
