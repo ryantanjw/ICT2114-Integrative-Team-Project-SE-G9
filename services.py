@@ -114,6 +114,18 @@ class DocxTemplateGenerator:
             print(f"=== TRANSFORM DEBUGG: form_info: {form_info}")
             print(f"=== TRANSFORM DEBUG: activities_data count: {len(activities_data)}")
             
+
+            def format_date(date_str):
+                if not date_str or date_str == 'N/A':
+                    return 'N/A'
+                try:
+                    # Parse the ISO format date
+                    date_obj = datetime.fromisoformat(date_str.replace('T00:00:00', ''))
+                    # Format as "14 Jul 2025"
+                    return date_obj.strftime('%d %b %Y')
+                except (ValueError, AttributeError):
+                    return date_str  # Return original if parsing fails
+                
             # Extract basic info from form data
             basic_info = {
                 'assessment_id': assessment_id,
@@ -121,7 +133,8 @@ class DocxTemplateGenerator:
                 'department': form_info.get('department', 'N/A'),
                 'location': form_info.get('location', 'N/A'),
                 'supervisor': form_info.get('supervisor', 'N/A'),
-                'date_created': form_info.get('last_review_date', 'N/A'),
+                'date_created': format_date(form_info.get('last_review_date', 'N/A')),
+                'next_review': format_date(form_info.get('next_review_date', 'N/A')),
                 'title': form_info.get('title', f'Risk Assessment {assessment_id}')
             }
             
