@@ -1,7 +1,7 @@
 import { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallback } from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
-import { MdDelete } from "react-icons/md";
+import { MdDelete, MdExpandMore, MdExpandLess } from "react-icons/md";
 import { toast } from "react-hot-toast";
 
 // Convert to forwardRef to expose methods to parent
@@ -20,6 +20,14 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       }
     ]
   );
+  // Collapsed process state
+  const [collapsedProcessIds, setCollapsedProcessIds] = useState([]);
+  // Toggle collapse for a process
+  const toggleCollapse = (id) => {
+    setCollapsedProcessIds(prev =>
+      prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]
+    );
+  };
 
   // Initialize with formData if available
   const [formId, setFormId] = useState(formData?.form_id || null);
@@ -741,113 +749,121 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       {/* Process sections */}
       {processes.map((proc) => (
         <div key={proc.id}>
-          {/* Editable header bar */}
+          {/* Editable header bar (collapsible) */}
           <div
-            className="flex items-center space-x-2 px-4 py-2 rounded-lg"
+            onClick={() => toggleCollapse(proc.id)}
+            className="flex items-center space-x-2 px-4 py-2 rounded-t-lg bg-gray-100 cursor-pointer border border-gray-200"
             style={{ backgroundColor: proc.headerColor }}
           >
-            <span className="font-semibold text-lg flex-1">{`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}</span>
+            <span className="font-semibold text-lg flex-1 flex items-center gap-2">
+              {collapsedProcessIds.includes(proc.id) ? <MdExpandMore /> : <MdExpandLess />}
+              {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}
+            </span>
             <CTAButton
               icon={<MdDelete />}
               text="Remove"
-              onClick={() => removeProcess(proc.id)}
+              onClick={(e) => {
+                e.stopPropagation(); // prevent collapse toggle
+                removeProcess(proc.id);
+              }}
               className="text-black"
             />
           </div>
-
-          {/* Content wrapper */}
-          <div className="border border-gray-200 bg-white p-4 space-y-4 rounded-b">
-            {/* Process Title Input */}
-            <div>
-              <InputGroup
-                label="Process Title"
-                id={`title-${proc.id}`}
-                value={proc.header}
-                placeholder="Enter Process Title Here"
-                onChange={(e) =>
-                  setProcesses(processes.map(p =>
-                    p.id === proc.id ? { ...p, header: e.target.value } : p
-                  ))
-                }
-              />
-            </div>
-
-            {/* Location */}
-            <div>
-              <InputGroup
-                label="Location"
-                id={`location-${proc.id}`}
-                value={proc.location}
-                onChange={(e) =>
-                  setProcesses(processes.map(p =>
-                    p.id === proc.id ? { ...p, location: e.target.value } : p
-                  ))
-                }
-              />
-            </div>
-
-            {/* Activities */}
-            {proc.activities.map((act) => (
-              <div key={act.id} className="space-y-2 border-t border-gray-200 pt-4">
-                <div className="flex justify-between items-center">
-                  <h5 className="font-medium">Work Activity</h5>
-                  <div className="space-x-2 flex">
-                    <button
-                      type="button"
-                      onClick={() => removeActivity(proc.id, act.id)}
-                      disabled={proc.activities.length === 1}
-                      className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600
-                          ${proc.activities.length === 1 ? "opacity-50 cursor-not-allowed hover:bg-gray-200" : ""}`}
-                    >
-                      −
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addActivity(proc.id)}
-                      className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
+          {/* Content wrapper - only show if not collapsed */}
+          {!collapsedProcessIds.includes(proc.id) && (
+            <div className="border-gray-200 bg-white p-4 space-y-4 border-l border-r border-b">
+              {/* Process Title Input */}
+              <div>
                 <InputGroup
-                  label={`Work Activity Description`}
-                  id={`activity-${proc.id}-${act.id}`}
-                  placeholder="Activity description"
-                  value={act.description}
+                  label="Process Title"
+                  id={`title-${proc.id}`}
+                  value={proc.header}
+                  placeholder="Enter Process Title Here"
                   onChange={(e) =>
                     setProcesses(processes.map(p =>
-                      p.id === proc.id
-                        ? {
-                          ...p,
-                          activities: p.activities.map(a =>
-                            a.id === act.id ? { ...a, description: e.target.value } : a
-                          )
-                        }
-                        : p
+                      p.id === proc.id ? { ...p, header: e.target.value } : p
                     ))
                   }
-                />
-                <textarea
-                  placeholder="Remarks"
-                  value={act.remarks || ""}
-                  onChange={(e) =>
-                    setProcesses(processes.map(p =>
-                      p.id === proc.id
-                        ? {
-                          ...p,
-                          activities: p.activities.map(a =>
-                            a.id === act.id ? { ...a, remarks: e.target.value } : a
-                          )
-                        }
-                        : p
-                    ))
-                  }
-                  className="w-full border border-gray-300 rounded px-3 py-2"
                 />
               </div>
-            ))}
-          </div>
+
+              {/* Location */}
+              <div>
+                <InputGroup
+                  label="Location"
+                  id={`location-${proc.id}`}
+                  value={proc.location}
+                  onChange={(e) =>
+                    setProcesses(processes.map(p =>
+                      p.id === proc.id ? { ...p, location: e.target.value } : p
+                    ))
+                  }
+                />
+              </div>
+
+              {/* Activities */}
+              {proc.activities.map((act) => (
+                <div key={act.id} className="space-y-2 border-t border-gray-200 pt-4">
+                  <div className="flex justify-between items-center">
+                    <h5 className="font-medium">Work Activity</h5>
+                    <div className="space-x-2 flex">
+                      <button
+                        type="button"
+                        onClick={() => removeActivity(proc.id, act.id)}
+                        disabled={proc.activities.length === 1}
+                        className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600
+                            ${proc.activities.length === 1 ? "opacity-50 cursor-not-allowed hover:bg-gray-200" : ""}`}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addActivity(proc.id)}
+                        className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <InputGroup
+                    label={`Work Activity Description`}
+                    id={`activity-${proc.id}-${act.id}`}
+                    placeholder="Activity description"
+                    value={act.description}
+                    onChange={(e) =>
+                      setProcesses(processes.map(p =>
+                        p.id === proc.id
+                          ? {
+                            ...p,
+                            activities: p.activities.map(a =>
+                              a.id === act.id ? { ...a, description: e.target.value } : a
+                            )
+                          }
+                          : p
+                      ))
+                    }
+                  />
+                  <textarea
+                    placeholder="Remarks"
+                    value={act.remarks || ""}
+                    onChange={(e) =>
+                      setProcesses(processes.map(p =>
+                        p.id === proc.id
+                          ? {
+                            ...p,
+                            activities: p.activities.map(a =>
+                              a.id === act.id ? { ...a, remarks: e.target.value } : a
+                            )
+                          }
+                          : p
+                      ))
+                    }
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
       
