@@ -1,4 +1,6 @@
 import { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallback } from "react";
+import WarningDialog from "./WarningDialog.jsx";
+import { IoWarning } from "react-icons/io5";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete, MdExpandMore, MdExpandLess } from "react-icons/md";
@@ -44,6 +46,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   const lastFetchTime = useRef(0);
   const [deletedProcessIds, setDeletedProcessIds] = useState([]); //Use this state to track deleted processes
   const [deletedActivityIds, setDeletedActivityIds] = useState([]); //Use this state to track deleted activities
+
+  // Warning dialogs for process and activity removal
+  const [processWarningOpen, setProcessWarningOpen] = useState(false);
+  const [processToRemoveId, setProcessToRemoveId] = useState(null);
+
+  const [activityWarningOpen, setActivityWarningOpen] = useState(false);
+  const [activityToRemove, setActivityToRemove] = useState({ procId: null, actId: null });
 
   // Fetch divisions from API
   const fetchDivisions = useCallback(async () => {
@@ -747,8 +756,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     </div>
 
       {/* Process sections */}
-      {processes.map((proc) => (
-        <div key={proc.id}>
+      {processes.map((proc, index) => (
+        <div key={proc.id} className={`${index === processes.length - 1 ? "pb-10" : ""}`}>
           {/* Editable header bar (collapsible) */}
           <div
             onClick={() => toggleCollapse(proc.id)}
@@ -763,8 +772,10 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               icon={<MdDelete />}
               text="Remove"
               onClick={(e) => {
-                e.stopPropagation(); // prevent collapse toggle
-                removeProcess(proc.id);
+                console.log("Process Remove clicked for ID:", proc.id);
+                e.stopPropagation();
+                setProcessToRemoveId(proc.id);
+                setProcessWarningOpen(true);
               }}
               className="text-black"
             />
@@ -809,7 +820,12 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
                     <div className="space-x-2 flex">
                       <button
                         type="button"
-                        onClick={() => removeActivity(proc.id, act.id)}
+                        onClick={() => {
+                          console.log("Activity Remove clicked for Process ID:", proc.id, "Activity ID:", act.id);
+                          if (proc.activities.length === 1) return;
+                          setActivityToRemove({ procId: proc.id, actId: act.id });
+                          setActivityWarningOpen(true);
+                        }}
                         disabled={proc.activities.length === 1}
                         className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600
                             ${proc.activities.length === 1 ? "opacity-50 cursor-not-allowed hover:bg-gray-200" : ""}`}
@@ -867,6 +883,37 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         </div>
       ))}
       
+      {/* Warning Dialogs */}
+      <WarningDialog
+        isOpen={processWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Process"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          console.log("Process WarningDialog: onDelete called for ID:", processToRemoveId);
+          removeProcess(processToRemoveId);
+          setProcessWarningOpen(false);
+        }}
+        onClose={() => {
+          console.log("Process WarningDialog: onClose called");
+          setProcessWarningOpen(false);
+        }}
+      />
+      <WarningDialog
+        isOpen={activityWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Activity"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          console.log("Activity WarningDialog: onDelete called for", activityToRemove);
+          removeActivity(activityToRemove.procId, activityToRemove.actId);
+          setActivityWarningOpen(false);
+        }}
+        onClose={() => {
+          console.log("Activity WarningDialog: onClose called");
+          setActivityWarningOpen(false);
+        }}
+      />
     </div>
   );
 });
