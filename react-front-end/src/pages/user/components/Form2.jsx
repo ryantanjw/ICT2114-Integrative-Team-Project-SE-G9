@@ -1747,8 +1747,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         </div>
       </div>
       {/* Render a section for each process */}
-      {raProcesses.map((proc) => (
-        <div key={proc.id} className="hello">
+      {raProcesses.map((proc, index) => (
+        <div key={proc.id} className={`hello ${index === raProcesses.length - 1 ? "pb-10" : ""}`}>
           <div className="inset-x-0 z-50 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
             <span className="font-semibold text-lg">
               {`Process ${proc.processNumber} - ${proc.header}`}
