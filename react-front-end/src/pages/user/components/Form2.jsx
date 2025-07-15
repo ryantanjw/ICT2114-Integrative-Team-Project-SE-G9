@@ -651,8 +651,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         console.log('No form ID available for fetching');
       }
     }
-
   }, [formData?.form_id, sessionData?.current_form_id, formData?.processes?.length]); // Also depend on processes length changes
+
+  // useEffect(() => {
+  //   if (raProcesses.length > 0) {
+  //     addHazardsToAllProcesses(title);
+  //   }
+  // }, [raProcesses]);
 
   // Autocomplete starts from here
   useEffect(() => {
@@ -731,6 +736,60 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       }
     };
   }, []);
+
+  // const hasRun = useRef(false);
+
+  // useEffect(() => {
+  //   if (!hasRun.current && raProcesses.length > 0) {
+  //     addHazardsToAllProcesses(title);
+  //     hasRun.current = true;
+  //   }
+  // }, [raProcesses]);
+
+  const storeHasRunInSession = async (formId) => {
+  try {
+      await fetch('/api/user/store_has_run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ form_id: formId, has_run: true })
+      });
+    } catch (err) {
+      console.error("Failed to store hasRun in session:", err);
+    }
+  };
+
+  const hasRunForForm = async (formId) => {
+    try {
+      const res = await fetch(`/api/user/get_has_run?form_id=${formId}`);
+      const data = await res.json();
+      return data.has_run === true;
+    } catch (err) {
+      console.error("Failed to check hasRun in session:", err);
+      return false;
+    }
+  };
+
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (raProcesses.length === 0) return;
+
+    (async () => {
+      if (hasRun.current) return; // Prevent multiple runs
+      const alreadyRun = await hasRunForForm(formId);
+
+      if (!alreadyRun) {
+        console.log("First time running addHazardsToAllProcesses for this form");
+        addHazardsToAllProcesses(title);
+        await storeHasRunInSession(formId);
+        hasRun.current = true; // Set flag to prevent future runs
+      } else {
+        console.log("ℹAlready ran for this form — skipping");
+      }
+    })();
+  }, [raProcesses, formId]);
+
+
 
   // Enhanced cleanup logic using useEffect
   useEffect(() => {
@@ -1720,6 +1779,105 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     );
   };
 
+  const addHazardsToAllProcesses = async (title) => {
+    const updatedProcesses = await Promise.all(
+      raProcesses.map(async (proc) => {
+        const activityNames = proc.activities.map(
+          (act) => act.description || `Activity ${act.activityNumber || ""}`
+        );
+
+        let filteredActivityNames = [];
+
+        // Step 1: filter activities for this process
+        try {
+          const filterRes = await fetch('/api/user/filtered_activities', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activities: activityNames, processName: proc.header, formTitle: title })
+          });
+
+          if (filterRes.ok) {
+            const filterData = await filterRes.json();
+            filteredActivityNames = Array.isArray(filterData.filtered_activities)
+              ? filterData.filtered_activities
+              : [];
+          } else {
+            console.error(`Failed to filter activities for process ${proc.id}`);
+          }
+        } catch (err) {
+          console.error(`Error filtering activities for process ${proc.id}:`, err);
+        }
+        console.log(`Filtered activities for process ${proc.id}:`, filteredActivityNames);
+
+        // 🔷 Step 2: process each activity while preserving order
+        const updatedActivities = await Promise.all(
+          proc.activities.map(async (act) => {
+            const activityName = act.description || `Activity ${act.activityNumber || ""}`;
+
+            if (!filteredActivityNames.includes(activityName)) {
+              // not in filtered list → keep it with no added hazards
+              return {
+                ...act,
+                hazards: [...act.hazards]  // leave as is
+              };
+            }
+
+            try {
+              const aiRes = await fetch('/api/user/generate_from_db_only', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ activityName, processName: proc.header, formTitle: title })
+              });
+
+              if (aiRes.ok) {
+                const aiData = await aiRes.json();
+                const hazardsArray = Array.isArray(aiData.hazard_data)
+                  ? aiData.hazard_data
+                  : [aiData.hazard_data];
+
+                console.log(`Generated hazards for ${activityName}:`, hazardsArray);
+
+                const newHazards = hazardsArray.map(h =>
+                  createNewHazard({
+                    description: h.description,
+                    type: h.type,
+                    injuries: h.injuries,
+                    riskControlType: h.risk_type,
+                    existingControls: h.existingControls,
+                    severity: h.severity,
+                    likelihood: h.likelihood,
+                    rpn: h.rpn
+                  })
+                );
+                
+
+                return {
+                  ...act,
+                  hazards: [...newHazards, ...act.hazards]  // prepend
+                };
+
+              } else {
+                console.error(`Failed to get hazards for activity: ${activityName}`);
+                return act;
+              }
+            } catch (err) {
+              console.error(`Error getting hazards for activity: ${activityName}`, err);
+              return act;
+            }
+          })
+        );
+
+        return {
+          ...proc,
+          activities: updatedActivities
+        };
+      })
+    );
+
+    setRaProcesses(updatedProcesses);
+  };
+
+
   // end of ctrl f tag AI
 
   // Show loading state
@@ -1783,6 +1941,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               onClick={async () => {
                 const toastId = toast.loading("Generating with AI...");
                 await addHazardsToProcess(proc.id);
+                // await addHazardsToAllProcesses(title);
                 toast.success("Hazards generated", { id: toastId });
               }}
               className="ml-auto bg-gray-100 text-black"

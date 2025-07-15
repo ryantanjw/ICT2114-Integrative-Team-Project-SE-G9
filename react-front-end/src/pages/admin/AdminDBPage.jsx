@@ -157,6 +157,7 @@ export default function AdminDB() {
               severity={hazard.severity}
               likelihood={hazard.likelihood}
               RPN={hazard.RPN}
+              process={hazard.process}
               isExpanded={expandedCardIndex === index}
               onExpand={() =>
                 setExpandedCardIndex(expandedCardIndex === index ? null : index)

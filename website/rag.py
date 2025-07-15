@@ -213,6 +213,17 @@ def reembed_kbhazard():
 
     return True
 
+def reembed_kbtitleprocess():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_titleprocess_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_titleprocess_cache_path, kb_embeddings)
+
+    return True
+
+
 
 def load_hazard_kb_and_embeddings():
     # Load KB
@@ -237,10 +248,9 @@ def get_hazard_match(activity, knowledge_base, kb_embeddings):
 def generate_ai_work_activities(title, processName, db_result):
     user_prompt = (
         f"""
-            You are a workplace safety risk assessor.
+            You are a risk assessor.
 
-            Based on this title "{title}" and process: "{processName}", and considering similar past activites format associated with the title and process:
-            {db_result}
+            Based on this process: "{processName}",
 
             Please provide 3 new potential work activities in a list format i.e. ["activity1", "activity2", "activity3"].
             """
@@ -249,7 +259,7 @@ def generate_ai_work_activities(title, processName, db_result):
     response = openai.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a workplace safety and health risk assessor."},
+            {"role": "system", "content": "You are a risk assessor."},
             {"role": "user", "content": user_prompt}
         ]
     )
@@ -263,7 +273,7 @@ def generate_ai_work_activities(title, processName, db_result):
 
 def get_matched_activities(title, processName):
     '''
-    Step 1: Check if the title and processName exists in the knowledge base (minimum similarity of 0.35)
+    Step 1: Check if the title and processName exists in the knowledge base (minimum similarity of 0.60)
     Step 2: If exists, return the activities associated with the title and processName
     Step 3: If not exists, generate a response using the AI model and return the generted activities
     '''
@@ -291,9 +301,35 @@ def get_matched_activities(title, processName):
     db_result = [row.activity_name for row in query_result]
     db_result = list(dict.fromkeys(db_result))
 
-    if similarity >= 0.35:
+    if similarity >= 0.4:
         return db_result
     else:
         response = generate_ai_work_activities(title, processName, db_result)
-
+        print("Response from AI:", response)
         return response
+    
+def get_matched_activities_only_db(title, processName):
+
+    knowledge_base = load_knowledge_base_from_file(kb_titleprocess_path)
+
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_titleprocess_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_titleprocess_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_titleprocess_cache_path, kb_embeddings)
+
+    # Retrieve most relevant
+    titleprocessName = f"{title} {processName}"
+    top_matches = retrieve_most_relevant(titleprocessName, knowledge_base, kb_embeddings, top_k=1)
+    context_text, similarity = top_matches[0]
+    title, processName = context_text.split("%%", 1)
+    query_result = KnownData.query.filter(
+            KnownData.title.ilike(title),
+            KnownData.process.ilike(processName)
+            ).all()
+    
+
+    return query_result

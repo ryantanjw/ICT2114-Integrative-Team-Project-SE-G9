@@ -355,12 +355,28 @@ export default function UserNewForm() {
       }
     };
 
+    const resetHasRunInSession = async (formId) => {
+      if (!formId) return;
+      try {
+        await fetch('/api/user/reset_has_run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ form_id: formId })
+        });
+        console.log(`hasRun reset for form ${formId}`);
+      } catch (err) {
+        console.error("Failed to reset hasRun in session:", err);
+      }
+    };
+
+
     // Add beforeunload listener
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     // Clean up event listener
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      resetHasRunInSession(formId); // also on component unmount
     };
   }, [formId, isEditMode]);
 
