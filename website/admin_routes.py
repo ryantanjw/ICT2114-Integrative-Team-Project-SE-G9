@@ -322,11 +322,9 @@ def reset_password():
         
         print(f"Resetting password for user: {user.user_name} (ID: {user.user_id})")
         
-        # Hash the new password
-        # hashed_password = generate_password_hash(data['new_password'])
-        # user.user_password = hashed_password
-        
-        user.password = data['new_password']  # Make sure to hash this in production!
+        # Hash the new password before saving
+        hashed_password = generate_password_hash(data['new_password'])
+        user.password = hashed_password
         
         # Save changes
         db.session.commit()
@@ -341,7 +339,7 @@ def reset_password():
         print(f"Error resetting password: {str(e)}")
         db.session.rollback()
         return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500
-    
+        
 @admin.route('/retrieveDivisions', methods=['GET'])
 def retrieve_divisions():
     try:
@@ -392,11 +390,14 @@ def add_user():
     try:
         print(f"Creating new user: {data['fullName']} ({data['email']})")
         
+        # Hash the password before saving
+        hashed_password = generate_password_hash(data['password'])
+        
         # Create new user - adjust this according to your User model
         new_user = User(
             user_name=data['fullName'],
             user_email=data['email'],
-            password=data['password'],  # Make sure to hash this in production!
+            password=hashed_password,  # Store hashed password
             user_designation='student',
             user_role=data['accountType'],  
             user_cluster=data['programmeCluster']
@@ -421,8 +422,7 @@ def add_user():
     except Exception as e:
         print(f"Error creating user: {str(e)}")
         db.session.rollback()
-        return jsonify({"success": False, "error": "Failed to create user"}), 500
-    
+        return jsonify({"success": False, "error": "Failed to create user"}), 500    
 @admin.route('/update_user', methods=['POST'])
 def update_user():
     print("\n=== UPDATE USER CALLED ===")

@@ -1,6 +1,8 @@
 from flask import Blueprint, app,render_template,request,redirect,url_for,jsonify, session
 from models import db, User
 from flask_cors import CORS
+from werkzeug.security import check_password_hash
+
 
 
 auth = Blueprint('auth',__name__,static_folder='static')
@@ -54,7 +56,7 @@ def login_test():
     user = User.query.filter_by(user_email=email).first()
     print(f"User found: {user is not None}")
     
-    if user and user.password == password:
+    if user and check_password_hash(user.password, password):
         # Clear any existing session
         session.clear()
         
@@ -89,7 +91,8 @@ def login_test():
             print(f"Password mismatch for user {email}")
         else:
             print(f"User not found: {email}")
-        return jsonify({"success": False, "error": error_msg}), 401    
+        return jsonify({"success": False, "error": error_msg}), 401        
+    
     
 @auth.route('/check_session', methods=['GET'])
 def check_session():
