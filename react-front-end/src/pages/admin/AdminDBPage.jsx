@@ -8,6 +8,7 @@ import { MdPeople } from "react-icons/md";
 import { BiSolidUserAccount } from "react-icons/bi";
 import { IoMdDocument } from "react-icons/io";
 import axios from "axios";
+import { toast } from "react-hot-toast";
 
 export default function AdminDB() {
   const location = useLocation();
@@ -183,6 +184,7 @@ export default function AdminDB() {
               //   }
               // }}
               onApproveHazard={async () => {
+                const toastId = toast.loading("Approving hazard...");
                 try {
                   const res = await axios.post(
                     "/api/admin/approve_hazard",
@@ -192,6 +194,7 @@ export default function AdminDB() {
 
                   // If the request was successful (status code 2xx), you can access the data:
                   console.log("Hazard approved:", res.data);
+                  toast.success("Hazard approved successfully.", { id: toastId });
 
                   // Remove the approved hazard from the list
                   setHazards((prev) =>
@@ -209,12 +212,14 @@ export default function AdminDB() {
                     // Something else happened
                     console.error("Error:", err.message);
                   }
+                  toast.error("Failed to approve hazard.", { id: toastId });
                 }
               }}
 
 
 
               onRejectHazard={async () => {
+                const toastId = toast.loading("Rejecting hazard...");
                 try {
                   const res = await axios.post(
                     "/api/admin/reject_hazard",
@@ -224,6 +229,7 @@ export default function AdminDB() {
 
                   // If the request was successful (status code 2xx), you can access the data:
                   console.log("Hazard rejected:", res.data);
+                  toast.success("Hazard rejected successfully.", { id: toastId });
 
                   // Optionally update UI by removing the rejected hazard from the list
                   setHazards((prev) =>
@@ -242,6 +248,7 @@ export default function AdminDB() {
                     // Something else happened
                     console.error("Error:", err.message);
                   }
+                  toast.error("Failed to reject hazard.", { id: toastId });
                 }
               }}
             />

@@ -1780,104 +1780,117 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const addHazardsToAllProcesses = async (title) => {
+    const toastId = toast.loading("Loading hazards for all processes...");
     const autofilledWorkActivities = [];
-    const updatedProcesses = await Promise.all(
-      raProcesses.map(async (proc) => {
-        const activityNames = proc.activities.map(
-          (act) => act.description || `Activity ${act.activityNumber || ""}`
-        );
+    try {
+      const updatedProcesses = await Promise.all(
+        raProcesses.map(async (proc) => {
+          const activityNames = proc.activities.map(
+            (act) => act.description || `Activity ${act.activityNumber || ""}`
+          );
 
-        let filteredActivityNames = [];
+          let filteredActivityNames = [];
 
-        // Step 1: filter activities for this process
-        try {
-          const filterRes = await fetch('/api/user/filtered_activities', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ activities: activityNames, processName: proc.header, formTitle: title })
-          });
+          // Step 1: filter activities for this process
+          try {
+            const filterRes = await fetch('/api/user/filtered_activities', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ activities: activityNames, processName: proc.header, formTitle: title })
+            });
 
-          if (filterRes.ok) {
-            const filterData = await filterRes.json();
-            filteredActivityNames = Array.isArray(filterData.filtered_activities)
-              ? filterData.filtered_activities
-              : [];
-          } else {
-            console.error(`Failed to filter activities for process ${proc.id}`);
-          }
-        } catch (err) {
-          console.error(`Error filtering activities for process ${proc.id}:`, err);
-        }
-        console.log(`Filtered activities for process ${proc.id}:`, filteredActivityNames);
-
-        // Step 2: generate each activity hazard while preserving order
-        const updatedActivities = await Promise.all(
-          proc.activities.map(async (act) => {
-            const activityName = act.description || `Activity ${act.activityNumber || ""}`;
-
-            if (!filteredActivityNames.includes(activityName)) {
-              // not in filtered list → keep it with no added hazards
-              return {
-                ...act,
-                hazards: [...act.hazards]  // leave as is
-              };
+            if (filterRes.ok) {
+              const filterData = await filterRes.json();
+              filteredActivityNames = Array.isArray(filterData.filtered_activities)
+                ? filterData.filtered_activities
+                : [];
+            } else {
+              console.error(`Failed to filter activities for process ${proc.id}`);
+              throw new Error(`Failed to filter activities for process ${proc.id}`);
             }
+          } catch (err) {
+            console.error(`Error filtering activities for process ${proc.id}:`, err);
+            throw err;
+          }
+          console.log(`Filtered activities for process ${proc.id}:`, filteredActivityNames);
 
-            try {
-              const aiRes = await fetch('/api/user/generate_from_db_only', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ activityName, processName: proc.header, formTitle: title })
-              });
+          // Step 2: generate each activity hazard while preserving order
+          const updatedActivities = await Promise.all(
+            proc.activities.map(async (act) => {
+              const activityName = act.description || `Activity ${act.activityNumber || ""}`;
 
-              if (aiRes.ok) {
-                const aiData = await aiRes.json();
-                const hazardsArray = Array.isArray(aiData.hazard_data)
-                  ? aiData.hazard_data
-                  : [aiData.hazard_data];
-
-                console.log(`Generated hazards for ${activityName}:`, hazardsArray);
-                autofilledWorkActivities.push(`Hazards for ${activityName} autofilled`);
-
-                const newHazards = hazardsArray.map(h =>
-                  createNewHazard({
-                    description: h.description,
-                    type: h.type,
-                    injuries: h.injuries,
-                    riskControlType: h.risk_type,
-                    existingControls: h.existingControls,
-                    severity: h.severity,
-                    likelihood: h.likelihood,
-                    rpn: h.rpn
-                  })
-                );
-                
-
+              if (!filteredActivityNames.includes(activityName)) {
+                // not in filtered list → keep it with no added hazards
                 return {
                   ...act,
-                  hazards: [...newHazards, ...act.hazards]  // prepend
+                  hazards: [...act.hazards]  // leave as is
                 };
-
-              } else {
-                console.error(`Failed to get hazards for activity: ${activityName}`);
-                return act;
               }
-            } catch (err) {
-              console.error(`Error getting hazards for activity: ${activityName}`, err);
-              return act;
-            }
-          })
-        );
 
-        return {
-          ...proc,
-          activities: updatedActivities
-        };
-      })
-    );
+              try {
+                const aiRes = await fetch('/api/user/generate_from_db_only', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ activityName, processName: proc.header, formTitle: title })
+                });
 
-    setRaProcesses(updatedProcesses);
-    console.log("Autofilled values:", autofilledWorkActivities);
+                if (aiRes.ok) {
+                  const aiData = await aiRes.json();
+                  const hazardsArray = Array.isArray(aiData.hazard_data)
+                    ? aiData.hazard_data
+                    : [aiData.hazard_data];
+
+                  console.log(`Generated hazards for ${activityName}:`, hazardsArray);
+                  autofilledWorkActivities.push(`Hazards for ${activityName} autofilled`);
+
+                  const newHazards = hazardsArray.map(h =>
+                    createNewHazard({
+                      description: h.description,
+                      type: h.type,
+                      injuries: h.injuries,
+                      riskControlType: h.risk_type,
+                      existingControls: h.existingControls,
+                      severity: h.severity,
+                      likelihood: h.likelihood,
+                      rpn: h.rpn
+                    })
+                  );
+
+                  return {
+                    ...act,
+                    hazards: [...newHazards, ...act.hazards]  // prepend
+                  };
+
+                } else {
+                  console.error(`Failed to get hazards for activity: ${activityName}`);
+                  throw new Error(`Failed to get hazards for activity: ${activityName}`);
+                }
+              } catch (err) {
+                console.error(`Error getting hazards for activity: ${activityName}`, err);
+                throw err;
+              }
+            })
+          );
+
+          return {
+            ...proc,
+            activities: updatedActivities
+          };
+        })
+      );
+
+      setRaProcesses(updatedProcesses);
+      console.log("Autofilled values:", autofilledWorkActivities);
+      const totalHazards = autofilledWorkActivities.length;
+      if (totalHazards === 0) {
+        toast.error("No hazards were generated. Please check your inputs.", { id: toastId });
+      } else {
+        toast.success("All hazards loaded successfully.", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Failed to load hazards for all processes.", { id:  toastId });
+      // Optionally: rethrow or handle further
+    }
   };
 
 

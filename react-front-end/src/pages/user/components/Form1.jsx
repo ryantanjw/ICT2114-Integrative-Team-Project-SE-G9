@@ -336,62 +336,63 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     }
   }));
 
-  // Tag AI generate work acitivities
+  // Tag AI generate work activities
   const generateWorkActivities = async () => {
-    // Loop through all processes
+    toast.loading("Generating work activities...", { id: "generate-activities" });
+
     const aiOrNotList = [];
-    const updatedProcesses = await Promise.all(
-      processes.map(async (proc, i) => {
-        const processName = proc.header || `(Process ${i + 1})`;
 
-        try {
-          const response = await fetch('/api/user/get_activities', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ title, processName }),
-          });
+    try {
+      const updatedProcesses = await Promise.all(
+        processes.map(async (proc, i) => {
+          const processName = proc.header || `(Process ${i + 1})`;
 
-          if (!response.ok) {
-            console.error(`Failed to fetch activities for ${processName}`);
+          try {
+            const response = await fetch('/api/user/get_activities', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ title, processName }),
+            });
+
+            if (!response.ok) {
+              console.error(`Failed to fetch activities for ${processName}`);
+              return proc;
+            }
+
+            const data = await response.json();
+            const activityNames = Array.isArray(data.activities) ? data.activities : [];
+            aiOrNotList.push({ processName, aiOrNot: data.text });
+
+            const newActivities = activityNames.map((name, idx) => ({
+              id: Date.now() + idx,
+              description: name,
+              remarks: "",
+            }));
+
+            return {
+              ...proc,
+              activities: [...newActivities, ...proc.activities],
+            };
+
+          } catch (err) {
+            console.error(`Error fetching activities for ${processName}:`, err);
             return proc;
           }
+        })
+      );
 
-          const data = await response.json();
+      setProcesses(updatedProcesses);
+      // console.log("Updated processes with new activities:", updatedProcesses);
+      // console.log("aiOrNot values per process:", aiOrNotList);
 
-          // Assuming backend returns an array of activity names
-          const activityNames = Array.isArray(data.activities) ? data.activities : [];
-          console.log(`Generated activities for ${processName}:`, activityNames);
-          // Collect aiOrNot for this process
-          aiOrNotList.push({ processName, aiOrNot: data.text });
+      toast.success("Work activities generated successfully!", { id: "generate-activities" });
 
-          const newActivities = activityNames.map((name, idx) => ({
-            id: Date.now() + idx, // unique id
-            description: name,
-            remarks: "",
-          }));
-
-          return {
-            ...proc,
-            activities: [
-              ...newActivities,
-              ...proc.activities
-            ]
-            ,
-          };
-
-        } catch (err) {
-          console.error(`Error fetching activities for ${processName}:`, err);
-          return proc; // fallback to original
-        }
-      })
-    );
-
-    // After all processes updated, set state
-    setProcesses(updatedProcesses);
-    console.log("Updated processes with new activities:", updatedProcesses);
-    console.log("aiOrNot values per process:", aiOrNotList);
+    } catch (error) {
+      console.error("Global error in generateWorkActivities:", error);
+      toast.error("Failed to generate work activities. Please try again.", { id: "generate-activities" });
+    }
   };
 
 
