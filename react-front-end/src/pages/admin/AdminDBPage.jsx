@@ -59,9 +59,11 @@ export default function AdminDB() {
 
     const fetchHazards = async () => {
       try {
-        const res = await axios.get("/api/admin/get_new_hazard"); 
-        setHazards(res.data.hazards);
-        console.log("successfully fetched hazards", res.data.hazards);
+        const res = await axios.get("/api/admin/get_new_hazard");
+        if (res.data.hazards.length > 0) {
+          setHazards(res.data.hazards);
+          console.log("successfully fetched hazards", res.data.hazards);
+        }
       } catch (err) {
         console.error("Error fetching hazards", err);
       }
