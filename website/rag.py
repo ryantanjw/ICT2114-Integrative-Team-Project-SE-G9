@@ -248,18 +248,16 @@ def get_hazard_match(activity, knowledge_base, kb_embeddings):
 def generate_ai_work_activities(title, processName, db_result):
     user_prompt = (
         f"""
-            You are a risk assessor.
-
             Based on this process: "{processName}",
 
-            Please provide 3 new potential work activities in a list format i.e. ["activity1", "activity2", "activity3"].
+            Please provide 3 plausible hazardous work activities for that given process in a list format i.e. ["activity1", "activity2", "activity3"].
             """
     )
 
     response = openai.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a risk assessor."},
+            {"role": "system", "content": "You are a workpplace safety hazard expert."},
             {"role": "user", "content": user_prompt}
         ]
     )
