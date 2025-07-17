@@ -339,6 +339,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   // Tag AI generate work acitivities
   const generateWorkActivities = async () => {
     // Loop through all processes
+    const aiOrNotList = [];
     const updatedProcesses = await Promise.all(
       processes.map(async (proc, i) => {
         const processName = proc.header || `(Process ${i + 1})`;
@@ -362,6 +363,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           // Assuming backend returns an array of activity names
           const activityNames = Array.isArray(data.activities) ? data.activities : [];
           console.log(`Generated activities for ${processName}:`, activityNames);
+          // Collect aiOrNot for this process
+          aiOrNotList.push({ processName, aiOrNot: data.text });
 
           const newActivities = activityNames.map((name, idx) => ({
             id: Date.now() + idx, // unique id
@@ -388,6 +391,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     // After all processes updated, set state
     setProcesses(updatedProcesses);
     console.log("Updated processes with new activities:", updatedProcesses);
+    console.log("aiOrNot values per process:", aiOrNotList);
   };
 
 

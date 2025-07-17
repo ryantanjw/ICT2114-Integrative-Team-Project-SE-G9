@@ -1780,6 +1780,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const addHazardsToAllProcesses = async (title) => {
+    const autofilledWorkActivities = [];
     const updatedProcesses = await Promise.all(
       raProcesses.map(async (proc) => {
         const activityNames = proc.activities.map(
@@ -1809,7 +1810,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         }
         console.log(`Filtered activities for process ${proc.id}:`, filteredActivityNames);
 
-        // 🔷 Step 2: process each activity while preserving order
+        // Step 2: generate each activity hazard while preserving order
         const updatedActivities = await Promise.all(
           proc.activities.map(async (act) => {
             const activityName = act.description || `Activity ${act.activityNumber || ""}`;
@@ -1836,6 +1837,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                   : [aiData.hazard_data];
 
                 console.log(`Generated hazards for ${activityName}:`, hazardsArray);
+                autofilledWorkActivities.push(`Hazards for ${activityName} autofilled`);
 
                 const newHazards = hazardsArray.map(h =>
                   createNewHazard({
@@ -1875,6 +1877,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     );
 
     setRaProcesses(updatedProcesses);
+    console.log("Autofilled values:", autofilledWorkActivities);
   };
 
 

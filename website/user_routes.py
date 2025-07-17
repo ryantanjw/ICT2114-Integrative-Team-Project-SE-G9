@@ -1839,10 +1839,12 @@ def get_activities():
         # if not title_plus_process_name:
         #     return jsonify({"error": "No process name provided"}), 400
 
-        activities = get_matched_activities(str(data.get('title')), str(data.get('processName')))  # Call RAG.py function
+        activities, text = get_matched_activities(str(data.get('title')), str(data.get('processName')))  # Call RAG.py function
         return jsonify({
             "success": True,
-            "activities": activities 
+            "activities": activities,
+            "processName": str(data.get('processName')),
+            "text": text
         }), 200
 
     except Exception as e:

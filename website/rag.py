@@ -301,12 +301,12 @@ def get_matched_activities(title, processName):
     db_result = list(dict.fromkeys(db_result))
 
     if similarity >= 0.4:
-        return db_result
+        return db_result, "DB matched"
     else:
         print("Process name: ", processName)
         response = generate_ai_work_activities(title, processName, db_result)
         print("Response from AI:", response)
-        return response
+        return response, "AI generated"
     
 def get_matched_activities_only_db(title, processName):
 
