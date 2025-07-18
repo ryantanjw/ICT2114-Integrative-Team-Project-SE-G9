@@ -3,6 +3,8 @@ import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdAdd, MdDelete } from "react-icons/md";
 import { LuMinus } from "react-icons/lu";
+import WarningDialog from "./WarningDialog.jsx";
+import { IoWarning } from "react-icons/io5";
 
 
 const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
@@ -286,6 +288,10 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
   const updateTeamMember = (idx, val) =>
     setRaTeam(raTeam.map((m, i) => (i === idx ? val : m)));
+
+  // WarningDialog state for removing team member
+  const [teamWarningOpen, setTeamWarningOpen] = useState(false);
+  const [teamMemberToRemoveIndex, setTeamMemberToRemoveIndex] = useState(null);
 
   // Handle user selection from dropdown
   const handleUserSelect = (user, idx) => {
@@ -602,7 +608,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             </div>
             <button
               type="button"
-              onClick={() => removeTeamMember(idx)}
+              onClick={() => {
+                if (raTeam.length === 1) return;
+                setTeamMemberToRemoveIndex(idx);
+                setTeamWarningOpen(true);
+              }}
               disabled={raTeam.length === 1}
               className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center ${raTeam.length === 1 ? "opacity-50 cursor-not-allowed" : ""}`}
             >
@@ -636,7 +646,17 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         />
       </div>
 
-      
+      <WarningDialog
+        isOpen={teamWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Team Member"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          removeTeamMember(teamMemberToRemoveIndex);
+          setTeamWarningOpen(false);
+        }}
+        onClose={() => setTeamWarningOpen(false)}
+      />
     </div>
   );
 });

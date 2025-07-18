@@ -1952,8 +1952,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   return (
     <div className="space-y-6">
       {/* Title & Division */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-end">
+        <div className="xl:col-span-5 w-full">
           <InputGroup
             label="Title"
             id="form2-title"
@@ -1964,7 +1964,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             }}
           />
         </div>
-        <div className="flex-1">
+        <div className="xl:col-span-5 w-full">
           <InputGroup
             label="Division"
             id="form-division"
@@ -1978,16 +1978,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             disabled={divisionsLoading}
           />
         </div>
-        <CTAButton
-          icon={allCollapsed ? RiExpandVerticalLine : RiCollapseVerticalFill}
-          text={allCollapsed ? "Expand All" : "Collapse All"}
-          onClick={toggleExpandAll}
-          className="ml-auto bg-gray-100 text-black"
-        />
+        <div className="xl:col-span-2 w-full">
+          <CTAButton
+            icon={allCollapsed ? RiExpandVerticalLine : RiCollapseVerticalFill}
+            text={allCollapsed ? "Expand All" : "Collapse All"}
+            onClick={toggleExpandAll}
+            className="ml-auto bg-gray-100 text-black w-full mb-4"
+          />
+        </div>
       </div>
       {/* Render a section for each process */}
-      {raProcesses.map((proc) => (
-        <div key={proc.id} className="hello">
+      {raProcesses.map((proc, index) => (
+        <div key={proc.id} className={`hello ${index === raProcesses.length - 1 ? "pb-10" : ""}`}>
           <div className="inset-x-0 z-50 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
             <span className="font-semibold text-lg">
               {`Process ${proc.processNumber} - ${proc.header}`}
