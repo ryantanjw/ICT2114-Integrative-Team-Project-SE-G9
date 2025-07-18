@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
 export default function ConfirmForm({ formData, sessionData, updateFormData }) {
@@ -14,6 +14,8 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   );  
   const [divisions, setDivisions] = useState([]); // State for division options
   const [divisionsLoading, setDivisionsLoading] = useState(false);
+  const hasGeneratedRef = useRef(false);
+
 
   // Fetch divisions from API
   const fetchDivisions = useCallback(async () => {
@@ -77,8 +79,10 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
 
   // Always generate PDF on mount
   useEffect(() => {
-    generatePdf();
-    // eslint-disable-next-line
+    if (!hasGeneratedRef.current) {
+      generatePdf();
+      hasGeneratedRef.current = true;
+    }
   }, []);
 
   // Cleanup object URL when component unmounts or URL changes
@@ -138,7 +142,6 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
         URL.revokeObjectURL(generatedPdfUrl);
       }
 
-      // First, fetch complete form data (like in DownloadDialogue)
       const dataResponse = await fetch(`/api/user/getFormDataForDocument/${formData.form_id}`, {
         credentials: 'include'
       });
