@@ -371,10 +371,17 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               remarks: "",
             }));
 
+            // return {
+            //   ...proc,
+            //   activities: [...newActivities, ...proc.activities],
+            // };
             return {
               ...proc,
-              activities: [...newActivities, ...proc.activities],
+              activities: [...newActivities, ...proc.activities].filter(
+                act => act.description && act.description.trim() !== ""
+              ),
             };
+
 
           } catch (err) {
             console.error(`Error fetching activities for ${processName}:`, err);
@@ -386,8 +393,17 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       setProcesses(updatedProcesses);
       // console.log("Updated processes with new activities:", updatedProcesses);
       // console.log("aiOrNot values per process:", aiOrNotList);
+      const formattedSummary = aiOrNotList
+        .map(item => `Activities For Process: ${item.processName} (${item.aiOrNot})`)
+        .join("\n");
 
-      toast.success("Work activities generated successfully!", { id: "generate-activities" });
+      toast.success(
+        `Work activities generated successfully!\n${formattedSummary}`,
+        { id: "generate-activities" }
+      );
+
+      // toast.success("Work activities generated successfully!", { id: "generate-activities" });
+      
 
     } catch (error) {
       console.error("Global error in generateWorkActivities:", error);

@@ -67,7 +67,7 @@ def generate_answer(user_input, context):
 
             Based on the new work activity: "{user_input}", and considering similar past tasks:
             {context}
-
+            Important: Take note for the hazards please generate from the scope of one from the following hazard types: Physical, Chemical, Biological, Mechanical and Electrical.
             Please provide for each hazard identified in the work activity:
             Hazard Type:
             Hazard Description:
@@ -82,6 +82,9 @@ def generate_answer(user_input, context):
             Take note for the severity score and likelihood score, its between 1 to 5, where 1 is the lowest and 5 is the highest.
             Take note for the RPN, it is the product of severity score and likelihood score and just give the final number e.g. RPN: 9
             Take note for the risk control type, it can be one type.
+
+            Important: Take note for the hazard type, please only provide one from the following: Physical, Chemical, Biological, Mechanical and Electrical.
+
             For example:
             Hazard Type: Physical
             Hazard Description: Working at heights without proper fall protection.
@@ -97,7 +100,7 @@ def generate_answer(user_input, context):
     response = openai.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a workplace safety and health risk assessor."},
+            {"role": "system", "content": "You are a workplace safety and health risk assessor that only knows 5 types of hazards: Physical, Chemical, Biological, Mechanical and Electrical."},
             {"role": "user", "content": user_prompt}
         ]
     )

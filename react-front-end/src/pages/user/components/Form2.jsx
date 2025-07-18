@@ -1712,6 +1712,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const addHazardsToProcess = async (targetProcessId) => {
+    
     // Find the process by id
     const process = raProcesses.find(p => p.id === targetProcessId);
     if (!process) return;
@@ -1751,10 +1752,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               })
             );
 
-            return {
-              ...act,
-              hazards: [...newHazards, ...act.hazards]
-            };
+            // return {
+            //   ...act,
+            //   hazards: [...newHazards, ...act.hazards]
+            // };
+              return {
+                ...act,
+                hazards: [...newHazards, ...act.hazards].filter(
+                  h => h.description && h.description.trim() !== ""
+                )
+              };
+
 
           } else {
             console.error('Failed to get from AI');
@@ -1858,7 +1866,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
                   return {
                     ...act,
-                    hazards: [...newHazards, ...act.hazards]  // prepend
+                    // hazards: [...newHazards, ...act.hazards]  // prepend
+                    hazards: [...newHazards, ...act.hazards].filter(
+                        h => h.description && h.description.trim() !== ""
+                      )
                   };
 
                 } else {
