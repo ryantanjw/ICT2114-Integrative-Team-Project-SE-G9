@@ -77,8 +77,8 @@ class Hazard(db.Model):
     # Define fields
     hazard_id = db.Column(db.Integer, primary_key=True)
     hazard_activity_id = db.Column(db.Integer, db.ForeignKey('activity.activity_id'), nullable=False)
-    hazard = db.Column(db.String(124), nullable=False)
-    injury = db.Column(db.String(124), nullable=False)
+    hazard = db.Column(db.String(500), nullable=False)
+    injury = db.Column(db.String(500), nullable=False)
     hazard_type_id = db.Column(db.Integer, db.ForeignKey('hazard_type.hazard_type_id'), nullable=True)
     remarks = db.Column(db.Text, nullable=True)
     approval = db.Column(db.Integer, nullable=True)  # 0 for no approval, 1 for approval required

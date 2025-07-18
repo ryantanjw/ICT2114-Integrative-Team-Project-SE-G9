@@ -318,7 +318,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         likelihood: hazard.likelihood ?? 0,
         rpn: hazard.rpn ?? 0,
         newSeverity: hazard.severity ?? 0,  // Always equal to severity
-        newLikelihood: hazard.newLikelihood ?? hazard.likelihood ?? 0,
+        newLikelihood: hazard.newLikelihood ?? 0,
         newRpn: (hazard.severity ?? 0) * (hazard.newLikelihood ?? hazard.likelihood ?? 0),
         dueDate: formattedDueDate || "",
         implementationPerson: hazard.implementationPerson ||
