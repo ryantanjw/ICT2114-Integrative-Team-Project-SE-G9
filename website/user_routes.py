@@ -2270,7 +2270,12 @@ def get_form_data_for_document(formId):
                         'additional_controls': risk.additional_risk_control if risk else '',
                         'severity': risk.severity if risk else None,
                         'likelihood': risk.likelihood if risk else None,
-                        'rpn': risk.RPN if risk else None
+                        'rpn': risk.RPN if risk else None,
+                        'newSeverity': risk.newSeverity if risk else None,
+                        'newLikelihood': risk.newLikelihood if risk else None,
+                        'newRPN': risk.newRPN if risk else None,
+                        'hazard_implementation_person': hazard.hazard_implementation_person if hazard else '',
+                        'hazard_due_date': hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else ''
                     }
                     
                     activity_entry['hazards'].append(hazard_entry)

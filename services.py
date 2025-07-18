@@ -117,7 +117,7 @@ class DocxTemplateGenerator:
 
             def format_date(date_str):
                 if not date_str or date_str == 'N/A':
-                    return 'N/A'
+                    return ''
                 try:
                     # Parse the ISO format date
                     date_obj = datetime.fromisoformat(date_str.replace('T00:00:00', ''))
@@ -182,12 +182,12 @@ class DocxTemplateGenerator:
                         'l1': str(hazard.get('likelihood', '')),
                         'rpn1': str(hazard.get('rpn', '')),
                         'additional_controls': hazard.get('additional_controls', ''),
-                        's2': '',  # These would be filled after additional controls
-                        'l2': '',
-                        'rpn2': '',
-                        'implementation_person': '',
-                        'due_date': '',
-                        'remarks': ''
+                        's2': str(hazard.get('newSeverity') or hazard.get('newseverity', '')),
+                        'l2': str(hazard.get('newLikelihood') or hazard.get('newlikelihood', '')),
+                        'rpn2': str(hazard.get('newRPN') or hazard.get('newrpn', '')),
+                        'implementation_person': hazard.get('hazard_implementation_person', ''),
+                        'due_date': format_date(hazard.get('hazard_due_date', '')),
+                        'remarks': activity.get('remarks', '')
                     }
                     process_groups[process_name]['risks'].append(risk)
             
