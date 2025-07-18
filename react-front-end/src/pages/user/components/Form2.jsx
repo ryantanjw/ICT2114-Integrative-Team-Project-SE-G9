@@ -175,8 +175,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Parse existing risk controls (format: "a) risk control category - existing risk control")
       const parsedRiskControls = [];
       if (hazard.existingControls) {
-        // Check if the string contains formatted controls (with a) b) c) prefixes)
-        const controlLines = hazard.existingControls.split(/\n|(?=[a-z]\))/);
+        // Only split on newlines to avoid cutting off valid data
+        const controlLines = hazard.existingControls.split(/\n/);
 
         // If we have properly formatted controls
         if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
@@ -230,8 +230,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Parse additional risk controls (format: "a) risk control category - additional risk control")
       const parsedAdditionalRiskControls = [];
       if (hazard.additionalControls) {
-        // Check if the string contains formatted controls (with a) b) c) prefixes)
-        const controlLines = hazard.additionalControls.split(/\n|(?=[a-z]\))/);
+        // Only split on newlines to avoid cutting off valid data
+        const controlLines = hazard.additionalControls.split(/\n/);
 
         // If we have properly formatted controls
         if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
@@ -2749,7 +2749,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         buttonsRight={[
           {
             text: "Save",
-            onClick: () => { triggerUpdateToParent(true); handleSave(); },
+            onClick: async () => {
+              triggerUpdateToParent(true);
+              await handleSave();
+              // After save, reload the data from backend to reflect any reformatting
+              if (typeof fetchFormData === 'function') {
+                await fetchFormData(formIdRef.current);
+              } else if (typeof window !== 'undefined' && window.location) {
+                // fallback: reload the page if no fetch function is available
+                window.location.reload();
+              }
+            },
             disabled: isLoading,
             className: "px-6 py-2",
             icon: MdSave

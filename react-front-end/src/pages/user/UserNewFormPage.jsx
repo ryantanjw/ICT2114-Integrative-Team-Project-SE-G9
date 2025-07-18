@@ -705,7 +705,7 @@ export default function UserNewForm() {
   }
 
   return (
-    <div className="bg-[#F7FAFC] min-h-screen max-w-screen 2xl:px-40 px-5">
+    <div className="bg-[#F7FAFC] min-h-screen max-w-screen 2xl:px-40 px-5 pb-20">
       <Header activePage={location.pathname} />
       <div className="flex flex-col justify-start pb-5">
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">

@@ -311,7 +311,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   };
 
   return (
-    <div className="pb-20">
+    <div>
       {/* PDF Preview */}
       <div className="mb-6 border border-gray-300 rounded-lg overflow-hidden">
         {isGeneratingPdf ? (
