@@ -2429,109 +2429,160 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                             </div>
                             {/* <- Existing Risk Control Section END --> */}
 
-                            <div className="bg-blue-600 text-white p-2 my-5 rounded text-base">
-                              Risk Controls only reduce likelihood; Severity is constant
-                            </div>
+                            {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
+                              <>
+                                <div className="bg-blue-600 text-white p-2 my-5 rounded text-base">
+                                  Risk Controls only reduce likelihood; Severity is constant
+                                </div>
 
-                            {/* Additional Risk Controls Section */}
-                            <div className="mb-2 border border-gray-200 rounded-lg">
-                              <div
-                                className="bg-yellow-100 px-4 py-2 rounded-t cursor-pointer"
-                                onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
-                              >
-                                <span className="text-lg font-medium text-zinc-900">
-                                  Additional Risk Controls*
-                                </span>
-                                <span className="float-right">
-                                  {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
-                                </span>
-                              </div>
-                              {h.additionalControlsExpanded && (
-                                <div className="p-3">
-                                  {/* Render each additional risk control */}
-                                  {(h.additionalRiskControls || [{
-                                    id: uuidv4(),
-                                    controlText: h.additionalControls || "",
-                                    controlType: h.additionalControlType || "",
-                                    expanded: true
-                                  }]).map((additionalControl, acIndex) => (
-                                    <div key={additionalControl.id} className="mb-4 pb-4 border-b border-gray-200">
-                                      {/* Label + Buttons */}
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className="text-base font-medium">
-                                          Additional Risk Control {acIndex + 1}
-                                        </span>
-                                        <div className="flex space-x-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setAdditionalRiskControlWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id, acIndex });
-                                              setAdditionalRiskControlWarningOpen(true);
-                                            }}
-                                            className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
-                                            disabled={(h.additionalRiskControls || []).length <= 1}
-                                          >
-                                            <LuMinus />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              // Add a new additional risk control to the current hazard
-                                              setRaProcesses(prev =>
-                                                prev.map(p =>
-                                                  p.id === proc.id ? {
-                                                    ...p,
-                                                    activities: p.activities.map(a =>
-                                                      a.id === act.id ? {
-                                                        ...a,
-                                                        hazards: a.hazards.map(hz =>
-                                                          hz.id === h.id ? {
-                                                            ...hz,
-                                                            // Make sure we keep existing additionalRiskControls if any
-                                                            additionalRiskControls: [
-                                                              ...(hz.additionalRiskControls || [{
-                                                                id: uuidv4(),
-                                                                controlText: hz.additionalControls || "",
-                                                                controlType: hz.additionalControlType || "",
-                                                                expanded: true
-                                                              }]),
-                                                              // Add a new empty additional risk control
-                                                              {
-                                                                id: uuidv4(),
-                                                                controlText: "",
-                                                                controlType: "",
-                                                                expanded: true
-                                                              }
-                                                            ]
-                                                          } : hz
+                                {/* Additional Risk Controls Section */}
+                                <div className="mb-2 border border-gray-200 rounded-lg">
+                                  <div
+                                    className="bg-yellow-100 px-4 py-2 rounded-t cursor-pointer"
+                                    onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
+                                  >
+                                    <span className="text-lg font-medium text-zinc-900">
+                                      Additional Risk Controls*
+                                    </span>
+                                    <span className="float-right">
+                                      {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
+                                    </span>
+                                  </div>
+                                  {h.additionalControlsExpanded && (
+                                    <div className="p-3">
+                                      {/* Render each additional risk control */}
+                                      {(h.additionalRiskControls || [{
+                                        id: uuidv4(),
+                                        controlText: h.additionalControls || "",
+                                        controlType: h.additionalControlType || "",
+                                        expanded: true
+                                      }]).map((additionalControl, acIndex) => (
+                                        <div key={additionalControl.id} className="mb-4 pb-4 border-b border-gray-200">
+                                          {/* Label + Buttons */}
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-base font-medium">
+                                              Additional Risk Control {acIndex + 1}
+                                            </span>
+                                            <div className="flex space-x-2">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setAdditionalRiskControlWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id, acIndex });
+                                                  setAdditionalRiskControlWarningOpen(true);
+                                                }}
+                                                className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                                                disabled={(h.additionalRiskControls || []).length <= 1}
+                                              >
+                                                <LuMinus />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  // Add a new additional risk control to the current hazard
+                                                  setRaProcesses(prev =>
+                                                    prev.map(p =>
+                                                      p.id === proc.id ? {
+                                                        ...p,
+                                                        activities: p.activities.map(a =>
+                                                          a.id === act.id ? {
+                                                            ...a,
+                                                            hazards: a.hazards.map(hz =>
+                                                              hz.id === h.id ? {
+                                                                ...hz,
+                                                                // Make sure we keep existing additionalRiskControls if any
+                                                                additionalRiskControls: [
+                                                                  ...(hz.additionalRiskControls || [{
+                                                                    id: uuidv4(),
+                                                                    controlText: hz.additionalControls || "",
+                                                                    controlType: hz.additionalControlType || "",
+                                                                    expanded: true
+                                                                  }]),
+                                                                  // Add a new empty additional risk control
+                                                                  {
+                                                                    id: uuidv4(),
+                                                                    controlText: "",
+                                                                    controlType: "",
+                                                                    expanded: true
+                                                                  }
+                                                                ]
+                                                              } : hz
+                                                            )
+                                                          } : a
                                                         )
-                                                      } : a
+                                                      } : p
                                                     )
-                                                  } : p
-                                                )
-                                              );
-                                              scheduleBatchedUpdate();
-                                              console.log("Added new additional risk control");
-                                            }}
-                                            className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
-                                          >
-                                            <MdAdd />
-                                          </button>
-                                        </div>
-                                      </div>
+                                                  );
+                                                  scheduleBatchedUpdate();
+                                                  console.log("Added new additional risk control");
+                                                }}
+                                                className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                                              >
+                                                <MdAdd />
+                                              </button>
+                                            </div>
+                                          </div>
 
-                                      {/* Risk Control Category Block */}
-                                      <div className="mb-2">
-                                        <label className="block text-base text-gray-600 mb-2">
-                                          Risk Control Category*
-                                        </label>
-                                        <div className="flex flex-wrap gap-2 mb-3">
-                                          {riskcontrolTypesList.map(typeObj => (
-                                            <button
-                                              type="button"
-                                              key={typeObj.value}
-                                              onClick={() => {
-                                                // Update specific additional risk control
+                                          {/* Risk Control Category Block */}
+                                          <div className="mb-2">
+                                            <label className="block text-base text-gray-600 mb-2">
+                                              Risk Control Category*
+                                            </label>
+                                            <div className="flex flex-wrap gap-2 mb-3">
+                                              {riskcontrolTypesList.map(typeObj => (
+                                                <button
+                                                  type="button"
+                                                  key={typeObj.value}
+                                                  onClick={() => {
+                                                    // Update specific additional risk control
+                                                    setRaProcesses(prev =>
+                                                      prev.map(p =>
+                                                        p.id === proc.id ? {
+                                                          ...p,
+                                                          activities: p.activities.map(a =>
+                                                            a.id === act.id ? {
+                                                              ...a,
+                                                              hazards: a.hazards.map(hz =>
+                                                                hz.id === h.id ? {
+                                                                  ...hz,
+                                                                  // Update the additionalRiskControls array
+                                                                  additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
+                                                                    index === acIndex ? {
+                                                                      ...ctrl,
+                                                                      controlType: ctrl.controlType === typeObj.value ? "" : typeObj.value
+                                                                    } : ctrl
+                                                                  ),
+                                                                  // For backward compatibility with the first control
+                                                                  additionalControlType: acIndex === 0 ?
+                                                                    (additionalControl.controlType === typeObj.value ? "" : typeObj.value)
+                                                                    : hz.additionalControlType
+                                                                } : hz
+                                                              )
+                                                            } : a
+                                                          )
+                                                        } : p
+                                                      )
+                                                    );
+                                                    setTimeout(scheduleBatchedUpdate, 0);
+                                                  }}
+                                                  className={`px-3 py-1 rounded-full ${additionalControl.controlType === typeObj.value
+                                                    ? "bg-black text-white"
+                                                    : "bg-gray-200"
+                                                    }`}
+                                                >
+                                                  {typeObj.display}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </div>
+
+                                          {/* Text Area */}
+                                          <div className="mb-4">
+                                            <textarea
+                                              rows={3}
+                                              id={`add-controls-${h.id}-${acIndex}`}
+                                              value={additionalControl.controlText}
+                                              onChange={(e) => {
+                                                // Update specific additionalRiskControl
                                                 setRaProcesses(prev =>
                                                   prev.map(p =>
                                                     p.id === proc.id ? {
@@ -2546,13 +2597,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                               additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
                                                                 index === acIndex ? {
                                                                   ...ctrl,
-                                                                  controlType: ctrl.controlType === typeObj.value ? "" : typeObj.value
+                                                                  controlText: e.target.value
                                                                 } : ctrl
                                                               ),
                                                               // For backward compatibility with the first control
-                                                              additionalControlType: acIndex === 0 ?
-                                                                (additionalControl.controlType === typeObj.value ? "" : typeObj.value)
-                                                                : hz.additionalControlType
+                                                              additionalControls: acIndex === 0 ? e.target.value : hz.additionalControls
                                                             } : hz
                                                           )
                                                         } : a
@@ -2560,173 +2609,126 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                     } : p
                                                   )
                                                 );
-                                                setTimeout(scheduleBatchedUpdate, 0);
+                                                scheduleBatchedUpdate();
                                               }}
-                                              className={`px-3 py-1 rounded-full ${additionalControl.controlType === typeObj.value
-                                                ? "bg-black text-white"
-                                                : "bg-gray-200"
-                                                }`}
-                                            >
-                                              {typeObj.display}
-                                            </button>
-                                          ))}
+                                              placeholder={(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ?
+                                                "Provide additional risk controls that will reduce RPN below 15"
+                                                : "Provide additional risk controls if needed"
+                                              }
+                                              className={`w-full border ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !additionalControl.controlText.trim() ? "border-red-500" : "border-gray-300"}
+                                                ${(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500" : ""}
+                                                rounded p-2`}
+                                            />
+                                          </div>
                                         </div>
-                                      </div>
+                                      ))}
 
-                                      {/* Text Area */}
-                                      <div className="mb-4">
-                                        <textarea
-                                          rows={3}
-                                          id={`add-controls-${h.id}-${acIndex}`}
-                                          value={additionalControl.controlText}
-                                          onChange={(e) => {
-                                            // Update specific additionalRiskControl
-                                            setRaProcesses(prev =>
-                                              prev.map(p =>
-                                                p.id === proc.id ? {
-                                                  ...p,
-                                                  activities: p.activities.map(a =>
-                                                    a.id === act.id ? {
-                                                      ...a,
-                                                      hazards: a.hazards.map(hz =>
-                                                        hz.id === h.id ? {
-                                                          ...hz,
-                                                          // Update the additionalRiskControls array
-                                                          additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
-                                                            index === acIndex ? {
-                                                              ...ctrl,
-                                                              controlText: e.target.value
-                                                            } : ctrl
-                                                          ),
-                                                          // For backward compatibility with the first control
-                                                          additionalControls: acIndex === 0 ? e.target.value : hz.additionalControls
-                                                        } : hz
-                                                      )
-                                                    } : a
+                                      {/* Warning Message */}
+                                      {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
+                                        <div className="bg-blue-600 text-white p-2 rounded text-base mb-2">
+                                          <span className="font-base">
+                                            For high-risk hazards (RPN ≥ 15), the new RPN must be below 15 to submit.
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* Severity/Likelihood/RPN section remains outside the risk controls loop */}
+                                      <div className="flex space-x-4">
+                                        {[
+                                          { name: "Severity", required: false, isDisabled: true },
+                                          { name: "Likelihood", required: (h.severity || 0) * (h.likelihood || 0) >= 15, field: "newLikelihood" },
+                                          { name: "RPN", required: false }
+                                        ].map((field) => (
+                                          <div key={field.name}>
+                                            <label className="block text-base font-medium mb-1">
+                                              {field.name}{field.required && "*"}
+                                              {field.required && field.name === "Likelihood" &&
+                                                <span className="ml-1 text-xs text-red-700">(Required for high risk)</span>}
+                                              {field.name === "RPN" && (h.newSeverity ?? 0) * (h.newLikelihood ?? 0) >= 15 && (
+                                                <span className="ml-1 text-xs text-red-700 font-medium">(Still High Risk!)</span>
+                                              )}
+                                            </label>
+                                            {field.name === "RPN" ? (
+                                              <select
+                                                value={(h.newSeverity ?? 0) * (h.newLikelihood ?? 0)}
+                                                disabled
+                                                className={`${getDropdownColor(
+                                                  "rpn",
+                                                  (h.newSeverity ?? 0) * (h.newLikelihood ?? 0)
+                                                )} text-white rounded px-2 py-1`}
+                                              >
+                                                {[...Array(26)].map((_, i) => (
+                                                  <option key={i} value={i}>
+                                                    {i}{i >= 15 ? " (High Risk)" : ""}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            ) : (
+                                              <select
+                                                value={field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)}
+                                                onChange={(e) =>
+                                                  updateHazard(
+                                                    proc.id,
+                                                    act.id,
+                                                    h.id,
+                                                    field.name === "Severity" ? "severity" : "newLikelihood",
+                                                    parseInt(e.target.value)
                                                   )
-                                                } : p
-                                              )
-                                            );
-                                            scheduleBatchedUpdate();
-                                          }}
-                                          placeholder={(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ?
-                                            "Provide additional risk controls that will reduce RPN below 15"
-                                            : "Provide additional risk controls if needed"
-                                          }
-                                          className={`w-full border ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !additionalControl.controlText.trim() ? "border-red-500" : "border-gray-300"}
-                                            ${(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500" : ""}
-                                            rounded p-2`}
-                                        />
+                                                }
+                                                disabled={field.isDisabled}
+                                                className={`${getDropdownColor(
+                                                  field.name.toLowerCase(),
+                                                  field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)
+                                                )} text-white rounded px-2 py-1 ${field.name === "Likelihood" && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500 animate-pulse" : ""}`}
+                                              >
+                                                <option value={0}>Select</option>
+                                                {[1, 2, 3, 4, 5].map((v) => (
+                                                  <option key={v} value={v}>
+                                                    {v}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            )}
+                                          </div>
+                                        ))}
                                       </div>
-                                    </div>
-                                  ))}
-
-                                  {/* Warning Message */}
-                                  {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
-                                    <div className="bg-blue-600 text-white p-2 rounded text-base mb-2">
-                                      <span className="font-base">
-                                        For high-risk hazards (RPN ≥ 15), the new RPN must be below 15 to submit.
-                                      </span>
                                     </div>
                                   )}
-
-                                  {/* Severity/Likelihood/RPN section remains outside the risk controls loop */}
-                                  <div className="flex space-x-4">
-                                    {[
-                                      { name: "Severity", required: false, isDisabled: true },
-                                      { name: "Likelihood", required: (h.severity || 0) * (h.likelihood || 0) >= 15, field: "newLikelihood" },
-                                      { name: "RPN", required: false }
-                                    ].map((field) => (
-                                      <div key={field.name}>
-                                        <label className="block text-base font-medium mb-1">
-                                          {field.name}{field.required && "*"}
-                                          {field.required && field.name === "Likelihood" &&
-                                            <span className="ml-1 text-xs text-red-700">(Required for high risk)</span>}
-                                          {field.name === "RPN" && (h.newSeverity ?? 0) * (h.newLikelihood ?? 0) >= 15 && (
-                                            <span className="ml-1 text-xs text-red-700 font-medium">(Still High Risk!)</span>
-                                          )}
-                                        </label>
-                                        {field.name === "RPN" ? (
-                                          <select
-                                            value={(h.newSeverity ?? 0) * (h.newLikelihood ?? 0)}
-                                            disabled
-                                            className={`${getDropdownColor(
-                                              "rpn",
-                                              (h.newSeverity ?? 0) * (h.newLikelihood ?? 0)
-                                            )} text-white rounded px-2 py-1`}
-                                          >
-                                            {[...Array(26)].map((_, i) => (
-                                              <option key={i} value={i}>
-                                                {i}{i >= 15 ? " (High Risk)" : ""}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        ) : (
-                                          <select
-                                            value={field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)}
-                                            onChange={(e) =>
-                                              updateHazard(
-                                                proc.id,
-                                                act.id,
-                                                h.id,
-                                                field.name === "Severity" ? "severity" : "newLikelihood",
-                                                parseInt(e.target.value)
-                                              )
-                                            }
-                                            disabled={field.isDisabled}
-                                            className={`${getDropdownColor(
-                                              field.name.toLowerCase(),
-                                              field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)
-                                            )} text-white rounded px-2 py-1 ${field.name === "Likelihood" && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500 animate-pulse" : ""}`}
-                                          >
-                                            <option value={0}>Select</option>
-                                            {[1, 2, 3, 4, 5].map((v) => (
-                                              <option key={v} value={v}>
-                                                {v}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
                                 </div>
-                              )}
-                            </div>
 
-                            {/* DUE Date */}
-                            <div>
-                              <label className="block text-base font-medium mb-1">
-                                Due Date{(h.severity || 0) * (h.likelihood || 0) >= 15 ? "*" : ""}
-                                {(h.severity || 0) * (h.likelihood || 0) >= 15 &&
-                                  <span className="ml-2 text-xs text-red-700">(Required for high risk)</span>}
-                              </label>
-                              <InputGroup
-                                id={`due-${h.id}`}
-                                type="date"
-                                value={h.dueDate || ""}
-                                min={new Date().toISOString().split('T')[0]} // Prevent selecting dates earlier than today
-                                onChange={(e) => updateHazard(proc.id, act.id, h.id, "dueDate", e.target.value)}
-                                className={`flex-1 ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !h.dueDate ? "border-red-500" : ""}`}
-                                required={(h.severity || 0) * (h.likelihood || 0) >= 15}
-                              />
-                            </div>
+                                {/* DUE Date */}
+                                <div>
+                                  <label className="block text-base font-medium mb-1">
+                                    Due Date*
+                                    <span className="ml-2 text-xs text-red-700">(Required for high risk)</span>
+                                  </label>
+                                  <InputGroup
+                                    id={`due-${h.id}`}
+                                    type="date"
+                                    value={h.dueDate || ""}
+                                    min={new Date().toISOString().split('T')[0]} // Prevent selecting dates earlier than today
+                                    onChange={(e) => updateHazard(proc.id, act.id, h.id, "dueDate", e.target.value)}
+                                    className={`flex-1 ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !h.dueDate ? "border-red-500" : ""}`}
+                                    required
+                                  />
+                                </div>
 
-                            <div>
-                              <label className="block text-base font-medium mb-1">
-                                Implementation Person{(h.severity || 0) * (h.likelihood || 0) >= 15 ? "*" : ""}
-                                {(h.severity || 0) * (h.likelihood || 0) >= 15 &&
-                                  <span className="ml-2 text-xs text-red-700">(Required for high risk)</span>}
-                              </label>
-                              <InputGroup
-                                id={`impl-${h.id}`}
-                                value={h.implementationPerson || ""}
-                                onChange={(e) =>
-                                  updateHazard(proc.id, act.id, h.id, "implementationPerson", e.target.value)
-                                }
-                                className={`flex-1 ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !h.implementationPerson.trim() ? "border-red-500" : ""}`}
-                              />
-                            </div>
+                                <div>
+                                  <label className="block text-base font-medium mb-1">
+                                    Implementation Person*
+                                    <span className="ml-2 text-xs text-red-700">(Required for high risk)</span>
+                                  </label>
+                                  <InputGroup
+                                    id={`impl-${h.id}`}
+                                    value={h.implementationPerson || ""}
+                                    onChange={(e) =>
+                                      updateHazard(proc.id, act.id, h.id, "implementationPerson", e.target.value)
+                                    }
+                                    className={`flex-1 ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !h.implementationPerson.trim() ? "border-red-500" : ""}`}
+                                  />
+                                </div>
+                              </>
+                            )}
                           </>
                         ) : (
                           <div className="bg-gray-100 p-4 rounded-lg text-center text-gray-600 mt-4">
