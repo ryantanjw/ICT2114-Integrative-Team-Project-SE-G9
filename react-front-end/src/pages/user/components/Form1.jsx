@@ -380,10 +380,17 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               remarks: "",
             }));
 
+            // return {
+            //   ...proc,
+            //   activities: [...newActivities, ...proc.activities],
+            // };
             return {
               ...proc,
-              activities: [...newActivities, ...proc.activities],
+              activities: [...newActivities, ...proc.activities].filter(
+                act => act.description && act.description.trim() !== ""
+              ),
             };
+
           } catch (err) {
             console.error(`Error fetching activities for ${processName}:`, err);
             return proc;
