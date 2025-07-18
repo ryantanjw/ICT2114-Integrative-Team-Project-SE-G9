@@ -167,6 +167,13 @@ def get_new_hazard():
             risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
             process = Process.query.get(activity.activity_process_id)
             
+            def format_date(date_obj):
+                return date_obj.isoformat() if date_obj else None
+            
+            # form.last_access_date = format_date(form.last_access_date)
+            # FIX THIS LATER !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+            #THIS PART HERE
             results.append({
                 'hazard_id': hazard.hazard_id,
                 'hazard_activity_id': hazard.hazard_activity_id,

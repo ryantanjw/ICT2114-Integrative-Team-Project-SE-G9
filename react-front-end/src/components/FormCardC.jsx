@@ -45,7 +45,6 @@ export default function FormCardC({
             <p className="text-sm text-gray-500 mt-1">{date}</p>
           </div>
         </div>
-        <div className="text-gray-400">⋮</div>
       </div>
 
       {/* Title and Owner */}

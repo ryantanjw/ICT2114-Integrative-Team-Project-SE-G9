@@ -21,7 +21,7 @@ export default function FormCardA2({
   const tagColorMap = {
     Incomplete: "bg-blue-500 text-white",
     Completed: "bg-green-700 text-white",
-    "review due": "bg-red-500 text-white",
+    "Review Due": "bg-red-500 text-white",
 
   };
 
