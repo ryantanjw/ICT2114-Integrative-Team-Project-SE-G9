@@ -4,7 +4,7 @@ import WarningDialog from "./WarningDialog.jsx";
 import { IoWarning } from "react-icons/io5";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
-import { MdDelete, MdExpandMore, MdExpandLess } from "react-icons/md";
+import { MdDelete, MdExpandMore, MdExpandLess, MdAdd } from "react-icons/md";
 import { toast } from "react-hot-toast";
 
 // Convert to forwardRef to expose methods to parent
@@ -818,7 +818,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     <div className="space-y-6">
       {/* Header inputs */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-end">
-        <div className="xl:col-span-5 w-full">
+        <div className="xl:col-span-4 w-full">
           <InputGroup
             label="Title"
             id="form-title"
@@ -826,7 +826,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             onChange={(e) => setTitle(e.target.value)}
           />
         </div>
-        <div className="xl:col-span-5 w-full">
+        <div className="xl:col-span-4 w-full">
           <InputGroup
             label="Division"
             id="form-division"
@@ -840,15 +840,17 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             disabled={divisionsLoading}
           />
         </div>
-        <div className="xl:col-span-2 w-full">
+        <div className="col-span-full xl:col-span-4 w-full">
           <CTAButton
-            icon="+"
+            icon={MdAdd}
             text="Generate Work Activities"
             onClick={generateWorkActivities}
-            className="ml-2"
+            className="w-full mb-4"
           />
+        </div>
+        <div className="col-span-full xl:col-span-12 w-full">
           <CTAButton
-            icon="+"
+            icon={MdAdd}
             text="Add Process"
             onClick={addProcess}
             className="w-full mb-4"

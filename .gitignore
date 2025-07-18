@@ -20,3 +20,4 @@ venv/
 .vscode/
 *.log
 /website/__pycache__
+/website/__pycache__

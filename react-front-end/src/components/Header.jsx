@@ -16,7 +16,7 @@ export default function Header({ activePage = "" }) {
 
     return (
         <>
-            <header className="flex items-center justify-between mt-5 py-4">
+            <header className="flex bg-[#F7FAFC] items-center justify-between mt-5 py-4">
                 <img src="/SIT-logo.png" alt="SIT Logo" className="h-15 sm:h-20" />
                 <button
                     onClick={() => setCollapsed(!collapsed)}
