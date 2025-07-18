@@ -804,6 +804,10 @@ def get_form2_data(form_id):
                     "severity": risk.severity if risk else 1,
                     "likelihood": risk.likelihood if risk else 1,
                     "rpn": risk.RPN if risk else 1,
+                    "newSeverity": getattr(risk, "newSeverity", None) if risk else None,
+                    "newLikelihood": getattr(risk, "newLikelihood", None) if risk else None,
+                    "newRpn": getattr(risk, "newRPN", None) if risk else None,
+
                     "hazard_implementation_person": hazard.hazard_implementation_person if risk else "",
                     "hazard_due_date": hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else None
 

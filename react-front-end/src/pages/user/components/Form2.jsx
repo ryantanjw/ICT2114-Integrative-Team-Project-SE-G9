@@ -282,6 +282,24 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         });
       }
 
+      const newSeverity =
+        hazard.newSeverity ??
+        hazard.new_severity ??
+        hazard.severity ??
+        0;
+
+      const newLikelihood =
+        hazard.newLikelihood ??
+        hazard.new_likelihood ??
+        0;
+
+      const newRpn =
+        hazard.newRpn ??
+        hazard.new_rpn ??
+        (newSeverity * newLikelihood);
+
+
+
       return {
         id: hazard.id || hazard.hazard_id || uuidv4(),
         hazard_id: hazard.hazard_id || hazard.id,
@@ -317,9 +335,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         severity: hazard.severity ?? 0,
         likelihood: hazard.likelihood ?? 0,
         rpn: hazard.rpn ?? 0,
-        newSeverity: hazard.severity ?? 0,  // Always equal to severity
-        newLikelihood: hazard.newLikelihood ?? hazard.likelihood ?? 0,
-        newRpn: (hazard.severity ?? 0) * (hazard.newLikelihood ?? hazard.likelihood ?? 0),
+        newSeverity,
+        newLikelihood,
+        newRpn,
         dueDate: formattedDueDate || "",
         implementationPerson: hazard.implementationPerson ||
           hazard.implementation_person ||
@@ -747,7 +765,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // }, [raProcesses]);
 
   const storeHasRunInSession = async (formId) => {
-  try {
+    try {
       await fetch('/api/user/store_has_run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1408,7 +1426,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         }));
       } catch (err) {
         console.warn('Unable to cache data in localStorage:', err);
-      } const requestBody = {
+      }
+      const requestBody = {
         title,
         division,
         processes: raProcesses.map(proc => ({
@@ -1419,20 +1438,51 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               // Format existing risk controls with alphabetical prefixes
               let formattedExistingControls = "";
               if (h.riskControls && h.riskControls.length > 0) {
-                formattedExistingControls = h.riskControls.map((rc, idx) => {
-                  // Create alphabetical prefix (a, b, c, etc.)
-                  const prefix = String.fromCharCode(97 + idx) + ") ";
+                formattedExistingControls = h.riskControls
+                  .map((rc, idx) => {
+                    const text = rc.existingControls?.trim();
+                    if (!text) return null; // Ignore empty controls
+                    const prefix = String.fromCharCode(97 + idx) + ") ";
+                    const typeObj = riskcontrolTypesList.find(type => type.value === rc.riskControlType);
+                    const typeText = typeObj ? typeObj.display : "";
+                    const alreadyPrefixed = /^[a-z]\)\s/.test(text);
+                    return alreadyPrefixed
+                      ? text
+                      : `${prefix}${typeText ? typeText + " - " : ""}${text}`;
+                  })
+                  .filter(Boolean) // Remove nulls
+                  .join("\n");
+              } else if (h.existingControls && h.existingControls.trim()) {
+                const text = h.existingControls.trim();
+                const alreadyPrefixed = /^[a-z]\)\s/.test(text);
+                formattedExistingControls = alreadyPrefixed ? text : `a) ${text}`;
+              } else {
+                formattedExistingControls = ""; // Don't save empty
+              }
 
-                  // Find the risk control type display text
-                  const typeObj = riskcontrolTypesList.find(type => type.value === rc.riskControlType);
-                  const typeText = typeObj ? typeObj.display : "";
-
-                  // Format as "a) risk control category - existing risk control"
-                  return `${prefix}${typeText ? typeText + " - " : ""}${rc.existingControls}`;
-                }).join("\n");
-              } else if (h.existingControls) {
-                // Fallback to use the legacy field if no riskControls array
-                formattedExistingControls = `a) ${h.existingControls}`;
+              // --- Additional Risk Controls ---
+              let formattedAdditionalControls = "";
+              if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
+                formattedAdditionalControls = h.additionalRiskControls
+                  .map((ac, idx) => {
+                    const text = ac.controlText?.trim();
+                    if (!text) return null; // Ignore empty controls
+                    const prefix = String.fromCharCode(97 + idx) + ") ";
+                    const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
+                    const typeText = typeObj ? typeObj.display : "";
+                    const alreadyPrefixed = /^[a-z]\)\s/.test(text);
+                    return alreadyPrefixed
+                      ? text
+                      : `${prefix}${typeText ? typeText + " - " : ""}${text}`;
+                  })
+                  .filter(Boolean)
+                  .join("\n");
+              } else if (h.additionalControls && h.additionalControls.trim()) {
+                const text = h.additionalControls.trim();
+                const alreadyPrefixed = /^[a-z]\)\s/.test(text);
+                formattedAdditionalControls = alreadyPrefixed ? text : `a) ${text}`;
+              } else {
+                formattedAdditionalControls = ""; // Don't save empty
               }
 
               return {
@@ -1441,32 +1491,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 description: h.description,
                 type: h.type,
                 injuries: h.injuries,
-                existingControls: formattedExistingControls, // Use formatted controls
-                additionalControls: (() => {
-                  // Format additional risk controls with alphabetical prefixes just like existing controls
-                  let formattedAdditionalControls = "";
-                  if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
-                    formattedAdditionalControls = h.additionalRiskControls.map((ac, idx) => {
-                      // Create alphabetical prefix (a, b, c, etc.)
-                      const prefix = String.fromCharCode(97 + idx) + ") ";
-
-                      // Find the risk control type display text
-                      const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
-                      const typeText = typeObj ? typeObj.display : "";
-
-                      // Format as "a) risk control category - additional risk control"
-                      return `${prefix}${typeText ? typeText + " - " : ""}${ac.controlText}`;
-                    }).join("\n");
-                  } else if (h.additionalControls) {
-                    // Fallback to use the legacy field if no additionalRiskControls array
-                    formattedAdditionalControls = `a) ${h.additionalControls}`;
-                  }
-                  return formattedAdditionalControls;
-                })(),
+                existingControls: formattedExistingControls,
+                additionalControls: formattedAdditionalControls,
                 severity: h.severity ?? 0,
                 likelihood: h.likelihood ?? 0,
                 rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
-                newSeverity: h.severity ?? 0,  // Always use severity value
+                newSeverity: h.severity ?? 0,
                 newLikelihood: h.newLikelihood ?? 0,
                 newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
                 dueDate: h.dueDate || "",
@@ -1478,7 +1508,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         })),
         userId: sessionData?.user_id
       };
-
       if (currentFormId) {
         requestBody.form_id = currentFormId;
         console.log('Including form_id in request:', currentFormId);
@@ -1654,6 +1683,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     rc.id !== sectionId
                       ? rc
                       : { ...rc, expanded: !rc.expanded }
+
                   )
                 }
               )
@@ -1899,7 +1929,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         toast.success("All hazards loaded successfully.", { id: toastId });
       }
     } catch (err) {
-      toast.error("Failed to load hazards for all processes.", { id:  toastId });
+      toast.error("Failed to load hazards for all processes.", { id: toastId });
       // Optionally: rethrow or handle further
     }
   };

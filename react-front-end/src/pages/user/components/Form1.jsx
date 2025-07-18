@@ -1,4 +1,5 @@
 import { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallback } from "react";
+import SummaryDialog from "./SummaryDialog.jsx";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete } from "react-icons/md";
@@ -20,6 +21,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       }
     ]
   );
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+  const [summaryList, setSummaryList] = useState([]);
 
   // Initialize with formData if available
   const [formId, setFormId] = useState(formData?.form_id || null);
@@ -346,7 +349,6 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       const updatedProcesses = await Promise.all(
         processes.map(async (proc, i) => {
           const processName = proc.header || `(Process ${i + 1})`;
-
           try {
             const response = await fetch('/api/user/get_activities', {
               method: 'POST',
@@ -363,7 +365,14 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
             const data = await response.json();
             const activityNames = Array.isArray(data.activities) ? data.activities : [];
-            aiOrNotList.push({ processName, aiOrNot: data.text });
+            // For each activity, push an entry with processName, activityName, aiOrNot
+            activityNames.forEach(name => {
+              aiOrNotList.push({
+                processName,
+                activityName: name,
+                aiOrNot: data.text
+              });
+            });
 
             const newActivities = activityNames.map((name, idx) => ({
               id: Date.now() + idx,
@@ -382,7 +391,6 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               ),
             };
 
-
           } catch (err) {
             console.error(`Error fetching activities for ${processName}:`, err);
             return proc;
@@ -390,21 +398,30 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         })
       );
 
-      setProcesses(updatedProcesses);
-      // console.log("Updated processes with new activities:", updatedProcesses);
-      // console.log("aiOrNot values per process:", aiOrNotList);
-      const formattedSummary = aiOrNotList
-        .map(item => `Activities For Process: ${item.processName} (${item.aiOrNot})`)
-        .join("\n");
+      // Attach aiOrNot string to each process (legacy, not used in summaryList now)
+      const updatedWithAI = updatedProcesses.map((proc, idx) => ({
+        ...proc,
+        aiOrNot: aiOrNotList[idx]?.aiOrNot || "No AI summary available."
+      }));
 
+      // Group summary by process, and display each activity with its AI explanation
+      const summaryByProcess = processes.map((proc) => {
+        const matching = aiOrNotList.filter(item => item.processName === proc.header || item.processName === `(Process ${proc.processNumber})`);
+        return {
+          name: `Process ${proc.processNumber} - ${proc.header || "Untitled"}`,
+          aiOrNot: matching.length > 0
+            ? matching.map(m => `Activity: ${m.activityName} — ${m.aiOrNot}`).join("\n")
+            : "No AI summary available."
+        };
+      });
+
+      setProcesses(updatedWithAI);
+      setSummaryList(summaryByProcess);
+      setShowSummaryDialog(true);
       toast.success(
-        `Work activities generated successfully!\n${formattedSummary}`,
+        "Work activities generated successfully!",
         { id: "generate-activities" }
       );
-
-      // toast.success("Work activities generated successfully!", { id: "generate-activities" });
-      
-
     } catch (error) {
       console.error("Global error in generateWorkActivities:", error);
       toast.error("Failed to generate work activities. Please try again.", { id: "generate-activities" });
@@ -472,20 +489,20 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       if (p.id !== procId) return p;
       // Prevent removing last activity
       if (p.activities.length <= 1) return p;
-      
+  
       // Find the activity to remove and track it for deletion if it has a database ID
       const activityToRemove = p.activities.find(a => a.id === actId);
       if (activityToRemove && activityToRemove.activity_id) {
         setDeletedActivityIds(prev => [...prev, activityToRemove.activity_id]);
       }
-      
+  
       return {
         ...p,
         activities: p.activities.filter(a => a.id !== actId)
       };
     }));
   };
-
+  
   const showSuccessMessage = (message) => {
     console.log('Success', message);
     toast.success(message || "Form Saved");
@@ -933,6 +950,14 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         </div>
       ))}
       
+      {showSummaryDialog && (
+        <SummaryDialog
+          title="Generation Summary"
+          message="The following explanations were provided for each process:"
+          processes={summaryList}
+          onClose={() => setShowSummaryDialog(false)}
+        />
+      )}
     </div>
   );
 });
