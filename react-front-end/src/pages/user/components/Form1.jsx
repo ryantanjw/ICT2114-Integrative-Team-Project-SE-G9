@@ -482,20 +482,20 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       if (p.id !== procId) return p;
       // Prevent removing last activity
       if (p.activities.length <= 1) return p;
-      
+  
       // Find the activity to remove and track it for deletion if it has a database ID
       const activityToRemove = p.activities.find(a => a.id === actId);
       if (activityToRemove && activityToRemove.activity_id) {
         setDeletedActivityIds(prev => [...prev, activityToRemove.activity_id]);
       }
-      
+  
       return {
         ...p,
         activities: p.activities.filter(a => a.id !== actId)
       };
     }));
   };
-
+  
   const showSuccessMessage = (message) => {
     console.log('Success', message);
     toast.success(message || "Form Saved");
