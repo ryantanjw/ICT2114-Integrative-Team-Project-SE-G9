@@ -13,7 +13,7 @@ export default function AlertModal({ isOpen, onClose, onConfirm }) {
         <p className="text-base text-gray-600 mb-6">
           There are new hazards pending approval.
         </p>
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-center xl:justify-end gap-4">
           <button
             onClick={onClose}
             className="px-6 py-2 bg-gray-200 font-medium text-black rounded-full hover:bg-gray-300 focus:outline-none text-sm sm:text-base"
@@ -24,7 +24,7 @@ export default function AlertModal({ isOpen, onClose, onConfirm }) {
             onClick={onConfirm}
             className="px-6 py-2 bg-gray-200 font-medium text-black rounded-full hover:bg-gray-300 focus:outline-none text-sm sm:text-base"
           >
-            Go to Database
+            View Database
           </button>
         </div>
       </div>
