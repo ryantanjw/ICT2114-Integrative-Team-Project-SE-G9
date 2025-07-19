@@ -1953,7 +1953,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     <div className="space-y-6">
       {/* Title & Division */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-end">
-        <div className="xl:col-span-5 w-full">
+        <div className="xl:col-span-4 w-full">
           <InputGroup
             label="Title"
             id="form2-title"
@@ -1964,7 +1964,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             }}
           />
         </div>
-        <div className="xl:col-span-5 w-full">
+        <div className="xl:col-span-4 w-full">
           <InputGroup
             label="Division"
             id="form-division"
@@ -1978,7 +1978,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             disabled={divisionsLoading}
           />
         </div>
-        <div className="xl:col-span-2 w-full">
+        <div className="xl:col-span-4 w-full">
           <CTAButton
             icon={allCollapsed ? RiExpandVerticalLine : RiCollapseVerticalFill}
             text={allCollapsed ? "Expand All" : "Collapse All"}
