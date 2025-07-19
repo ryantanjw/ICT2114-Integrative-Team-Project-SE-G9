@@ -12,6 +12,7 @@ import Form3 from "./components/Form3.jsx";
 import ConfirmForm from "./components/ConfirmForm.jsx"; // will be used for Confirmation Details
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import ScrollFab from "./components/ScrollFab.jsx";
 
 export default function UserNewForm() {
   const location = useLocation();
@@ -796,6 +797,7 @@ export default function UserNewForm() {
         }
         position="bottom"
       />
+      <ScrollFab />
     </div>
   );
 }

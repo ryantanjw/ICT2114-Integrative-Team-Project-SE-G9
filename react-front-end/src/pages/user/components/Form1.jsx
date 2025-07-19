@@ -6,6 +6,8 @@ import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete, MdExpandMore, MdExpandLess, MdAdd } from "react-icons/md";
 import { toast } from "react-hot-toast";
+import { LuMinus } from "react-icons/lu";
+
 
 // Convert to forwardRef to expose methods to parent
 const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNavigate }, ref) => {
@@ -872,7 +874,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}
             </span>
             <CTAButton
-              icon={<MdDelete />}
+              icon={LuMinus}
               text="Remove"
               onClick={(e) => {
                 console.log("Process Remove clicked for ID:", proc.id);

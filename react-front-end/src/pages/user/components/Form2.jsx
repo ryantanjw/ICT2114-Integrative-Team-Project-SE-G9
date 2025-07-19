@@ -13,6 +13,8 @@ import { RiCollapseVerticalFill, RiExpandVerticalLine } from "react-icons/ri";
 import { v4 as uuidv4 } from 'uuid';
 import { IoIosWarning } from "react-icons/io";
 import { toast } from "react-hot-toast";
+import { HiSparkles } from "react-icons/hi";
+
 
 const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Build RA processes with nested activities and default hazards
@@ -1996,6 +1998,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             </span>
             <CTAButton
               text="Generate"
+              icon={HiSparkles}
               /* ctrl f tag AI Generate button */
               onClick={async () => {
                 const toastId = toast.loading("Generating with AI...");
