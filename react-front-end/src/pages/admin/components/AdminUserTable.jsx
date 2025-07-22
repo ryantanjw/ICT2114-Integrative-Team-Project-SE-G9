@@ -32,9 +32,6 @@ export default function UserTable({ users, onRemove, onReset, onEdit }) {
                             Role
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Designation
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Cluster
                         </th>
                         <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -65,9 +62,6 @@ export default function UserTable({ users, onRemove, onReset, onEdit }) {
                                     }`}>
                                         {user.role || "Unknown Role"}
                                     </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {user.designation || "Not specified"}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

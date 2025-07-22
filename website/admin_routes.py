@@ -413,7 +413,10 @@ def add_user():
         db.session.add(new_user)
         db.session.commit()
         
-        print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")        
+        print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")
+        # Fetch division name for the new user
+        division = Division.query.filter_by(division_id=new_user.user_cluster).first()
+        division_name = division.division_name if division else "No Division"
         return jsonify({
             "success": True,
             "user": {
@@ -422,7 +425,8 @@ def add_user():
                 "user_email": new_user.user_email,
                 "user_designation": new_user.user_designation,
                 "user_role": new_user.user_role,
-                "user_cluster": new_user.user_cluster
+                "user_cluster": new_user.user_cluster,
+                "division_name": division_name
             }
         })
         
