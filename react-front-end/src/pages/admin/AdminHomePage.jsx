@@ -14,7 +14,7 @@ import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import PdfPreviewModal from "./components/PdfPreviewModal.jsx";
 import DownloadDialogue from "../../components/DownloadDialogue.jsx";
-
+import AlertModal from "./components/AlertModal.jsx";
 
 
 export default function AdminHome() {
@@ -283,35 +283,19 @@ export default function AdminHome() {
     <div className="relative bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
       <HeaderAdmin activePage={location.pathname} />
 
-      {showHazardAlert && (
-        <div className="fixed top-30 right-0 z-50 flex justify-end items-center">
-          <div className="p-6 max-w-md w-full mx-4 bg-white border border-gray-200 rounded-xl">
-            <h3 className="text-lg font-semibold mb-2">New Hazards Detected</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              There are new hazards pending approval.
-            </p>
-            <div className="flex justify-end gap-9">
-              <button
-                className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
-                onClick={() => setShowHazardAlert(false)}
-              >
-                Close
-              </button>
-              <button
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                onClick={() => navigate("/admin/db")}
-              >
-                Go to Database
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-col justify-start mb-5">
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
           Available Actions (Admin)
         </h3>
+
+      <AlertModal
+        isOpen={showHazardAlert}
+        onClose={() => setShowHazardAlert(false)}
+        onConfirm={() => {
+          setShowHazardAlert(false);
+          navigate("/admin/db");
+        }}
+      />
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
           <ActionCard
             header="Account Enrolment"
@@ -370,6 +354,7 @@ export default function AdminHome() {
               <FormCardA2Admin
                 key={form.id}
                 date={formatDate(form.created_at || form.last_access_date)}
+                expiryDate={formatDate(form.next_review_date)}
                 title={form.title || "Untitled Form"}
                 owner={form.owner || "Unknown User"}
                 tags={form.tags || [form.status] || ["Unknown"]}

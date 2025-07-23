@@ -404,7 +404,9 @@ def share_form(formId):
                         hazard_activity_id=new_activity.activity_id,
                         hazard=original_hazard.hazard,
                         hazard_type_id=original_hazard.hazard_type_id,
-                        injury=original_hazard.injury
+                        injury=original_hazard.injury,
+                        hazard_implementation_person=original_hazard.hazard_implementation_person,
+                        hazard_due_date=original_hazard.hazard_due_date
                     )
                     
                     db.session.add(new_hazard)
@@ -426,6 +428,9 @@ def share_form(formId):
                             severity=original_risk.severity,
                             likelihood=original_risk.likelihood,
                             RPN=original_risk.RPN,
+                            newSeverity=original_risk.newSeverity,
+                            newLikelihood=original_risk.newLikelihood,
+                            newRPN=original_risk.newRPN
                         )
                         
                         db.session.add(new_risk)
@@ -541,7 +546,9 @@ def duplicate_form(formId):
                         hazard_activity_id=new_activity.activity_id,
                         hazard=original_hazard.hazard,
                         hazard_type_id=original_hazard.hazard_type_id,
-                        injury=original_hazard.injury
+                        injury=original_hazard.injury,
+                        hazard_implementation_person=original_hazard.hazard_implementation_person,
+                        hazard_due_date=original_hazard.hazard_due_date
                     )
                     
                     db.session.add(new_hazard)
@@ -563,6 +570,9 @@ def duplicate_form(formId):
                             severity=original_risk.severity,
                             likelihood=original_risk.likelihood,
                             RPN=original_risk.RPN,
+                            newSeverity=original_risk.newSeverity,
+                            newLikelihood=original_risk.newLikelihood,
+                            newRPN=original_risk.newRPN
                         )
                         
                         db.session.add(new_risk)
@@ -804,6 +814,10 @@ def get_form2_data(form_id):
                     "severity": risk.severity if risk else 1,
                     "likelihood": risk.likelihood if risk else 1,
                     "rpn": risk.RPN if risk else 1,
+                    "newSeverity": getattr(risk, "newSeverity", None) if risk else None,
+                    "newLikelihood": getattr(risk, "newLikelihood", None) if risk else None,
+                    "newRpn": getattr(risk, "newRPN", None) if risk else None,
+
                     "hazard_implementation_person": hazard.hazard_implementation_person if risk else "",
                     "hazard_due_date": hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else None
 
@@ -1141,7 +1155,9 @@ def get_form3_data(form_id):
             "form_reference_number": form.form_reference_number,
             "approved_by": None,
             "last_review_date": None,
-            "team_data": None
+            "team_data": None,
+            "approved_by": form.approved_by, 
+            "designation": form.designation if hasattr(form, "designation") else None,
         }
         
         # Format dates if they exist
@@ -1155,11 +1171,15 @@ def get_form3_data(form_id):
         if form.approved_by:
             approver = User.query.get(form.approved_by)
             if approver:
-                form_data["approved_by"] = {
-                    "user_id": approver.user_id,
-                    "user_name": approver.user_name,
-                    "user_designation": approver.user_designation
-                }
+                form_data["approved_by"] = approver.user_name
+                form_data["designation"] = approver.user_designation
+            else:
+                form_data["approved_by"] = form.approved_by  # fallback to raw value
+                form_data["designation"] = getattr(form, "designation", None)
+        else:
+            form_data["approved_by"] = None
+            form_data["designation"] = getattr(form, "designation", None)
+
         
         # Get RA Team info if available
         if form.form_RA_team_id:
@@ -1202,35 +1222,31 @@ def get_form3_data(form_id):
                 for member_row in team_members_result:
                     print(f"Raw team member row: {member_row}")
                     
-                    # Get the user_id from the RA_team_member column - safer access
                     try:
+                        # Get the member name from the RA_team_member_name column
                         # Try dictionary access first
-                        if hasattr(member_row, 'keys') and 'RA_team_member' in member_row.keys():
-                            member_id = member_row['RA_team_member']
-                        # Try indexed access - only use index 1 (second column) as fallback
-                        elif len(member_row) > 1:
-                            member_id = member_row[1]  # Changed from index 2 to index 1
+                        if hasattr(member_row, 'keys') and 'RA_team_member_name' in member_row.keys():
+                            member_name = member_row['RA_team_member_name']
+                        # Try indexed access - assuming RA_team_member_name is at index 2 (third column)
+                        elif len(member_row) > 2:
+                            member_name = member_row[2]
                         else:
-                            print(f"Could not extract member ID from row: {member_row}")
+                            print(f"Could not extract member name from row: {member_row}")
                             continue
                             
-                        print(f"Extracted member ID: {member_id}")
+                        print(f"Extracted member name: {member_name}")
                         
-                        if member_id:
-                            member = User.query.get(member_id)
-                            if member:
-                                print(f"Found user: {member.user_name}")
-                                team_data["members"].append({
-                                    "user_id": member.user_id,
-                                    "user_name": member.user_name,
-                                    "user_email": member.user_email,
-                                    "user_designation": member.user_designation
-                                })
-                            else:
-                                print(f"No user found with ID: {member_id}")
+                        if member_name:
+                            team_data["members"].append({
+                                "user_name": member_name
+                            })
+                        else:
+                            print(f"No member name found in row: {member_row}")
                     except Exception as e:
                         print(f"Error processing team member row: {e}")
                         continue
+
+                
                 
                 print(f"Final members list: {team_data['members']}")
                 form_data["team_data"] = team_data
@@ -1325,6 +1341,10 @@ def form3_save():
                 form.next_review_date = datetime.fromisoformat(data.get('next_review_date'))
             except ValueError:
                 print(f"Invalid next_review_date format: {data.get('next_review_date')}")
+        if 'approvedBy' in data:
+            form.approved_by = data['approvedBy']
+        if 'designation' in data:
+            form.designation = data['designation']
         
         # Handle RA Team
         ra_team_members = data.get('raTeam', [])
@@ -1350,22 +1370,19 @@ def form3_save():
                 ra_team.RA_leader = current_user.user_id
         
         # Now that we have a valid RA team with a leader, handle team members
-        if ra_team_members:
-            # Remove existing team members
-            RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
-            
-            # Add new team members
-            for member_name in ra_team_members:
-                if member_name.strip():
-                    member = User.query.filter_by(user_name=member_name.strip()).first()
-                    if member:
-                        # Avoid adding the leader as a team member (they're already the leader)
-                        if member.user_id != current_user.user_id:
-                            team_member = RA_team_member(
-                                RA_team_id=ra_team.RA_team_id,
-                                RA_team_member=member.user_id
-                            )
-                            db.session.add(team_member)
+            if ra_team_members:
+                # Remove existing team members
+                RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
+                
+                # Add new team members (save as names)
+                for member_name in ra_team_members:
+                    if member_name.strip():
+                        team_member = RA_team_member(
+                            RA_team_id=ra_team.RA_team_id,
+                            RA_team_member=None,  # Not linking to user_id
+                            RA_team_member_name=member_name.strip()
+                        )
+                        db.session.add(team_member)
         
         # Handle approval information
         if 'approvedBy' in data and data.get('approvedBy'):
@@ -1825,6 +1842,125 @@ def ai_generate():
         print(f"Error generating hazard data: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+# ctrl f tag AI
+@user.route('/get_activities', methods=['POST'])
+def get_activities():
+    """Get activities for a given process using AI or query known_data"""
+    try:
+        data = request.get_json()
+        # title_plus_process_name = str(data.get('title')) + ' ' + str(data.get('processName'))
+        
+        # if not title_plus_process_name:
+        #     return jsonify({"error": "No process name provided"}), 400
+
+        activities, text = get_matched_activities(str(data.get('title')), str(data.get('processName')))  # Call RAG.py function
+        return jsonify({
+            "success": True,
+            "activities": activities,
+            "processName": str(data.get('processName')),
+            "text": text
+        }), 200
+
+    except Exception as e:
+        print(f"Error getting activities: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+# ctrl f tag AI
+@user.route('/filtered_activities', methods=['POST'])
+def filtered_activities():
+    print("\n=== FILTERED ACTIVITIES CALLED ===")
+    try:
+        data = request.get_json()
+        activities = data.get("activities", [])  # a list
+        filtered_activities = []
+        for activity in activities:
+            result = KnownData.query.filter(
+                KnownData.activity_name.ilike(f"%{activity}%"),
+                # KnownData.title.ilike(f"%{data.get('formTitle')}%"),
+                # KnownData.process.ilike(f"%{data.get('processName')}%")
+            ).all()
+            if result:
+                filtered_activities.append(activity)
+        return jsonify({
+            "success": True,
+            "filtered_activities": filtered_activities 
+        }), 200
+
+    except Exception as e:
+        print(f"Error getting activities: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# ctrl f tag AI
+@user.route('/generate_from_db_only', methods=['POST'])
+def generate_from_db_only():
+    print("\n=== GENERATE FROM DB ONLY CALLED ===")
+    try:
+        data = request.get_json()
+        user_input = data.get('activityName')
+        
+        if not user_input:
+            return jsonify({"error": "No input provided"}), 400
+        
+        # activities = get_matched_activities_only_db(str(data.get('formTitle')), str(data.get('processName')))  # Call RAG.py function
+        # # hazard_rows = KnownData.query.filter_by(activity_name=str(user_input), process=str(data.get('processName')), title=str(data.get('formTitle'))).all()
+        # hazard_data = [for activity in activities if activity.activity_name == user_input]
+
+        activities = get_matched_activities_only_db(
+            str(data.get('formTitle')),
+            str(data.get('processName'))
+        )
+
+        # hazard_data = [
+        #     activity for activity in activities 
+        #     if activity.activity_name == user_input
+        # ]
+
+
+        # If rows found, convert each row to a dict and store in a list
+        hazard_data = [
+            {
+            "description": row.hazard_des,
+            "type": [t.strip() for t in row.hazard_type.split(",")] if row.hazard_type else [],
+            "injuries": [row.injury] if row.injury else [],
+            "risk_type": row.risk_type,
+            "existingControls": row.control,
+            "severity": row.severity,
+            "likelihood": row.likelihood,
+            "rpn": row.rpn
+            }
+            for row in activities if row.activity_name == user_input
+        ]
+        return jsonify({
+            "success": True,
+            "hazard_data": hazard_data
+        }), 200
+
+    except Exception as e:
+        print(f"Error getting hazards: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+@user.route("/store_has_run", methods=["POST"])
+def store_has_run():
+    data = request.get_json()
+    form_id = str(data.get("form_id"))
+    session[f"has_run_{form_id}"] = True
+    return jsonify(success=True)
+
+@user.route("/get_has_run", methods=["GET"])
+def get_has_run():
+    form_id = request.args.get("form_id")
+    has_run = session.get(f"has_run_{form_id}", False)
+    return jsonify(has_run=has_run)
+
+@user.route("/reset_has_run", methods=["POST"])
+def reset_has_run():
+    data = request.get_json()
+    form_id = str(data.get("form_id"))
+    session.pop(f"has_run_{form_id}", None)
+    return jsonify(success=True)
+
+
+
 # Reset user password (user only)
 @user.route('/reset_password', methods=['POST'])
 def reset_password():
@@ -2144,7 +2280,12 @@ def get_form_data_for_document(formId):
                         'additional_controls': risk.additional_risk_control if risk else '',
                         'severity': risk.severity if risk else None,
                         'likelihood': risk.likelihood if risk else None,
-                        'rpn': risk.RPN if risk else None
+                        'rpn': risk.RPN if risk else None,
+                        'newSeverity': risk.newSeverity if risk else None,
+                        'newLikelihood': risk.newLikelihood if risk else None,
+                        'newRPN': risk.newRPN if risk else None,
+                        'hazard_implementation_person': hazard.hazard_implementation_person if hazard else '',
+                        'hazard_due_date': hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else ''
                     }
                     
                     activity_entry['hazards'].append(hazard_entry)

@@ -13,6 +13,8 @@ import { RiCollapseVerticalFill, RiExpandVerticalLine } from "react-icons/ri";
 import { v4 as uuidv4 } from 'uuid';
 import { IoIosWarning } from "react-icons/io";
 import { toast } from "react-hot-toast";
+import { HiSparkles } from "react-icons/hi";
+
 
 const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Build RA processes with nested activities and default hazards
@@ -37,6 +39,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // For warning dialog on activity removal
   const [activityWarningOpen, setActivityWarningOpen] = useState(false);
   const [activityWarningInfo, setActivityWarningInfo] = useState({ processId: null, activityId: null });
+  // For warning dialog on risk control removal
+  const [riskControlWarningOpen, setRiskControlWarningOpen] = useState(false);
+  const [riskControlWarningInfo, setRiskControlWarningInfo] = useState({ processId: null, activityId: null, hazardId: null, riskControlId: null });
+  // For warning dialog on additional risk control removal
+  const [additionalRiskControlWarningOpen, setAdditionalRiskControlWarningOpen] = useState(false);
+  const [additionalRiskControlWarningInfo, setAdditionalRiskControlWarningInfo] = useState({ processId: null, activityId: null, hazardId: null, acIndex: null });
 
   // Temporary hardcoded list of risk control categories
   const riskcontrolTypesList = [
@@ -59,21 +67,21 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Fetch divisions from API
   const fetchDivisions = useCallback(async () => {
     if (divisionsLoading) return; // Prevent multiple concurrent requests
-    
+
     setDivisionsLoading(true);
     try {
       const response = await fetch('/api/user/retrieveDivisions');
       if (response.ok) {
         const data = await response.json();
         console.log('Divisions fetched:', data);
-        
+
         // Transform the data to match the expected format for dropdown options
         // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
         const divisionOptions = data.map(div => ({
           value: String(div.division_id), // Ensure string type
           label: div.division_name // Use division_name as display text
         }));
-        
+
         setDivisions(divisionOptions);
       } else {
         console.error('Failed to fetch divisions');
@@ -169,13 +177,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Parse existing risk controls (format: "a) risk control category - existing risk control")
       const parsedRiskControls = [];
       if (hazard.existingControls) {
-        // Check if the string contains formatted controls (with a) b) c) prefixes)
-        const controlLines = hazard.existingControls.split(/\n|(?=[a-z]\))/);
-        
+        // Only split on newlines to avoid cutting off valid data
+        const controlLines = hazard.existingControls.split(/\n/);
+
         // If we have properly formatted controls
         if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
           console.log('Parsing formatted existing controls:', controlLines);
-          
+
           controlLines.forEach(line => {
             const trimmedLine = line.trim();
             if (trimmedLine) {
@@ -194,7 +202,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 parsedRiskControls.push({
                   id: uuidv4(),
                   riskControlType: "",
-                  existingControls: trimmedLine,
+                  existingControls: trimmedLine.replace(/^[a-z]\)\s*/, ''),
                   expanded: true
                 });
               }
@@ -220,17 +228,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           expanded: true
         });
       }
-      
+
       // Parse additional risk controls (format: "a) risk control category - additional risk control")
       const parsedAdditionalRiskControls = [];
       if (hazard.additionalControls) {
-        // Check if the string contains formatted controls (with a) b) c) prefixes)
-        const controlLines = hazard.additionalControls.split(/\n|(?=[a-z]\))/);
-        
+        // Only split on newlines to avoid cutting off valid data
+        const controlLines = hazard.additionalControls.split(/\n/);
+
         // If we have properly formatted controls
         if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
           console.log('Parsing formatted additional controls:', controlLines);
-          
+
           controlLines.forEach(line => {
             const trimmedLine = line.trim();
             if (trimmedLine) {
@@ -276,6 +284,24 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         });
       }
 
+      const newSeverity =
+        hazard.newSeverity ??
+        hazard.new_severity ??
+        hazard.severity ??
+        0;
+
+      const newLikelihood =
+        hazard.newLikelihood ??
+        hazard.new_likelihood ??
+        0;
+
+      const newRpn =
+        hazard.newRpn ??
+        hazard.new_rpn ??
+        (newSeverity * newLikelihood);
+
+
+
       return {
         id: hazard.id || hazard.hazard_id || uuidv4(),
         hazard_id: hazard.hazard_id || hazard.id,
@@ -311,9 +337,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         severity: hazard.severity ?? 0,
         likelihood: hazard.likelihood ?? 0,
         rpn: hazard.rpn ?? 0,
-        newSeverity: hazard.severity ?? 0,  // Always equal to severity
-        newLikelihood: hazard.newLikelihood ?? hazard.likelihood ?? 0,
-        newRpn: (hazard.severity ?? 0) * (hazard.newLikelihood ?? hazard.likelihood ?? 0),
+        newSeverity,
+        newLikelihood,
+        newRpn,
         dueDate: formattedDueDate || "",
         implementationPerson: hazard.implementationPerson ||
           hazard.implementation_person ||
@@ -647,6 +673,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
   }, [formData?.form_id, sessionData?.current_form_id, formData?.processes?.length]); // Also depend on processes length changes
 
+  // useEffect(() => {
+  //   if (raProcesses.length > 0) {
+  //     addHazardsToAllProcesses(title);
+  //   }
+  // }, [raProcesses]);
+
+  // Autocomplete starts from here
   useEffect(() => {
     console.log("DEBUGGING HERE");
     console.log("Form2 received formData:", formData);
@@ -723,6 +756,60 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       }
     };
   }, []);
+
+  // const hasRun = useRef(false);
+
+  // useEffect(() => {
+  //   if (!hasRun.current && raProcesses.length > 0) {
+  //     addHazardsToAllProcesses(title);
+  //     hasRun.current = true;
+  //   }
+  // }, [raProcesses]);
+
+  const storeHasRunInSession = async (formId) => {
+    try {
+      await fetch('/api/user/store_has_run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ form_id: formId, has_run: true })
+      });
+    } catch (err) {
+      console.error("Failed to store hasRun in session:", err);
+    }
+  };
+
+  const hasRunForForm = async (formId) => {
+    try {
+      const res = await fetch(`/api/user/get_has_run?form_id=${formId}`);
+      const data = await res.json();
+      return data.has_run === true;
+    } catch (err) {
+      console.error("Failed to check hasRun in session:", err);
+      return false;
+    }
+  };
+
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (raProcesses.length === 0) return;
+
+    (async () => {
+      if (hasRun.current) return; // Prevent multiple runs
+      const alreadyRun = await hasRunForForm(formId);
+
+      if (!alreadyRun) {
+        console.log("First time running addHazardsToAllProcesses for this form");
+        addHazardsToAllProcesses(title);
+        await storeHasRunInSession(formId);
+        hasRun.current = true; // Set flag to prevent future runs
+      } else {
+        console.log("ℹAlready ran for this form — skipping");
+      }
+    })();
+  }, [raProcesses, formId]);
+
+
 
   // Enhanced cleanup logic using useEffect
   useEffect(() => {
@@ -1013,15 +1100,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 ? {
                   ...a,
                   hazards: a.hazards.map(h =>
-                    h.id === hazardId 
-                      ? { 
-                        ...h, 
+                    h.id === hazardId
+                      ? {
+                        ...h,
                         [key]: value,
                         // If severity is updated, sync newSeverity too
                         ...(key === 'severity' ? { newSeverity: value } : {}),
                         // If newSeverity is updated, sync severity too
                         ...(key === 'newSeverity' ? { severity: value } : {})
-                      } 
+                      }
                       : h
                   ),
                 }
@@ -1074,108 +1161,99 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   // Toggle the selected risk control category for a hazard
   const toggleRiskControlType = (processId, activityId, hazardId, type, controlId) => {
     console.log("Toggling risk control type:", { processId, activityId, hazardId, type, controlId });
-    
+
     // Find the hazard to check its current state
     const hazard = raProcesses
       .find(p => p.id === processId)
       ?.activities.find(a => a.id === activityId)
       ?.hazards.find(h => h.id === hazardId);
-      
+
     console.log("Current hazard:", hazard);
     console.log("Risk controls:", hazard?.riskControls);
     console.log("Risk control to toggle:", hazard?.riskControls?.find(rc => rc.id === controlId));
-    
+
     // Find the display name for this risk control type
     const typeObj = riskcontrolTypesList.find(item => item.value === type);
     const typeDisplay = typeObj ? typeObj.display : "";
-    
+
     // Determine if we're adding, changing, or removing this type
     const currentRiskControl = hazard?.riskControls?.find(rc => rc.id === controlId);
     const isToggling = currentRiskControl?.riskControlType === type; // If same type is clicked, we're removing it
-    
+
     setRaProcesses(prev =>
       prev.map(proc =>
         proc.id === processId
           ? {
-              ...proc,
-              activities: proc.activities.map(a =>
-                a.id === activityId
-                  ? {
-                      ...a,
-                      hazards: a.hazards.map(h =>
-                        h.id === hazardId
-                          ? { 
-                              ...h, 
-                              // Update the risk control type - ensure only one selection at a time
-                              riskControls: (h.riskControls || []).map(rc => {
-                                if (rc.id === controlId) {
-                                  console.log("Updating risk control:", rc);
-                                  const newRiskControlType = isToggling ? "" : type;
-                                  
-                                  // Update the existingControls field to include/exclude the risk control type
-                                  let existingText = h.existingControls || "";
-                                  
-                                  // Extract the type prefix if it exists
-                                  const typeRegex = /^\[(.*?)\]\s*/;
-                                  const match = existingText.match(typeRegex);
-                                  
-                                  if (newRiskControlType) {
-                                    // Adding or changing type
-                                    if (match) {
-                                      // Replace existing type
-                                      existingText = existingText.replace(typeRegex, `[${typeDisplay}] `);
-                                    } else {
-                                      // Add new type prefix
-                                      existingText = `[${typeDisplay}] ${existingText}`;
-                                    }
-                                  } else {
-                                    // Removing type
-                                    if (match) {
-                                      existingText = existingText.replace(typeRegex, '');
-                                    }
-                                  }
-                                  
-                                  return { 
-                                    ...rc, 
-                                    riskControlType: newRiskControlType,
-                                    existingControls: existingText
-                                  };
-                                }
-                                return rc;
-                              }),
-                              // Also update the main existingControls field for the hazard
-                              existingControls: (() => {
-                                const typeRegex = /^\[(.*?)\]\s*/;
-                                const currentText = h.existingControls || "";
-                                const match = currentText.match(typeRegex);
-                                
-                                if (isToggling) {
-                                  // Removing the current type
-                                  return match ? currentText.replace(typeRegex, "") : currentText;
-                                } else {
-                                  // Adding or changing the type
-                                  if (match) {
-                                    // Replace existing type
-                                    return currentText.replace(typeRegex, `[${typeDisplay}] `);
-                                  } else {
-                                    // Add new type prefix
-                                    return `[${typeDisplay}] ${currentText}`;
-                                  }
-                                }
-                              })()
+            ...proc,
+            activities: proc.activities.map(a =>
+              a.id === activityId
+                ? {
+                  ...a,
+                  hazards: a.hazards.map(h =>
+                    h.id === hazardId
+                      ? {
+                        ...h,
+                        riskControls: (() => {
+                          // If no risk controls, create one
+                          if (!h.riskControls || h.riskControls.length === 0) {
+                            return [{
+                              id: controlId || uuidv4(),
+                              riskControlType: isToggling ? "" : type,
+                              existingControls: isToggling ? h.existingControls.replace(/^\[(.*?)\]\s*/, "") : `[${typeDisplay}] ${h.existingControls}`,
+                              expanded: true
+                            }];
+                          }
+                          // Otherwise, update the correct one
+                          return h.riskControls.map(rc => {
+                            if (rc.id === controlId) {
+                              const typeRegex = /^\[(.*?)\]\s*/;
+                              let existingText = h.existingControls || "";
+                              const match = existingText.match(typeRegex);
+
+                              if (!isToggling) {
+                                existingText = match
+                                  ? existingText.replace(typeRegex, `[${typeDisplay}] `)
+                                  : `[${typeDisplay}] ${existingText}`;
+                              } else if (match) {
+                                existingText = existingText.replace(typeRegex, "");
+                              }
+
+                              return {
+                                ...rc,
+                                riskControlType: isToggling ? "" : type,
+                                existingControls: existingText
+                              };
                             }
-                          : h
-                      )
-                    }
-                  : a
-              )
-            }
+                            return rc;
+                          });
+                        })(),
+                        existingControls: (() => {
+                          const typeRegex = /^\[(.*?)\]\s*/;
+                          const currentText = h.existingControls || "";
+                          const match = currentText.match(typeRegex);
+
+                          if (isToggling) {
+                            return match ? currentText.replace(typeRegex, "") : currentText;
+                          } else {
+                            return match
+                              ? currentText.replace(typeRegex, `[${typeDisplay}] `)
+                              : `[${typeDisplay}] ${currentText}`;
+                          }
+                        })()
+                      }
+                      : h
+                  )
+                }
+                : a
+            )
+          }
           : proc
       )
     );
 
     setTimeout(scheduleBatchedUpdate, 0);
   };
+
 
   const addInjury = (processId, activityId, hazardId) => {
     setRaProcesses(
@@ -1251,39 +1329,47 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const validateForm = () => {
     // Check all required fields for each hazard in each activity
     const invalidHazards = [];
-    
+
     // Track if form is valid
     let isValid = true;
-    
+
     // Check all processes, activities, and hazards
     raProcesses.forEach((process, processIndex) => {
       process.activities.forEach((activity, activityIndex) => {
         activity.hazards.forEach((hazard, hazardIndex) => {
           const missingFields = [];
-          
+
           // Check each required field
           if (!hazard.description.trim()) missingFields.push('Hazard Description');
           if (hazard.type.length === 0) missingFields.push('Hazard Type');
           if (hazard.injuries.length === 0) missingFields.push('Possible Injuries');
-          if (!hazard.existingControls.trim()) missingFields.push('Existing Risk Controls');
+          if (
+            !(
+              Array.isArray(hazard.riskControls) &&
+              hazard.riskControls.some(rc => rc.existingControls && rc.existingControls.trim())
+            ) &&
+            !(hazard.existingControls && hazard.existingControls.trim())
+          ) {
+            missingFields.push('Existing Risk Controls');
+          }
           if (hazard.severity === 0) missingFields.push('Severity');
           if (hazard.likelihood === 0) missingFields.push('Likelihood');
-          
+
           // Calculate RPN (Risk Priority Number)
           const rpn = (hazard.severity || 0) * (hazard.likelihood || 0);
           const newRpn = (hazard.severity || 0) * (hazard.newLikelihood || 0);
-          
+
           // Additional required fields when RPN >= 15
           if (rpn >= 15) {
             if (!hazard.additionalControls.trim()) missingFields.push('Additional Risk Controls');
             if (hazard.newLikelihood === 0) missingFields.push('New Likelihood (After Controls)');
             if (!hazard.dueDate) missingFields.push('Due Date');
             if (!hazard.implementationPerson.trim()) missingFields.push('Implementation Person');
-            
+
             // Ensure that new RPN is less than 15 after additional controls
             if (newRpn >= 15) missingFields.push('Stronger controls needed (RPN must be <15)');
           }
-          
+
           // If any fields are missing, add to invalid hazards list
           if (missingFields.length > 0) {
             invalidHazards.push({
@@ -1301,13 +1387,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
     return {
       valid: isValid,
-      message: isValid 
-        ? "" 
-        : `Missing required fields:${invalidHazards.map(h => 
-            `\n• ${h.process}, ${h.activity}, ${h.hazard}${h.rpn >= 15 ? ` (RPN: ${h.rpn})` : ''}:\n  ${h.missingFields.map(field => `   - ${field}`).join('\n  ')}`
-          ).join('')}${invalidHazards.some(h => h.missingFields.includes('Stronger controls needed (RPN must be <15)')) ? 
-            '\n\nReminder: High-risk hazards (RPN ≥ 15) must have controls that reduce risk below 15.' : 
-            ''}`,
+      message: isValid
+        ? ""
+        : `Missing required fields:${invalidHazards.map(h =>
+          `\n• ${h.process}, ${h.activity}, ${h.hazard}${h.rpn >= 15 ? ` (RPN: ${h.rpn})` : ''}:\n  ${h.missingFields.map(field => `   - ${field}`).join('\n  ')}`
+        ).join('')}${invalidHazards.some(h => h.missingFields.includes('Stronger controls needed (RPN must be <15)')) ?
+          '\n\nReminder: High-risk hazards (RPN ≥ 15) must have controls that reduce risk below 15.' :
+          ''}`,
       invalidHazards
     };
   };
@@ -1342,77 +1428,88 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         }));
       } catch (err) {
         console.warn('Unable to cache data in localStorage:', err);
-      }        const requestBody = {
-          title,
-          division,
-          processes: raProcesses.map(proc => ({
-            ...proc,
-            activities: proc.activities.map(act => ({
-              ...act,
-              hazards: act.hazards.map(h => {
-                // Format existing risk controls with alphabetical prefixes
-                let formattedExistingControls = "";
-                if (h.riskControls && h.riskControls.length > 0) {
-                  formattedExistingControls = h.riskControls.map((rc, idx) => {
-                    // Create alphabetical prefix (a, b, c, etc.)
+      }
+      const requestBody = {
+        title,
+        division,
+        processes: raProcesses.map(proc => ({
+          ...proc,
+          activities: proc.activities.map(act => ({
+            ...act,
+            hazards: act.hazards.map(h => {
+              // Format existing risk controls with alphabetical prefixes
+              let formattedExistingControls = "";
+              if (h.riskControls && h.riskControls.length > 0) {
+                formattedExistingControls = h.riskControls
+                  .map((rc, idx) => {
+                    const text = rc.existingControls?.trim();
+                    if (!text) return null; // Ignore empty controls
                     const prefix = String.fromCharCode(97 + idx) + ") ";
-                    
-                    // Find the risk control type display text
                     const typeObj = riskcontrolTypesList.find(type => type.value === rc.riskControlType);
                     const typeText = typeObj ? typeObj.display : "";
-                    
-                    // Format as "a) risk control category - existing risk control"
-                    return `${prefix}${typeText ? typeText + " - " : ""}${rc.existingControls}`;
-                  }).join("\n");
-                } else if (h.existingControls) {
-                  // Fallback to use the legacy field if no riskControls array
-                  formattedExistingControls = `a) ${h.existingControls}`;
-                }
-                
-                return {
-                  id: h.id,
-                  hazard_id: h.hazard_id,
-                  description: h.description,
-                  type: h.type,
-                  injuries: h.injuries,
-                  existingControls: formattedExistingControls, // Use formatted controls
-                  additionalControls: (() => {
-                    // Format additional risk controls with alphabetical prefixes just like existing controls
-                    let formattedAdditionalControls = "";
-                    if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
-                      formattedAdditionalControls = h.additionalRiskControls.map((ac, idx) => {
-                        // Create alphabetical prefix (a, b, c, etc.)
-                        const prefix = String.fromCharCode(97 + idx) + ") ";
-                        
-                        // Find the risk control type display text
-                        const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
-                        const typeText = typeObj ? typeObj.display : "";
-                        
-                        // Format as "a) risk control category - additional risk control"
-                        return `${prefix}${typeText ? typeText + " - " : ""}${ac.controlText}`;
-                      }).join("\n");
-                    } else if (h.additionalControls) {
-                      // Fallback to use the legacy field if no additionalRiskControls array
-                      formattedAdditionalControls = `a) ${h.additionalControls}`;
-                    }
-                    return formattedAdditionalControls;
-                  })(),
-                  severity: h.severity ?? 0,
-                  likelihood: h.likelihood ?? 0,
-                  rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
-                  newSeverity: h.severity ?? 0,  // Always use severity value
-                  newLikelihood: h.newLikelihood ?? 0,
-                  newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
-                  dueDate: h.dueDate || "",
-                  implementationPerson: h.implementationPerson || "",
-                  additionalControlType: h.additionalControlType || ""
-                };
-              })
-            }))
-          })),
-          userId: sessionData?.user_id
-        };
+                    const alreadyPrefixed = /^[a-z]\)\s/.test(text);
+                    return alreadyPrefixed
+                      ? text
+                      : `${prefix}${typeText ? typeText + " - " : ""}${text}`;
+                  })
+                  .filter(Boolean) // Remove nulls
+                  .join("\n");
+              } else if (h.existingControls && h.existingControls.trim()) {
+                const text = h.existingControls.trim();
+                const alreadyPrefixed = /^[a-z]\)\s/.test(text);
+                formattedExistingControls = alreadyPrefixed ? text : `a) ${text}`;
+              } else {
+                formattedExistingControls = ""; // Don't save empty
+              }
 
+              // --- Additional Risk Controls ---
+              let formattedAdditionalControls = "";
+              if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
+                formattedAdditionalControls = h.additionalRiskControls
+                  .map((ac, idx) => {
+                    const text = ac.controlText?.trim();
+                    if (!text) return null; // Ignore empty controls
+                    const prefix = String.fromCharCode(97 + idx) + ") ";
+                    const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
+                    const typeText = typeObj ? typeObj.display : "";
+                    const alreadyPrefixed = /^[a-z]\)\s/.test(text);
+                    return alreadyPrefixed
+                      ? text
+                      : `${prefix}${typeText ? typeText + " - " : ""}${text}`;
+                  })
+                  .filter(Boolean)
+                  .join("\n");
+              } else if (h.additionalControls && h.additionalControls.trim()) {
+                const text = h.additionalControls.trim();
+                const alreadyPrefixed = /^[a-z]\)\s/.test(text);
+                formattedAdditionalControls = alreadyPrefixed ? text : `a) ${text}`;
+              } else {
+                formattedAdditionalControls = ""; // Don't save empty
+              }
+
+              return {
+                id: h.id,
+                hazard_id: h.hazard_id,
+                description: h.description,
+                type: h.type,
+                injuries: h.injuries,
+                existingControls: formattedExistingControls,
+                additionalControls: formattedAdditionalControls,
+                severity: h.severity ?? 0,
+                likelihood: h.likelihood ?? 0,
+                rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
+                newSeverity: h.severity ?? 0,
+                newLikelihood: h.newLikelihood ?? 0,
+                newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
+                dueDate: h.dueDate || "",
+                implementationPerson: h.implementationPerson || "",
+                additionalControlType: h.additionalControlType || ""
+              };
+            })
+          }))
+        })),
+        userId: sessionData?.user_id
+      };
       if (currentFormId) {
         requestBody.form_id = currentFormId;
         console.log('Including form_id in request:', currentFormId);
@@ -1466,7 +1563,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const getDropdownColor = (key, value) => {
     // For unselected values (0), use gray
     if (value === 0) return "bg-gray-200";
-    
+
     if (key === "severity" || key === "likelihood") {
       if (value >= 4) return "bg-red-700";
       if (value === 3) return "bg-yellow-400";
@@ -1485,6 +1582,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     description = "",
     type = [],
     injuries = [],
+    riskControlType = "",   // newly added for rag function
     existingControls = "",
     additionalControls = "",
     severity = 0,
@@ -1496,67 +1594,81 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     implementationPerson = "",
     additionalControlType = ""
   } = {}) => {
-    // Extract any existing risk control type from existingControls
-    const typeRegex = /^\[(.*?)\]\s*/;
-    const match = existingControls.match(typeRegex);
-    let riskControlType = "";
-    
-    // If there's a type in the existingControls, extract it
-    if (match) {
-      const typeLabel = match[1];
-      const typeObj = riskcontrolTypesList.find(item => item.display === typeLabel);
-      riskControlType = typeObj ? typeObj.value : "";
-    }
-    
-    return {
-    id: uuidv4(),
-    hazard_id: uuidv4(),
-    description,
-    type: Array.isArray(type) ? type : (type ? [type] : []),
-    // Handle injuries - split by comma if string, handle arrays
-    injuries: (() => {
-      if (Array.isArray(injuries)) {
-        return injuries.flatMap(injury =>
-          typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
-        );
-      } else if (injuries) {
-        return typeof injuries === 'string'
-          ? injuries.split(',').map(i => i.trim()).filter(i => i)
-          : [injuries];
+    // // Extract any existing risk control type from existingControls
+    // const typeRegex = /^\[(.*?)\]\s*/;
+    // const match = existingControls.match(typeRegex);
+    // let riskControlType = "";
+
+    // // If there's a type in the existingControls, extract it
+    // if (match) {
+    //   const typeLabel = match[1];
+    //   const typeObj = riskcontrolTypesList.find(item => item.display === typeLabel);
+    //   riskControlType = typeObj ? typeObj.value : "";
+    // }
+    // newly added for rag function 
+    let finalRiskControlType = riskControlType; // if provided, use it
+    if (!finalRiskControlType) {
+      // If there's a type in the existingControls, extract it
+      const typeRegex = /^\[(.*?)\]\s*/;
+      const match = existingControls.match(typeRegex);
+
+      if (match) {
+        const typeLabel = match[1];
+        const typeObj = riskcontrolTypesList.find(item => item.display === typeLabel);
+        finalRiskControlType = typeObj ? typeObj.value : "";
       }
-      return [];
-    })(),
-    newInjury: "",
-    newType: "",
-    showTypeInput: false,
-    showInjuryInput: false,
-    existingControls,
-    implementationPerson: implementationPerson || "",
-    additionalControls: "",
-    severity,
-    likelihood,
-    rpn,
-    newSeverity: severity,  // Always set newSeverity equal to severity
-    newLikelihood,
-    newRpn,
-    // Collapse/expand flags
-    additionalControlsExpanded: true,
-    additionalControlType: additionalControlType || "", // Use provided or empty string
-    riskControls: [{
+    }
+    // end of newly added for rag function
+    return {
       id: uuidv4(),
-      existingControls: existingControls || "",
-      riskControlType, // Set the extracted risk control type
-      expanded: true
-    }],
-    // Add additionalRiskControls array
-    additionalRiskControls: [{
-      id: uuidv4(),
-      controlText: additionalControls || "",
-      controlType: additionalControlType || "",
-      expanded: true
-    }]
+      hazard_id: uuidv4(),
+      description,
+      type: Array.isArray(type) ? type : (type ? [type] : []),
+      // Handle injuries - split by comma if string, handle arrays
+      injuries: (() => {
+        if (Array.isArray(injuries)) {
+          return injuries.flatMap(injury =>
+            typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
+          );
+        } else if (injuries) {
+          return typeof injuries === 'string'
+            ? injuries.split(',').map(i => i.trim()).filter(i => i)
+            : [injuries];
+        }
+        return [];
+      })(),
+      newInjury: "",
+      newType: "",
+      showTypeInput: false,
+      showInjuryInput: false,
+      existingControls,
+      implementationPerson: implementationPerson || "",
+      additionalControls: "",
+      severity,
+      likelihood,
+      rpn,
+      newSeverity: severity,  // Always set newSeverity equal to severity
+      newLikelihood,
+      newRpn,
+      // Collapse/expand flags
+      additionalControlsExpanded: true,
+      additionalControlType: additionalControlType || "", // Use provided or empty string
+      riskControls: [{
+        id: uuidv4(),
+        existingControls: existingControls || "",
+        // riskControlType, // Set the extracted risk control type
+        riskControlType: finalRiskControlType, // newly added for rag function
+        expanded: true
+      }],
+      // Add additionalRiskControls array
+      additionalRiskControls: [{
+        id: uuidv4(),
+        controlText: additionalControls || "",
+        controlType: additionalControlType || "",
+        expanded: true
+      }]
+    };
   };
-};
   // Toggle collapse on a specific Risk Controls sub-section
   const toggleRiskControlSection = (processId, activityId, hazardId, sectionId) => {
     setRaProcesses(prev =>
@@ -1573,6 +1685,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     rc.id !== sectionId
                       ? rc
                       : { ...rc, expanded: !rc.expanded }
+
                   )
                 }
               )
@@ -1591,11 +1704,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         .find(p => p.id === processId)
         ?.activities.find(a => a.id === activityId)
         ?.hazards.find(h => h.id === hazardId);
-      
+
       // Check if we need to create an additionalControlId
       const isExpanding = !(hazard?.additionalControlsExpanded || false);
       const additionalControlId = hazard?.additionalControlId || uuidv4();
-      
+
       return prev.map(proc =>
         proc.id !== processId ? proc : {
           ...proc,
@@ -1608,17 +1721,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                   additionalControlsExpanded: !haz.additionalControlsExpanded,
                   additionalControlId: haz.additionalControlId || additionalControlId,
                   // If expanding and there's no additionalControlId, ensure there's a risk control entry
-                  riskControls: isExpanding && !haz.additionalControlId 
+                  riskControls: isExpanding && !haz.additionalControlId
                     ? [
-                        ...(haz.riskControls || []),
-                        {
-                          id: additionalControlId,
-                          existingControls: haz.additionalControls || "",
-                          riskControlType: "",
-                          expanded: true,
-                          isAdditionalControl: true
-                        }
-                      ]
+                      ...(haz.riskControls || []),
+                      {
+                        id: additionalControlId,
+                        existingControls: haz.additionalControls || "",
+                        riskControlType: "",
+                        expanded: true,
+                        isAdditionalControl: true
+                      }
+                    ]
                     : haz.riskControls
                 }
               )
@@ -1631,6 +1744,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const addHazardsToProcess = async (targetProcessId) => {
+    
     // Find the process by id
     const process = raProcesses.find(p => p.id === targetProcessId);
     if (!process) return;
@@ -1655,11 +1769,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               ? data.hazard_data
               : [data.hazard_data];
 
+            console.log("Generated hazards:", hazardsArray);
+
             const newHazards = hazardsArray.map(h =>
               createNewHazard({
                 description: h.description,
                 type: h.type,
                 injuries: h.injuries,
+                riskControlType: h.risk_type, // newly added for rag function
                 existingControls: h.existingControls,
                 severity: h.severity,
                 likelihood: h.likelihood,
@@ -1667,10 +1784,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               })
             );
 
-            return {
-              ...act,
-              hazards: [...act.hazards, ...newHazards]
-            };
+            // return {
+            //   ...act,
+            //   hazards: [...newHazards, ...act.hazards]
+            // };
+              return {
+                ...act,
+                hazards: [...newHazards, ...act.hazards].filter(
+                  h => h.description && h.description.trim() !== ""
+                )
+              };
+
+
           } else {
             console.error('Failed to get from AI');
             return act;
@@ -1694,6 +1819,124 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     );
   };
 
+  const addHazardsToAllProcesses = async (title) => {
+    const toastId = toast.loading("Loading hazards for all processes...");
+    const autofilledWorkActivities = [];
+    try {
+      const updatedProcesses = await Promise.all(
+        raProcesses.map(async (proc) => {
+          const activityNames = proc.activities.map(
+            (act) => act.description || `Activity ${act.activityNumber || ""}`
+          );
+
+          let filteredActivityNames = [];
+
+          // Step 1: filter activities for this process
+          try {
+            const filterRes = await fetch('/api/user/filtered_activities', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ activities: activityNames, processName: proc.header, formTitle: title })
+            });
+
+            if (filterRes.ok) {
+              const filterData = await filterRes.json();
+              filteredActivityNames = Array.isArray(filterData.filtered_activities)
+                ? filterData.filtered_activities
+                : [];
+            } else {
+              console.error(`Failed to filter activities for process ${proc.id}`);
+              throw new Error(`Failed to filter activities for process ${proc.id}`);
+            }
+          } catch (err) {
+            console.error(`Error filtering activities for process ${proc.id}:`, err);
+            throw err;
+          }
+          console.log(`Filtered activities for process ${proc.id}:`, filteredActivityNames);
+
+          // Step 2: generate each activity hazard while preserving order
+          const updatedActivities = await Promise.all(
+            proc.activities.map(async (act) => {
+              const activityName = act.description || `Activity ${act.activityNumber || ""}`;
+
+              if (!filteredActivityNames.includes(activityName)) {
+                // not in filtered list → keep it with no added hazards
+                return {
+                  ...act,
+                  hazards: [...act.hazards]  // leave as is
+                };
+              }
+
+              try {
+                const aiRes = await fetch('/api/user/generate_from_db_only', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ activityName, processName: proc.header, formTitle: title })
+                });
+
+                if (aiRes.ok) {
+                  const aiData = await aiRes.json();
+                  const hazardsArray = Array.isArray(aiData.hazard_data)
+                    ? aiData.hazard_data
+                    : [aiData.hazard_data];
+
+                  console.log(`Generated hazards for ${activityName}:`, hazardsArray);
+                  autofilledWorkActivities.push(`Hazards for ${activityName} autofilled`);
+
+                  const newHazards = hazardsArray.map(h =>
+                    createNewHazard({
+                      description: h.description,
+                      type: h.type,
+                      injuries: h.injuries,
+                      riskControlType: h.risk_type,
+                      existingControls: h.existingControls,
+                      severity: h.severity,
+                      likelihood: h.likelihood,
+                      rpn: h.rpn
+                    })
+                  );
+
+                  return {
+                    ...act,
+                    // hazards: [...newHazards, ...act.hazards]  // prepend
+                    hazards: [...newHazards, ...act.hazards].filter(
+                        h => h.description && h.description.trim() !== ""
+                      )
+                  };
+
+                } else {
+                  console.error(`Failed to get hazards for activity: ${activityName}`);
+                  throw new Error(`Failed to get hazards for activity: ${activityName}`);
+                }
+              } catch (err) {
+                console.error(`Error getting hazards for activity: ${activityName}`, err);
+                throw err;
+              }
+            })
+          );
+
+          return {
+            ...proc,
+            activities: updatedActivities
+          };
+        })
+      );
+
+      setRaProcesses(updatedProcesses);
+      console.log("Autofilled values:", autofilledWorkActivities);
+      const totalHazards = autofilledWorkActivities.length;
+      if (totalHazards === 0) {
+        toast.error("No hazards were generated. Please check your inputs.", { id: toastId });
+      } else {
+        toast.success("All hazards loaded successfully.", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Failed to load hazards for all processes.", { id: toastId });
+      // Optionally: rethrow or handle further
+    }
+  };
+
+
   // end of ctrl f tag AI
 
   // Show loading state
@@ -1711,8 +1954,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   return (
     <div className="space-y-6">
       {/* Title & Division */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-end">
+        <div className="xl:col-span-4 w-full">
           <InputGroup
             label="Title"
             id="form2-title"
@@ -1723,7 +1966,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             }}
           />
         </div>
-        <div className="flex-1">
+        <div className="xl:col-span-4 w-full">
           <InputGroup
             label="Division"
             id="form-division"
@@ -1732,31 +1975,35 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             type="select"
             options={[
               { value: "", label: "Select Division" },
-                ...divisions
+              ...divisions
             ]}
             disabled={divisionsLoading}
           />
         </div>
-        <CTAButton
-          icon={allCollapsed ? RiExpandVerticalLine : RiCollapseVerticalFill}
-          text={allCollapsed ? "Expand All" : "Collapse All"}
-          onClick={toggleExpandAll}
-          className="ml-auto bg-gray-100 text-black"
-        />
+        <div className="xl:col-span-4 w-full">
+          <CTAButton
+            icon={allCollapsed ? RiExpandVerticalLine : RiCollapseVerticalFill}
+            text={allCollapsed ? "Expand All" : "Collapse All"}
+            onClick={toggleExpandAll}
+            className="ml-auto bg-gray-100 text-black w-full mb-4"
+          />
+        </div>
       </div>
       {/* Render a section for each process */}
-      {raProcesses.map((proc) => (
-        <div key={proc.id} className="hello">
+      {raProcesses.map((proc, index) => (
+        <div key={proc.id} className={`hello ${index === raProcesses.length - 1 ? "pb-10" : ""}`}>
           <div className="inset-x-0 z-50 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
             <span className="font-semibold text-lg">
               {`Process ${proc.processNumber} - ${proc.header}`}
             </span>
             <CTAButton
               text="Generate"
+              icon={HiSparkles}
               /* ctrl f tag AI Generate button */
               onClick={async () => {
                 const toastId = toast.loading("Generating with AI...");
                 await addHazardsToProcess(proc.id);
+                // await addHazardsToAllProcesses(title);
                 toast.success("Hazards generated", { id: toastId });
               }}
               className="ml-auto bg-gray-100 text-black"
@@ -1974,31 +2221,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              // Remove the risk control
-                                              if ((h.riskControls || []).length <= 1) {
-                                                // Don't remove if it's the only control
-                                                return;
-                                              }
-                                              
-                                              setRaProcesses(prev =>
-                                                prev.map(p =>
-                                                  p.id === proc.id ? {
-                                                    ...p,
-                                                    activities: p.activities.map(a =>
-                                                      a.id === act.id ? {
-                                                        ...a,
-                                                        hazards: a.hazards.map(hz =>
-                                                          hz.id === h.id ? {
-                                                            ...hz,
-                                                            riskControls: (hz.riskControls || []).filter(control => control.id !== rc.id)
-                                                          } : hz
-                                                        )
-                                                      } : a
-                                                    )
-                                                  } : p
-                                                )
-                                              );
-                                              scheduleBatchedUpdate();
+                                              setRiskControlWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id, riskControlId: rc.id });
+                                              setRiskControlWarningOpen(true);
                                             }}
                                             className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
                                             disabled={(h.riskControls || []).length <= 1}
@@ -2020,11 +2244,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                           hz.id === h.id ? {
                                                             ...hz,
                                                             riskControls: [
-                                                              ...(hz.riskControls || [{ 
-                                                                id: uuidv4(), 
-                                                                existingControls: hz.existingControls || "", 
-                                                                riskControlType: hz.riskControlType || "", 
-                                                                expanded: true 
+                                                              ...(hz.riskControls || [{
+                                                                id: uuidv4(),
+                                                                existingControls: hz.existingControls || "",
+                                                                riskControlType: hz.riskControlType || "",
+                                                                expanded: true
                                                               }]),
                                                               {
                                                                 id: uuidv4(),
@@ -2088,7 +2312,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                               className={`px-3 py-1 rounded-full ${rc.riskControlType === typeObj.value
                                                 ? "bg-black text-white"
                                                 : "bg-gray-200"
-                                              }`}
+                                                }`}
                                             >
                                               {typeObj.display}
                                             </button>
@@ -2133,7 +2357,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                       </div>
                                     </div>
                                   ))}
-                                
+
                                   {/* RPN Alert */}
                                   {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
                                     <div className="bg-red-700 text-white p-2 rounded text-base mt-2 mb-2">
@@ -2147,7 +2371,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                       </p>
                                     </div>
                                   )}
-                                  
+
                                   {/* Initial Risk Assessment Required Fields - These are common for all risk controls */}
                                   <div className="flex space-x-4 mt-4 pt-4 border-t border-gray-200">
                                     {[
@@ -2210,140 +2434,160 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                             </div>
                             {/* <- Existing Risk Control Section END --> */}
 
-                            <div className="bg-blue-600 text-white p-2 my-5 rounded text-base">
-                              Risk Controls only reduce likelihood; Severity is constant
-                            </div>
+                            {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
+                              <>
+                                <div className="bg-blue-600 text-white p-2 my-5 rounded text-base">
+                                  Risk Controls only reduce likelihood; Severity is constant
+                                </div>
 
-                            {/* Additional Risk Controls Section */}
-                            <div className="mb-2 border border-gray-200 rounded-lg">
-                              <div
-                                className="bg-yellow-100 px-4 py-2 rounded-t cursor-pointer"
-                                onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
-                              >
-                                <span className="text-lg font-medium text-zinc-900">
-                                  Additional Risk Controls*
-                                </span>
-                                <span className="float-right">
-                                  {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
-                                </span>
-                              </div>
-                              {h.additionalControlsExpanded && (
-                                <div className="p-3">
-                                  {/* Render each additional risk control */}
-                                  {(h.additionalRiskControls || [{ 
-                                    id: uuidv4(),
-                                    controlText: h.additionalControls || "",
-                                    controlType: h.additionalControlType || "",
-                                    expanded: true
-                                  }]).map((additionalControl, acIndex) => (
-                                    <div key={additionalControl.id} className="mb-4 pb-4 border-b border-gray-200">
-                                      {/* Label + Buttons */}
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className="text-base font-medium">
-                                          Additional Risk Control {acIndex + 1}
-                                        </span>
-                                        <div className="flex space-x-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              // Don't remove if it's the only control
-                                              if ((h.additionalRiskControls || []).length <= 1) {
-                                                return;
-                                              }
-                                              
-                                              // Remove this specific additional risk control
-                                              setRaProcesses(prev =>
-                                                prev.map(p =>
-                                                  p.id === proc.id ? {
-                                                    ...p,
-                                                    activities: p.activities.map(a =>
-                                                      a.id === act.id ? {
-                                                        ...a,
-                                                        hazards: a.hazards.map(hz =>
-                                                          hz.id === h.id ? {
-                                                            ...hz,
-                                                            additionalRiskControls: (hz.additionalRiskControls || []).filter(
-                                                              (_, index) => index !== acIndex
-                                                            ),
-                                                            // For backward compatibility update the additionalControls field
-                                                            // if we're removing the first control
-                                                            additionalControls: acIndex === 0 && (hz.additionalRiskControls || []).length > 1 
-                                                              ? (hz.additionalRiskControls || [])[1].controlText 
-                                                              : hz.additionalControls
-                                                          } : hz
+                                {/* Additional Risk Controls Section */}
+                                <div className="mb-2 border border-gray-200 rounded-lg">
+                                  <div
+                                    className="bg-yellow-100 px-4 py-2 rounded-t cursor-pointer"
+                                    onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
+                                  >
+                                    <span className="text-lg font-medium text-zinc-900">
+                                      Additional Risk Controls*
+                                    </span>
+                                    <span className="float-right">
+                                      {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
+                                    </span>
+                                  </div>
+                                  {h.additionalControlsExpanded && (
+                                    <div className="p-3">
+                                      {/* Render each additional risk control */}
+                                      {(h.additionalRiskControls || [{
+                                        id: uuidv4(),
+                                        controlText: h.additionalControls || "",
+                                        controlType: h.additionalControlType || "",
+                                        expanded: true
+                                      }]).map((additionalControl, acIndex) => (
+                                        <div key={additionalControl.id} className="mb-4 pb-4 border-b border-gray-200">
+                                          {/* Label + Buttons */}
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-base font-medium">
+                                              Additional Risk Control {acIndex + 1}
+                                            </span>
+                                            <div className="flex space-x-2">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setAdditionalRiskControlWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id, acIndex });
+                                                  setAdditionalRiskControlWarningOpen(true);
+                                                }}
+                                                className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                                                disabled={(h.additionalRiskControls || []).length <= 1}
+                                              >
+                                                <LuMinus />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  // Add a new additional risk control to the current hazard
+                                                  setRaProcesses(prev =>
+                                                    prev.map(p =>
+                                                      p.id === proc.id ? {
+                                                        ...p,
+                                                        activities: p.activities.map(a =>
+                                                          a.id === act.id ? {
+                                                            ...a,
+                                                            hazards: a.hazards.map(hz =>
+                                                              hz.id === h.id ? {
+                                                                ...hz,
+                                                                // Make sure we keep existing additionalRiskControls if any
+                                                                additionalRiskControls: [
+                                                                  ...(hz.additionalRiskControls || [{
+                                                                    id: uuidv4(),
+                                                                    controlText: hz.additionalControls || "",
+                                                                    controlType: hz.additionalControlType || "",
+                                                                    expanded: true
+                                                                  }]),
+                                                                  // Add a new empty additional risk control
+                                                                  {
+                                                                    id: uuidv4(),
+                                                                    controlText: "",
+                                                                    controlType: "",
+                                                                    expanded: true
+                                                                  }
+                                                                ]
+                                                              } : hz
+                                                            )
+                                                          } : a
                                                         )
-                                                      } : a
+                                                      } : p
                                                     )
-                                                  } : p
-                                                )
-                                              );
-                                              scheduleBatchedUpdate();
-                                              console.log("Removed additional risk control at index", acIndex);
-                                            }}
-                                            className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
-                                            disabled={(h.additionalRiskControls || []).length <= 1}
-                                          >
-                                            <LuMinus />
-                                          </button>
-                                          <button                                            
-                                            type="button"
-                                            onClick={() => {
-                                              // Add a new additional risk control to the current hazard
-                                              setRaProcesses(prev =>
-                                                prev.map(p =>
-                                                  p.id === proc.id ? {
-                                                    ...p,
-                                                    activities: p.activities.map(a =>
-                                                      a.id === act.id ? {
-                                                        ...a,
-                                                        hazards: a.hazards.map(hz =>
-                                                          hz.id === h.id ? {
-                                                            ...hz,
-                                                            // Make sure we keep existing additionalRiskControls if any
-                                                            additionalRiskControls: [
-                                                              ...(hz.additionalRiskControls || [{
-                                                                id: uuidv4(),
-                                                                controlText: hz.additionalControls || "",
-                                                                controlType: hz.additionalControlType || "",
-                                                                expanded: true
-                                                              }]),
-                                                              // Add a new empty additional risk control
-                                                              {
-                                                                id: uuidv4(),
-                                                                controlText: "",
-                                                                controlType: "",
-                                                                expanded: true
-                                                              }
-                                                            ]
-                                                          } : hz
-                                                        )
-                                                      } : a
-                                                    )
-                                                  } : p
-                                                )
-                                              );
-                                              scheduleBatchedUpdate();
-                                              console.log("Added new additional risk control");
-                                            }}
-                                            className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
-                                          >
-                                            <MdAdd />
-                                          </button>
-                                        </div>
-                                      </div>
+                                                  );
+                                                  scheduleBatchedUpdate();
+                                                  console.log("Added new additional risk control");
+                                                }}
+                                                className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                                              >
+                                                <MdAdd />
+                                              </button>
+                                            </div>
+                                          </div>
 
-                                      {/* Risk Control Category Block */}
-                                      <div className="mb-2">
-                                        <label className="block text-base text-gray-600 mb-2">
-                                          Risk Control Category*
-                                        </label>
-                                        <div className="flex flex-wrap gap-2 mb-3">
-                                          {riskcontrolTypesList.map(typeObj => (
-                                            <button
-                                              type="button"
-                                              key={typeObj.value}
-                                              onClick={() => { 
-                                                // Update specific additional risk control
+                                          {/* Risk Control Category Block */}
+                                          <div className="mb-2">
+                                            <label className="block text-base text-gray-600 mb-2">
+                                              Risk Control Category*
+                                            </label>
+                                            <div className="flex flex-wrap gap-2 mb-3">
+                                              {riskcontrolTypesList.map(typeObj => (
+                                                <button
+                                                  type="button"
+                                                  key={typeObj.value}
+                                                  onClick={() => {
+                                                    // Update specific additional risk control
+                                                    setRaProcesses(prev =>
+                                                      prev.map(p =>
+                                                        p.id === proc.id ? {
+                                                          ...p,
+                                                          activities: p.activities.map(a =>
+                                                            a.id === act.id ? {
+                                                              ...a,
+                                                              hazards: a.hazards.map(hz =>
+                                                                hz.id === h.id ? {
+                                                                  ...hz,
+                                                                  // Update the additionalRiskControls array
+                                                                  additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
+                                                                    index === acIndex ? {
+                                                                      ...ctrl,
+                                                                      controlType: ctrl.controlType === typeObj.value ? "" : typeObj.value
+                                                                    } : ctrl
+                                                                  ),
+                                                                  // For backward compatibility with the first control
+                                                                  additionalControlType: acIndex === 0 ?
+                                                                    (additionalControl.controlType === typeObj.value ? "" : typeObj.value)
+                                                                    : hz.additionalControlType
+                                                                } : hz
+                                                              )
+                                                            } : a
+                                                          )
+                                                        } : p
+                                                      )
+                                                    );
+                                                    setTimeout(scheduleBatchedUpdate, 0);
+                                                  }}
+                                                  className={`px-3 py-1 rounded-full ${additionalControl.controlType === typeObj.value
+                                                    ? "bg-black text-white"
+                                                    : "bg-gray-200"
+                                                    }`}
+                                                >
+                                                  {typeObj.display}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </div>
+
+                                          {/* Text Area */}
+                                          <div className="mb-4">
+                                            <textarea
+                                              rows={3}
+                                              id={`add-controls-${h.id}-${acIndex}`}
+                                              value={additionalControl.controlText}
+                                              onChange={(e) => {
+                                                // Update specific additionalRiskControl
                                                 setRaProcesses(prev =>
                                                   prev.map(p =>
                                                     p.id === proc.id ? {
@@ -2355,16 +2599,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                             hz.id === h.id ? {
                                                               ...hz,
                                                               // Update the additionalRiskControls array
-                                                              additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) => 
+                                                              additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
                                                                 index === acIndex ? {
                                                                   ...ctrl,
-                                                                  controlType: ctrl.controlType === typeObj.value ? "" : typeObj.value
+                                                                  controlText: e.target.value
                                                                 } : ctrl
                                                               ),
                                                               // For backward compatibility with the first control
-                                                              additionalControlType: acIndex === 0 ? 
-                                                                (additionalControl.controlType === typeObj.value ? "" : typeObj.value) 
-                                                                : hz.additionalControlType
+                                                              additionalControls: acIndex === 0 ? e.target.value : hz.additionalControls
                                                             } : hz
                                                           )
                                                         } : a
@@ -2372,174 +2614,126 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                     } : p
                                                   )
                                                 );
-                                                setTimeout(scheduleBatchedUpdate, 0);
+                                                scheduleBatchedUpdate();
                                               }}
-                                              className={`px-3 py-1 rounded-full ${
-                                                additionalControl.controlType === typeObj.value
-                                                  ? "bg-black text-white"
-                                                  : "bg-gray-200"
-                                              }`}
-                                            >
-                                              {typeObj.display}
-                                            </button>
-                                          ))}
+                                              placeholder={(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ?
+                                                "Provide additional risk controls that will reduce RPN below 15"
+                                                : "Provide additional risk controls if needed"
+                                              }
+                                              className={`w-full border ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !additionalControl.controlText.trim() ? "border-red-500" : "border-gray-300"}
+                                                ${(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500" : ""}
+                                                rounded p-2`}
+                                            />
+                                          </div>
                                         </div>
-                                      </div>
+                                      ))}
 
-                                      {/* Text Area */}
-                                      <div className="mb-4">
-                                        <textarea
-                                          rows={3}
-                                          id={`add-controls-${h.id}-${acIndex}`}
-                                          value={additionalControl.controlText}
-                                          onChange={(e) => {
-                                            // Update specific additionalRiskControl
-                                            setRaProcesses(prev =>
-                                              prev.map(p =>
-                                                p.id === proc.id ? {
-                                                  ...p,
-                                                  activities: p.activities.map(a =>
-                                                    a.id === act.id ? {
-                                                      ...a,
-                                                      hazards: a.hazards.map(hz =>
-                                                        hz.id === h.id ? {
-                                                          ...hz,
-                                                          // Update the additionalRiskControls array
-                                                          additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) => 
-                                                            index === acIndex ? {
-                                                              ...ctrl,
-                                                              controlText: e.target.value
-                                                            } : ctrl
-                                                          ),
-                                                          // For backward compatibility with the first control
-                                                          additionalControls: acIndex === 0 ? e.target.value : hz.additionalControls
-                                                        } : hz
-                                                      )
-                                                    } : a
+                                      {/* Warning Message */}
+                                      {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
+                                        <div className="bg-blue-600 text-white p-2 rounded text-base mb-2">
+                                          <span className="font-base">
+                                            For high-risk hazards (RPN ≥ 15), the new RPN must be below 15 to submit.
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* Severity/Likelihood/RPN section remains outside the risk controls loop */}
+                                      <div className="flex space-x-4">
+                                        {[
+                                          { name: "Severity", required: false, isDisabled: true },
+                                          { name: "Likelihood", required: (h.severity || 0) * (h.likelihood || 0) >= 15, field: "newLikelihood" },
+                                          { name: "RPN", required: false }
+                                        ].map((field) => (
+                                          <div key={field.name}>
+                                            <label className="block text-base font-medium mb-1">
+                                              {field.name}{field.required && "*"}
+                                              {field.required && field.name === "Likelihood" &&
+                                                <span className="ml-1 text-xs text-red-700">(Required for high risk)</span>}
+                                              {field.name === "RPN" && (h.newSeverity ?? 0) * (h.newLikelihood ?? 0) >= 15 && (
+                                                <span className="ml-1 text-xs text-red-700 font-medium">(Still High Risk!)</span>
+                                              )}
+                                            </label>
+                                            {field.name === "RPN" ? (
+                                              <select
+                                                value={(h.newSeverity ?? 0) * (h.newLikelihood ?? 0)}
+                                                disabled
+                                                className={`${getDropdownColor(
+                                                  "rpn",
+                                                  (h.newSeverity ?? 0) * (h.newLikelihood ?? 0)
+                                                )} text-white rounded px-2 py-1`}
+                                              >
+                                                {[...Array(26)].map((_, i) => (
+                                                  <option key={i} value={i}>
+                                                    {i}{i >= 15 ? " (High Risk)" : ""}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            ) : (
+                                              <select
+                                                value={field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)}
+                                                onChange={(e) =>
+                                                  updateHazard(
+                                                    proc.id,
+                                                    act.id,
+                                                    h.id,
+                                                    field.name === "Severity" ? "severity" : "newLikelihood",
+                                                    parseInt(e.target.value)
                                                   )
-                                                } : p
-                                              )
-                                            );
-                                            scheduleBatchedUpdate();
-                                          }}
-                                          placeholder={(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ?
-                                            "Provide additional risk controls that will reduce RPN below 15"
-                                            : "Provide additional risk controls if needed"
-                                          }
-                                          className={`w-full border ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !additionalControl.controlText.trim() ? "border-red-500" : "border-gray-300"}
-                                            ${(h.severity || 0) * (h.likelihood || 0) >= 15 && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500" : ""}
-                                            rounded p-2`}
-                                        />
+                                                }
+                                                disabled={field.isDisabled}
+                                                className={`${getDropdownColor(
+                                                  field.name.toLowerCase(),
+                                                  field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)
+                                                )} text-white rounded px-2 py-1 ${field.name === "Likelihood" && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500 animate-pulse" : ""}`}
+                                              >
+                                                <option value={0}>Select</option>
+                                                {[1, 2, 3, 4, 5].map((v) => (
+                                                  <option key={v} value={v}>
+                                                    {v}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            )}
+                                          </div>
+                                        ))}
                                       </div>
-                                    </div>
-                                  ))}
-
-                                  {/* Warning Message */}
-                                  {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
-                                    <div className="bg-blue-600 text-white p-2 rounded text-base mb-2">
-                                      <span className="font-base">
-                                        For high-risk hazards (RPN ≥ 15), the new RPN must be below 15 to submit.
-                                      </span>
                                     </div>
                                   )}
-                                  
-                                  {/* Severity/Likelihood/RPN section remains outside the risk controls loop */}
-                                  <div className="flex space-x-4">
-                                    {[
-                                      { name: "Severity", required: false, isDisabled: true },
-                                      { name: "Likelihood", required: (h.severity || 0) * (h.likelihood || 0) >= 15, field: "newLikelihood" },
-                                      { name: "RPN", required: false }
-                                    ].map((field) => (
-                                      <div key={field.name}>
-                                        <label className="block text-base font-medium mb-1">
-                                          {field.name}{field.required && "*"}
-                                          {field.required && field.name === "Likelihood" &&
-                                            <span className="ml-1 text-xs text-red-700">(Required for high risk)</span>}
-                                          {field.name === "RPN" && (h.newSeverity ?? 0) * (h.newLikelihood ?? 0) >= 15 && (
-                                            <span className="ml-1 text-xs text-red-700 font-medium">(Still High Risk!)</span>
-                                          )}
-                                        </label>
-                                        {field.name === "RPN" ? (
-                                          <select
-                                            value={(h.newSeverity ?? 0) * (h.newLikelihood ?? 0)}
-                                            disabled
-                                            className={`${getDropdownColor(
-                                              "rpn",
-                                              (h.newSeverity ?? 0) * (h.newLikelihood ?? 0)
-                                            )} text-white rounded px-2 py-1`}
-                                          >
-                                            {[...Array(26)].map((_, i) => (
-                                              <option key={i} value={i}>
-                                                {i}{i >= 15 ? " (High Risk)" : ""}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        ) : (
-                                          <select
-                                            value={field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)}
-                                            onChange={(e) =>
-                                              updateHazard(
-                                                proc.id,
-                                                act.id,
-                                                h.id,
-                                                field.name === "Severity" ? "severity" : "newLikelihood",
-                                                parseInt(e.target.value)
-                                              )
-                                            }
-                                            disabled={field.isDisabled}
-                                            className={`${getDropdownColor(
-                                              field.name.toLowerCase(),
-                                              field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)
-                                            )} text-white rounded px-2 py-1 ${field.name === "Likelihood" && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500 animate-pulse" : ""}`}
-                                          >
-                                            <option value={0}>Select</option>
-                                            {[1, 2, 3, 4, 5].map((v) => (
-                                              <option key={v} value={v}>
-                                                {v}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
                                 </div>
-                              )}
-                            </div>
 
-                            {/* DUE Date */}
-                            <div>
-                              <label className="block text-base font-medium mb-1">
-                                Due Date{(h.severity || 0) * (h.likelihood || 0) >= 15 ? "*" : ""}
-                                {(h.severity || 0) * (h.likelihood || 0) >= 15 && 
-                                  <span className="ml-2 text-xs text-red-700">(Required for high risk)</span>}
-                              </label>
-                              <InputGroup
-                                id={`due-${h.id}`}
-                                type="date"
-                                value={h.dueDate || ""}
-                                min={new Date().toISOString().split('T')[0]} // Prevent selecting dates earlier than today
-                                onChange={(e) => updateHazard(proc.id, act.id, h.id, "dueDate", e.target.value)}
-                                className={`flex-1 ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !h.dueDate ? "border-red-500" : ""}`}
-                                required={(h.severity || 0) * (h.likelihood || 0) >= 15}
-                              />
-                            </div>
+                                {/* DUE Date */}
+                                <div>
+                                  <label className="block text-base font-medium mb-1">
+                                    Due Date*
+                                    <span className="ml-2 text-xs text-red-700">(Required for high risk)</span>
+                                  </label>
+                                  <InputGroup
+                                    id={`due-${h.id}`}
+                                    type="date"
+                                    value={h.dueDate || ""}
+                                    min={new Date().toISOString().split('T')[0]} // Prevent selecting dates earlier than today
+                                    onChange={(e) => updateHazard(proc.id, act.id, h.id, "dueDate", e.target.value)}
+                                    className={`flex-1 ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !h.dueDate ? "border-red-500" : ""}`}
+                                    required
+                                  />
+                                </div>
 
-                            <div>
-                              <label className="block text-base font-medium mb-1">
-                                Implementation Person{(h.severity || 0) * (h.likelihood || 0) >= 15 ? "*" : ""}
-                                {(h.severity || 0) * (h.likelihood || 0) >= 15 && 
-                                  <span className="ml-2 text-xs text-red-700">(Required for high risk)</span>}
-                              </label>
-                              <InputGroup
-                                id={`impl-${h.id}`}
-                                value={h.implementationPerson || ""}
-                                onChange={(e) =>
-                                  updateHazard(proc.id, act.id, h.id, "implementationPerson", e.target.value)
-                                }
-                                className={`flex-1 ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !h.implementationPerson.trim() ? "border-red-500" : ""}`}
-                              />
-                            </div>
+                                <div>
+                                  <label className="block text-base font-medium mb-1">
+                                    Implementation Person*
+                                    <span className="ml-2 text-xs text-red-700">(Required for high risk)</span>
+                                  </label>
+                                  <InputGroup
+                                    id={`impl-${h.id}`}
+                                    value={h.implementationPerson || ""}
+                                    onChange={(e) =>
+                                      updateHazard(proc.id, act.id, h.id, "implementationPerson", e.target.value)
+                                    }
+                                    className={`flex-1 ${(h.severity || 0) * (h.likelihood || 0) >= 15 && !h.implementationPerson.trim() ? "border-red-500" : ""}`}
+                                  />
+                                </div>
+                              </>
+                            )}
                           </>
                         ) : (
                           <div className="bg-gray-100 p-4 rounded-lg text-center text-gray-600 mt-4">
@@ -2560,7 +2754,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         buttonsRight={[
           {
             text: "Save",
-            onClick: () => { triggerUpdateToParent(true); handleSave(); },
+            onClick: async () => {
+              triggerUpdateToParent(true);
+              await handleSave();
+              // After save, reload the data from backend to reflect any reformatting
+              if (typeof fetchFormData === 'function') {
+                await fetchFormData(formIdRef.current);
+              } else if (typeof window !== 'undefined' && window.location) {
+                // fallback: reload the page if no fetch function is available
+                window.location.reload();
+              }
+            },
             disabled: isLoading,
             className: "px-6 py-2",
             icon: MdSave
@@ -2589,6 +2793,69 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           setActivityWarningOpen(false);
         }}
         onClose={() => setActivityWarningOpen(false)}
+      />
+      <WarningDialog
+        isOpen={riskControlWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Risk Control"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          const { processId, activityId, hazardId, riskControlId } = riskControlWarningInfo;
+          setRaProcesses(prev =>
+            prev.map(p =>
+              p.id === processId ? {
+                ...p,
+                activities: p.activities.map(a =>
+                  a.id === activityId ? {
+                    ...a,
+                    hazards: a.hazards.map(hz =>
+                      hz.id === hazardId ? {
+                        ...hz,
+                        riskControls: (hz.riskControls || []).filter(control => control.id !== riskControlId)
+                      } : hz
+                    )
+                  } : a
+                )
+              } : p
+            )
+          );
+          setRiskControlWarningOpen(false);
+          scheduleBatchedUpdate();
+        }}
+        onClose={() => setRiskControlWarningOpen(false)}
+      />
+      <WarningDialog
+        isOpen={additionalRiskControlWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Additional Risk Control"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          const { processId, activityId, hazardId, acIndex } = additionalRiskControlWarningInfo;
+          setRaProcesses(prev =>
+            prev.map(p =>
+              p.id === processId ? {
+                ...p,
+                activities: p.activities.map(a =>
+                  a.id === activityId ? {
+                    ...a,
+                    hazards: a.hazards.map(hz =>
+                      hz.id === hazardId ? {
+                        ...hz,
+                        additionalRiskControls: (hz.additionalRiskControls || []).filter((_, index) => index !== acIndex),
+                        additionalControls: acIndex === 0 && (hz.additionalRiskControls || []).length > 1
+                          ? (hz.additionalRiskControls || [])[1].controlText
+                          : hz.additionalControls
+                      } : hz
+                    )
+                  } : a
+                )
+              } : p
+            )
+          );
+          setAdditionalRiskControlWarningOpen(false);
+          scheduleBatchedUpdate();
+        }}
+        onClose={() => setAdditionalRiskControlWarningOpen(false)}
       />
     </div>
   );

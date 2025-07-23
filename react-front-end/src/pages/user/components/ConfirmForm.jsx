@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import ConfirmDialog from "./ConfirmDialog.jsx";
+import { IoMdRefresh } from "react-icons/io";
+
 
 export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -10,29 +12,31 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
 
   const [division, setDivision] = useState(
     formData?.division ? String(formData.division) :
-    sample?.division ? String(sample.division) : ""
-  );  
+      sample?.division ? String(sample.division) : ""
+  );
   const [divisions, setDivisions] = useState([]); // State for division options
   const [divisionsLoading, setDivisionsLoading] = useState(false);
+  const hasGeneratedRef = useRef(false);
+
 
   // Fetch divisions from API
   const fetchDivisions = useCallback(async () => {
     if (divisionsLoading) return; // Prevent multiple concurrent requests
-    
+
     setDivisionsLoading(true);
     try {
       const response = await fetch('/api/user/retrieveDivisions');
       if (response.ok) {
         const data = await response.json();
         console.log('Divisions fetched:', data);
-        
+
         // Transform the data to match the expected format for dropdown options
         // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
         const divisionOptions = data.map(div => ({
           value: String(div.division_id), // Ensure string type
           label: div.division_name // Use division_name as display text
         }));
-        
+
         setDivisions(divisionOptions);
       } else {
         console.error('Failed to fetch divisions');
@@ -60,31 +64,28 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   useEffect(() => {
     fetchDivisions();
   }, []);
-  
+
 
   // Define fallback PDF URL
   const fallbackPdfUrl = "/forms/Risk_Assessment_Form_Template.pdf";
 
   useEffect(() => {
-  if (divisions.length > 0 && division && isNaN(division)) {
-    // division holds a name, find matching ID
-    const matchedDivision = divisions.find(d => d.label === division);
-    if (matchedDivision) {
-      setDivision(matchedDivision.value); // Set division state to ID string
+    if (divisions.length > 0 && division && isNaN(division)) {
+      // division holds a name, find matching ID
+      const matchedDivision = divisions.find(d => d.label === division);
+      if (matchedDivision) {
+        setDivision(matchedDivision.value); // Set division state to ID string
+      }
     }
-  }
   }, [divisions, division]);
 
-  // Check for previously generated PDFs when component mounts
+  // Always generate PDF on mount
   useEffect(() => {
-    // Check if this form has a previously generated PDF flag
-    const hasGeneratedPdf = localStorage.getItem(`generatedPdf_${formData.form_id}`);
-    
-    if (hasGeneratedPdf === "true" && !generatedPdfUrl) {
-      console.log("Found previously generated PDF for this form, auto-generating...");
+    if (!hasGeneratedRef.current) {
       generatePdf();
+      hasGeneratedRef.current = true;
     }
-  }, [formData.form_id]); // Only run when form_id changes
+  }, []);
 
   // Cleanup object URL when component unmounts or URL changes
   useEffect(() => {
@@ -106,13 +107,13 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
         credentials: 'include',
         body: JSON.stringify({ approval: 1 })
       });
-  
+
       if (!response.ok) {
         throw new Error(`Failed to update approval status: ${response.status} ${response.statusText}`);
       }
-  
+
       console.log("Form approval status updated successfully");
-      
+
       // Update local form data if updateFormData function was provided
       if (updateFormData) {
         updateFormData({
@@ -120,7 +121,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
           approval: 1
         });
       }
-  
+
       // Show confirmation dialog
       setDialogOpen(true);
     } catch (error) {
@@ -143,7 +144,6 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
         URL.revokeObjectURL(generatedPdfUrl);
       }
 
-      // First, fetch complete form data (like in DownloadDialogue)
       const dataResponse = await fetch(`/api/user/getFormDataForDocument/${formData.form_id}`, {
         credentials: 'include'
       });
@@ -184,7 +184,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
         const blobUrl = URL.createObjectURL(pdfBlob);
         console.log("Created blob URL for PDF:", blobUrl);
         setGeneratedPdfUrl(blobUrl);
-        
+
         // Store that we've generated a PDF for this form
         localStorage.setItem(`generatedPdf_${formData.form_id}`, "true");
       } else {
@@ -201,7 +201,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
       console.log("Using fallback PDF template");
       setUseFallbackPdf(true);
       setGeneratedPdfUrl(fallbackPdfUrl);
-      
+
       // Even with fallback, remember that we've attempted to generate
       localStorage.setItem(`generatedPdf_${formData.form_id}`, "true");
     } finally {
@@ -213,7 +213,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
   const downloadDocx = async () => {
     try {
       console.log("Downloading DOCX for form ID:", formData.form_id);
-      
+
       // First, fetch complete form data
       const dataResponse = await fetch(`/api/user/getFormDataForDocument/${formData.form_id}`, {
         credentials: 'include'
@@ -249,7 +249,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
 
       // Get the response as a blob
       const docxBlob = await response.blob();
-      
+
       // Create a download link
       const url = URL.createObjectURL(docxBlob);
       const a = document.createElement('a');
@@ -259,7 +259,7 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       console.log("DOCX downloaded successfully");
     } catch (error) {
       console.error('Error downloading DOCX:', error);
@@ -306,10 +306,12 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
     setGeneratedPdfUrl(null);
     setUseFallbackPdf(false);
     localStorage.removeItem(`generatedPdf_${formData.form_id}`);
+    // Immediately generate a new PDF after clearing
+    generatePdf();
   };
 
   return (
-    <>
+    <div>
       {/* PDF Preview */}
       <div className="mb-6 border border-gray-300 rounded-lg overflow-hidden">
         {isGeneratingPdf ? (
@@ -394,9 +396,12 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
               </button>
               <button
                 onClick={clearGeneratedPdf}
-                className="px-4 py-2 bg-gray-600 text-white rounded text-center"
+                className="px-4 py-2 bg-gray-600 text-white rounded text-center flex items-center justify-center"
+                title="Regenerate PDF"
               >
-                Generate New PDF
+                {/* Refresh Icon SVG */}
+                <IoMdRefresh className="mr-1" size={18} />
+
               </button>
               {useFallbackPdf && (
                 <button
@@ -424,6 +429,6 @@ export default function ConfirmForm({ formData, sessionData, updateFormData }) {
         </div>
       </div>
       <ConfirmDialog isOpen={isDialogOpen} onClose={() => setDialogOpen(false)} />
-    </>
+    </div>
   );
 }

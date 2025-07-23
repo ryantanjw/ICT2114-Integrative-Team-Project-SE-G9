@@ -77,6 +77,8 @@ def approve_hazard():
     # add the data into the known data table
     try:
         new_known_data = KnownData(
+            title = data.get("form_title"),
+            process = data.get("process"),
             activity_name=data.get("work_activity"),
             hazard_type=data.get("hazard_type"),
             hazard_des=data.get("hazard"),
@@ -115,6 +117,17 @@ def approve_hazard():
     except Exception as e:
         print(f"Error updating kbhazard.txt or reembedding: {e}")
         return jsonify({"success": False, "message": "Failed to update kbhazard.txt"}), 500
+    
+    # add form and process into kbtitleprocess.txt and reembed it
+    try:
+        with open(os.path.join(os.path.dirname(__file__), 'kbtitleprocess.txt'), 'a') as f:
+            f.write(f"&&{data.get('form_title')}%%{data.get('process')}")
+        print("Success: appended to kbtitleprocess.txt")
+        reembed_kbtitleprocess()
+        print("Success: reembed_kbtitleprocess() called")
+    except Exception as e:
+        print(f"Error updating kbtitleprocess.txt or reembedding: {e}")
+        return jsonify({"success": False, "message": "Failed to update kbtitleprocess.txt"}), 500
 
     print("Hazard approval process completed successfully")
     return jsonify({"success": True, "message": "Hazard approved", "hazard_id": data.get("hazard_id")})
@@ -135,46 +148,55 @@ def get_new_hazard():
         else:
             hazard.approval = 0
             db.session.commit()
+    
+    results = []
+    for hazard in matched_hazards:
+        try:
+            # Get the related activity and hazard type using relationships
+            activity = Activity.query.get(hazard.hazard_activity_id) if hazard.hazard_activity_id else None
+            hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
+            
+            # More robust form lookup
+            form = None
+            if activity and activity.activity_process_id:
+                process = Process.query.get(activity.activity_process_id)
+                if process and process.process_form_id:
+                    form = Form.query.get(process.process_form_id)
+            
+            user = User.query.get(form.form_user_id) if form and form.form_user_id else None
+            risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
+            process = Process.query.get(activity.activity_process_id)
+            
+            def format_date(date_obj):
+                return date_obj.isoformat() if date_obj else None
+            
+            # form.last_access_date = format_date(form.last_access_date)
+            # FIX THIS LATER !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        results = []
-        for hazard in matched_hazards:
-            try:
-                # Get the related activity and hazard type using relationships
-                activity = Activity.query.get(hazard.hazard_activity_id) if hazard.hazard_activity_id else None
-                hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
-                
-                # More robust form lookup
-                form = None
-                if activity and activity.activity_process_id:
-                    process = Process.query.get(activity.activity_process_id)
-                    if process and process.process_form_id:
-                        form = Form.query.get(process.process_form_id)
-                
-                user = User.query.get(form.form_user_id) if form and form.form_user_id else None
-                risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
-                
-                results.append({
-                    'hazard_id': hazard.hazard_id,
-                    'hazard_activity_id': hazard.hazard_activity_id,
-                    'hazard': hazard.hazard or "No hazard description",
-                    'injury': hazard.injury or "No injury description",
-                    'hazard_type_id': hazard.hazard_type_id,
-                    'remarks': hazard.remarks or "No remarks",
-                    'approval': hazard.approval,
-                    'work_activity': activity.work_activity if activity else "Unknown activity",
-                    'hazard_type': hazard_type.hazard_type if hazard_type else "Unknown type",
-                    "form_title": form.title if form else "Unknown form",
-                    "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
-                    "owner": user.user_name if user else "Unknown user",
-                    "existing_risk_control": risk.existing_risk_control if risk else "None specified",
-                    "additional_risk_control": risk.additional_risk_control if risk else "None specified",
-                    "severity": risk.severity if risk else 0,
-                    "likelihood": risk.likelihood if risk else 0,
-                    "RPN": risk.RPN if risk else 0,
-                })
-            except Exception as e:
-                print(f"Error processing hazard {hazard.hazard_id}: {str(e)}")
-                continue
+            #THIS PART HERE
+            results.append({
+                'hazard_id': hazard.hazard_id,
+                'hazard_activity_id': hazard.hazard_activity_id,
+                'process': process.process_title if process else "Unknown Process",
+                'hazard': hazard.hazard or "No hazard description",
+                'injury': hazard.injury or "No injury description",
+                'hazard_type_id': hazard.hazard_type_id,
+                'remarks': hazard.remarks or "No remarks",
+                'approval': hazard.approval,
+                'work_activity': activity.work_activity if activity else "Unknown activity",
+                'hazard_type': hazard_type.hazard_type if hazard_type else "Unknown type",
+                "form_title": form.title if form else "Unknown form",
+                "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
+                "owner": user.user_name if user else "Unknown user",
+                "existing_risk_control": risk.existing_risk_control if risk else "None specified",
+                "additional_risk_control": risk.additional_risk_control if risk else "None specified",
+                "severity": risk.severity if risk else 0,
+                "likelihood": risk.likelihood if risk else 0,
+                "RPN": risk.RPN if risk else 0,
+            })
+        except Exception as e:
+            print(f"Error processing hazard {hazard.hazard_id}: {str(e)}")
+            continue
     
     return jsonify({'success': True, 'hazards': results})
 
@@ -307,11 +329,9 @@ def reset_password():
         
         print(f"Resetting password for user: {user.user_name} (ID: {user.user_id})")
         
-        # Hash the new password
-        # hashed_password = generate_password_hash(data['new_password'])
-        # user.user_password = hashed_password
-        
-        user.password = data['new_password']  # Make sure to hash this in production!
+        # Hash the new password before saving
+        hashed_password = generate_password_hash(data['new_password'])
+        user.password = hashed_password
         
         # Save changes
         db.session.commit()
@@ -326,7 +346,7 @@ def reset_password():
         print(f"Error resetting password: {str(e)}")
         db.session.rollback()
         return jsonify({"success": False, "error": f"Failed to reset password: {str(e)}"}), 500
-    
+        
 @admin.route('/retrieveDivisions', methods=['GET'])
 def retrieve_divisions():
     try:
@@ -366,6 +386,9 @@ def add_user():
     if not data or 'fullName' not in data or 'email' not in data or 'password' not in data:
         return jsonify({"success": False, "error": "Missing required fields"}), 400
     
+    if not data.get('programmeCluster', '').strip():
+        return jsonify({"success": False, "error": "Cluster or Division must be selected"}), 400
+    
     # Check if email already exists
     existing_user = User.query.filter_by(user_email=data['email']).first()
     if existing_user:
@@ -374,11 +397,14 @@ def add_user():
     try:
         print(f"Creating new user: {data['fullName']} ({data['email']})")
         
+        # Hash the password before saving
+        hashed_password = generate_password_hash(data['password'])
+        
         # Create new user - adjust this according to your User model
         new_user = User(
             user_name=data['fullName'],
             user_email=data['email'],
-            password=data['password'],  # Make sure to hash this in production!
+            password=hashed_password,  # Store hashed password
             user_designation='student',
             user_role=data['accountType'],  
             user_cluster=data['programmeCluster']
@@ -387,7 +413,10 @@ def add_user():
         db.session.add(new_user)
         db.session.commit()
         
-        print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")        
+        print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")
+        # Fetch division name for the new user
+        division = Division.query.filter_by(division_id=new_user.user_cluster).first()
+        division_name = division.division_name if division else "No Division"
         return jsonify({
             "success": True,
             "user": {
@@ -396,15 +425,15 @@ def add_user():
                 "user_email": new_user.user_email,
                 "user_designation": new_user.user_designation,
                 "user_role": new_user.user_role,
-                "user_cluster": new_user.user_cluster
+                "user_cluster": new_user.user_cluster,
+                "division_name": division_name
             }
         })
         
     except Exception as e:
         print(f"Error creating user: {str(e)}")
         db.session.rollback()
-        return jsonify({"success": False, "error": "Failed to create user"}), 500
-    
+        return jsonify({"success": False, "error": "Failed to create user"}), 500    
 @admin.route('/update_user', methods=['POST'])
 def update_user():
     print("\n=== UPDATE USER CALLED ===")

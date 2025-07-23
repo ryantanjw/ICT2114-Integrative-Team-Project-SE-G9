@@ -12,10 +12,13 @@ class KnownData(db.Model):
     __tablename__ = 'known_data'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title = db.Column(db.Text, nullable=True)
+    process = db.Column(db.Text, nullable=True)
     activity_name = db.Column(db.Text, nullable=True)
     hazard_type = db.Column(db.String(225), nullable=True)
     hazard_des = db.Column(db.Text, nullable=True)
     injury = db.Column(db.Text, nullable=True)
+    risk_type = db.Column(db.Text, nullable=True)
     control = db.Column(db.Text, nullable=True)
     severity = db.Column(db.Integer, nullable=True)
     likelihood = db.Column(db.Integer, nullable=True)
@@ -43,7 +46,8 @@ class Form(db.Model):
     form_reference_number = db.Column(db.String(255), nullable=True)
     form_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     form_RA_team_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
-    approved_by = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
+    approved_by = db.Column(db.String(255), nullable=True)
+    designation = db.Column(db.String(255), nullable=True)
     location = db.Column(db.String(255), nullable=True)
     title = db.Column(db.String(124), nullable=True)
     division = db.Column(db.Integer, db.ForeignKey('division.division_id'), nullable=True)    
@@ -73,8 +77,8 @@ class Hazard(db.Model):
     # Define fields
     hazard_id = db.Column(db.Integer, primary_key=True)
     hazard_activity_id = db.Column(db.Integer, db.ForeignKey('activity.activity_id'), nullable=False)
-    hazard = db.Column(db.String(124), nullable=False)
-    injury = db.Column(db.String(124), nullable=False)
+    hazard = db.Column(db.String(500), nullable=False)
+    injury = db.Column(db.String(500), nullable=False)
     hazard_type_id = db.Column(db.Integer, db.ForeignKey('hazard_type.hazard_type_id'), nullable=True)
     remarks = db.Column(db.Text, nullable=True)
     approval = db.Column(db.Integer, nullable=True)  # 0 for no approval, 1 for approval required
@@ -128,8 +132,8 @@ class RA_team_member(db.Model):
 
     # Define fields
     RA_team_id = db.Column(db.Integer, db.ForeignKey('RA_team.RA_team_id'),primary_key=True, nullable=False)
-    RA_team_member = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
-    RA_team_member_name = db.Column(db.String(124), nullable=False)
+    RA_team_member = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
+    RA_team_member_name = db.Column(db.String(124), nullable=True)
 
 class share_access(db.Model):
     __tablename__ = 'share_access'

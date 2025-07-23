@@ -12,6 +12,7 @@ import Form3 from "./components/Form3.jsx";
 import ConfirmForm from "./components/ConfirmForm.jsx"; // will be used for Confirmation Details
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import ScrollFab from "./components/ScrollFab.jsx";
 
 export default function UserNewForm() {
   const location = useLocation();
@@ -355,12 +356,28 @@ export default function UserNewForm() {
       }
     };
 
+    const resetHasRunInSession = async (formId) => {
+      if (!formId) return;
+      try {
+        await fetch('/api/user/reset_has_run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ form_id: formId })
+        });
+        console.log(`hasRun reset for form ${formId}`);
+      } catch (err) {
+        console.error("Failed to reset hasRun in session:", err);
+      }
+    };
+
+
     // Add beforeunload listener
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     // Clean up event listener
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      resetHasRunInSession(formId); // also on component unmount
     };
   }, [formId, isEditMode]);
 
@@ -689,7 +706,7 @@ export default function UserNewForm() {
   }
 
   return (
-    <div className="bg-[#F7FAFC] min-h-screen max-w-screen 2xl:px-40 px-5">
+    <div className="bg-[#F7FAFC] min-h-screen max-w-screen 2xl:px-40 px-5 pb-20">
       <Header activePage={location.pathname} />
       <div className="flex flex-col justify-start pb-5">
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
@@ -780,6 +797,7 @@ export default function UserNewForm() {
         }
         position="bottom"
       />
+      <ScrollFab />
     </div>
   );
 }

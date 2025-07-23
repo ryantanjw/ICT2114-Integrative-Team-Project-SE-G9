@@ -16,6 +16,7 @@ export default function FormCardC({
   severity,
   likelihood,
   RPN,
+  process,
   onApproveHazard,
   onRejectHazard,
   onApproveRisk,
@@ -44,7 +45,6 @@ export default function FormCardC({
             <p className="text-sm text-gray-500 mt-1">{date}</p>
           </div>
         </div>
-        <div className="text-gray-400">⋮</div>
       </div>
 
       {/* Title and Owner */}
@@ -72,6 +72,7 @@ export default function FormCardC({
           <div className="mt-4 space-y-6">
             {/* Hazard Section */}
             <div>
+              <p className="font-bold text-orange-600">Process Name: {process}</p>
               <p className="font-bold text-orange-600">Activity Name: {activity}</p>
               <p className="text-sm text-gray-700 mb-2">Hazard Description: {hazard}</p>
               <p className="text-sm text-gray-700 mb-2">Hazard Type: {hazardType}</p>

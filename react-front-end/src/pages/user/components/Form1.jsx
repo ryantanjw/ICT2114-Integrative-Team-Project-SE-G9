@@ -1,33 +1,48 @@
 import { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallback } from "react";
+import SummaryDialog from "./SummaryDialog.jsx";
+import WarningDialog from "./WarningDialog.jsx";
+import { IoWarning } from "react-icons/io5";
 import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
-import { MdDelete } from "react-icons/md";
+import { MdDelete, MdExpandMore, MdExpandLess, MdAdd } from "react-icons/md";
 import { toast } from "react-hot-toast";
+import { LuMinus } from "react-icons/lu";
+
 
 // Convert to forwardRef to expose methods to parent
 const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNavigate }, ref) => {
   // Use formData if provided (from parent state), otherwise use sample or default
   const [processes, setProcesses] = useState([
-      {
-        id: 1,
-        processNumber: 1,
-        location: "",
-        activities: [
-          { id: 1, description: "", remarks: "" }
-        ],
-        header: "",
-        headerColor: "#EEF1F4",
-      }
-    ]
+    {
+      id: 1,
+      processNumber: 1,
+      location: "",
+      activities: [
+        { id: 1, description: "", remarks: "" }
+      ],
+      header: "",
+      headerColor: "#EEF1F4",
+    }
+  ]
   );
 
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+  const [summaryList, setSummaryList] = useState([]);
+  // Collapsed process state
+  const [collapsedProcessIds, setCollapsedProcessIds] = useState([]);
+  // Toggle collapse for a process
+  const toggleCollapse = (id) => {
+    setCollapsedProcessIds(prev =>
+      prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]
+    );
+  };
   // Initialize with formData if available
   const [formId, setFormId] = useState(formData?.form_id || null);
   const [title, setTitle] = useState(formData?.title || sample?.title || "");
   const [division, setDivision] = useState(
     formData?.division ? String(formData.division) :
-    sample?.division ? String(sample.division) : ""
-  );  
+      sample?.division ? String(sample.division) : ""
+  );
   const [divisions, setDivisions] = useState([]); // State for division options
   const [divisionsLoading, setDivisionsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,24 +52,31 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   const [deletedProcessIds, setDeletedProcessIds] = useState([]); //Use this state to track deleted processes
   const [deletedActivityIds, setDeletedActivityIds] = useState([]); //Use this state to track deleted activities
 
+  // Warning dialogs for process and activity removal
+  const [processWarningOpen, setProcessWarningOpen] = useState(false);
+  const [processToRemoveId, setProcessToRemoveId] = useState(null);
+
+  const [activityWarningOpen, setActivityWarningOpen] = useState(false);
+  const [activityToRemove, setActivityToRemove] = useState({ procId: null, actId: null });
+
   // Fetch divisions from API
   const fetchDivisions = useCallback(async () => {
     if (divisionsLoading) return; // Prevent multiple concurrent requests
-    
+
     setDivisionsLoading(true);
     try {
       const response = await fetch('/api/user/retrieveDivisions');
       if (response.ok) {
         const data = await response.json();
         console.log('Divisions fetched:', data);
-        
+
         // Transform the data to match the expected format for dropdown options
         // API returns: [{ division_id: 1, division_name: "Division Name" }, ...]
         const divisionOptions = data.map(div => ({
           value: String(div.division_id), // Ensure string type
           label: div.division_name // Use division_name as display text
         }));
-        
+
         setDivisions(divisionOptions);
       } else {
         console.error('Failed to fetch divisions');
@@ -84,14 +106,14 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   }, []);
 
   useEffect(() => {
-  if (divisions.length > 0 && division && isNaN(division)) {
-    // division holds a name, find matching ID
-    const matchedDivision = divisions.find(d => d.label === division);
-    if (matchedDivision) {
-      setDivision(matchedDivision.value); // Set division state to ID string
+    if (divisions.length > 0 && division && isNaN(division)) {
+      // division holds a name, find matching ID
+      const matchedDivision = divisions.find(d => d.label === division);
+      if (matchedDivision) {
+        setDivision(matchedDivision.value); // Set division state to ID string
+      }
     }
-  }
-}, [divisions, division]);
+  }, [divisions, division]);
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {
@@ -174,7 +196,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           setDivision(formData.division || "");
           if (formData.processes && formData.processes.length > 0) {
             setProcesses(formData.processes);
-          }          
+          }
           updateFormId(formData.form_id);
           setDataLoaded(true);
           setIsLoading(false);
@@ -199,7 +221,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           if (sessionResponse.ok) {
             const sessionData = await sessionResponse.json();
             console.log('Form data loaded from session:', sessionData);
-            
+
             // Update form state with session data
             setTitle(sessionData.title || "");
             setDivision(sessionData.division || "");
@@ -336,6 +358,98 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     }
   }));
 
+  // Tag AI generate work activities
+  const generateWorkActivities = async () => {
+    toast.loading("Generating work activities...", { id: "generate-activities" });
+
+    const aiOrNotList = [];
+
+    try {
+      const updatedProcesses = await Promise.all(
+        processes.map(async (proc, i) => {
+          const processName = proc.header || `(Process ${i + 1})`;
+          try {
+            const response = await fetch('/api/user/get_activities', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ title, processName }),
+            });
+
+            if (!response.ok) {
+              console.error(`Failed to fetch activities for ${processName}`);
+              return proc;
+            }
+
+            const data = await response.json();
+            const activityNames = Array.isArray(data.activities) ? data.activities : [];
+            // For each activity, push an entry with processName, activityName, aiOrNot
+            activityNames.forEach(name => {
+              aiOrNotList.push({
+                processName,
+                activityName: name,
+                aiOrNot: data.text
+              });
+            });
+
+            const newActivities = activityNames.map((name, idx) => ({
+              id: Date.now() + idx,
+              description: name,
+              remarks: "",
+            }));
+
+            // return {
+            //   ...proc,
+            //   activities: [...newActivities, ...proc.activities],
+            // };
+            return {
+              ...proc,
+              activities: [...newActivities, ...proc.activities].filter(
+                act => act.description && act.description.trim() !== ""
+              ),
+            };
+
+          } catch (err) {
+            console.error(`Error fetching activities for ${processName}:`, err);
+            return proc;
+          }
+        })
+      );
+
+      // Attach aiOrNot string to each process (legacy, not used in summaryList now)
+      const updatedWithAI = updatedProcesses.map((proc, idx) => ({
+        ...proc,
+        aiOrNot: aiOrNotList[idx]?.aiOrNot || "No AI summary available."
+      }));
+
+      // Group summary by process, and display each activity with its AI explanation
+      const summaryByProcess = processes.map((proc) => {
+        const matching = aiOrNotList.filter(item => item.processName === proc.header || item.processName === `(Process ${proc.processNumber})`);
+        return {
+          name: `Process ${proc.processNumber} - ${proc.header || "Untitled"}`,
+          aiOrNot: matching.length > 0
+            ? matching.map(m => `Activity: ${m.activityName} — ${m.aiOrNot}`).join("\n")
+            : "No AI summary available."
+        };
+      });
+
+      setProcesses(updatedWithAI);
+      setSummaryList(summaryByProcess);
+      setShowSummaryDialog(true);
+      toast.success(
+        "Work activities generated successfully!",
+        { id: "generate-activities" }
+      );
+    } catch (error) {
+      console.error("Global error in generateWorkActivities:", error);
+      toast.error("Failed to generate work activities. Please try again.", { id: "generate-activities" });
+    }
+  };
+
+
+
+
   const addProcess = () => {
     setProcesses([
       ...processes,
@@ -356,13 +470,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     // If the process has a database ID (process_id), track it for deletion
     if (processToRemove && processToRemove.process_id) {
       setDeletedProcessIds(prev => [...prev, processToRemove.process_id]);
-      
+
       // Also track all activities in this process for deletion
       if (processToRemove.activities) {
         const activityIdsToDelete = processToRemove.activities
           .filter(activity => activity.activity_id)
           .map(activity => activity.activity_id);
-        
+
         if (activityIdsToDelete.length > 0) {
           setDeletedActivityIds(prev => [...prev, ...activityIdsToDelete]);
         }
@@ -394,13 +508,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       if (p.id !== procId) return p;
       // Prevent removing last activity
       if (p.activities.length <= 1) return p;
-      
+
       // Find the activity to remove and track it for deletion if it has a database ID
       const activityToRemove = p.activities.find(a => a.id === actId);
       if (activityToRemove && activityToRemove.activity_id) {
         setDeletedActivityIds(prev => [...prev, activityToRemove.activity_id]);
       }
-      
+
       return {
         ...p,
         activities: p.activities.filter(a => a.id !== actId)
@@ -705,8 +819,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   return (
     <div className="space-y-6">
       {/* Header inputs */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-end">
+        <div className="xl:col-span-4 w-full">
           <InputGroup
             label="Title"
             id="form-title"
@@ -714,7 +828,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             onChange={(e) => setTitle(e.target.value)}
           />
         </div>
-        <div className="flex-1">
+        <div className="xl:col-span-4 w-full">
           <InputGroup
             label="Division"
             id="form-division"
@@ -723,132 +837,196 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             type="select"
             options={[
               { value: "", label: "Select Division" },
-                ...divisions
+              ...divisions
             ]}
             disabled={divisionsLoading}
           />
         </div>
-        <CTAButton
-          icon="+"
-          text="Add Process"
-          onClick={addProcess}
-          className="ml-auto"
-        />
+        <div className="col-span-full xl:col-span-4 w-full">
+          <CTAButton
+            icon={MdAdd}
+            text="Generate Work Activities"
+            onClick={generateWorkActivities}
+            className="w-full mb-4"
+          />
+        </div>
+        <div className="col-span-full xl:col-span-12 w-full">
+          <CTAButton
+            icon={MdAdd}
+            text="Add Process"
+            onClick={addProcess}
+            className="w-full mb-4"
+          />
+        </div>
       </div>
 
       {/* Process sections */}
-      {processes.map((proc) => (
-        <div key={proc.id}>
-          {/* Editable header bar */}
+      {processes.map((proc, index) => (
+        <div key={proc.id} className={`${index === processes.length - 1 ? "pb-10" : ""}`}>
+          {/* Editable header bar (collapsible) */}
           <div
-            className="flex items-center space-x-2 px-4 py-2 rounded-lg"
+            onClick={() => toggleCollapse(proc.id)}
+            className="flex items-center space-x-2 px-4 py-2 rounded-t-lg bg-gray-100 cursor-pointer border border-gray-200"
             style={{ backgroundColor: proc.headerColor }}
           >
-            <span className="font-semibold text-lg flex-1">{`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}</span>
+            <span className="font-semibold text-lg flex-1 flex items-center gap-2">
+              {collapsedProcessIds.includes(proc.id) ? <MdExpandMore /> : <MdExpandLess />}
+              {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}
+            </span>
             <CTAButton
-              icon={<MdDelete />}
+              icon={LuMinus}
               text="Remove"
-              onClick={() => removeProcess(proc.id)}
+              onClick={(e) => {
+                console.log("Process Remove clicked for ID:", proc.id);
+                e.stopPropagation();
+                setProcessToRemoveId(proc.id);
+                setProcessWarningOpen(true);
+              }}
               className="text-black"
             />
           </div>
-
-          {/* Content wrapper */}
-          <div className="border border-gray-200 bg-white p-4 space-y-4 rounded-b">
-            {/* Process Title Input */}
-            <div>
-              <InputGroup
-                label="Process Title"
-                id={`title-${proc.id}`}
-                value={proc.header}
-                placeholder="Enter Process Title Here"
-                onChange={(e) =>
-                  setProcesses(processes.map(p =>
-                    p.id === proc.id ? { ...p, header: e.target.value } : p
-                  ))
-                }
-              />
-            </div>
-
-            {/* Location */}
-            <div>
-              <InputGroup
-                label="Location"
-                id={`location-${proc.id}`}
-                value={proc.location}
-                onChange={(e) =>
-                  setProcesses(processes.map(p =>
-                    p.id === proc.id ? { ...p, location: e.target.value } : p
-                  ))
-                }
-              />
-            </div>
-
-            {/* Activities */}
-            {proc.activities.map((act) => (
-              <div key={act.id} className="space-y-2 border-t border-gray-200 pt-4">
-                <div className="flex justify-between items-center">
-                  <h5 className="font-medium">Work Activity</h5>
-                  <div className="space-x-2 flex">
-                    <button
-                      type="button"
-                      onClick={() => removeActivity(proc.id, act.id)}
-                      disabled={proc.activities.length === 1}
-                      className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600
-                          ${proc.activities.length === 1 ? "opacity-50 cursor-not-allowed hover:bg-gray-200" : ""}`}
-                    >
-                      −
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addActivity(proc.id)}
-                      className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
+          {/* Content wrapper - only show if not collapsed */}
+          {!collapsedProcessIds.includes(proc.id) && (
+            <div className="border-gray-200 bg-white p-4 space-y-4 border-l border-r border-b">
+              {/* Process Title Input */}
+              <div>
                 <InputGroup
-                  label={`Work Activity Description`}
-                  id={`activity-${proc.id}-${act.id}`}
-                  placeholder="Activity description"
-                  value={act.description}
+                  label="Process Title"
+                  id={`title-${proc.id}`}
+                  value={proc.header}
+                  placeholder="Enter Process Title Here"
                   onChange={(e) =>
                     setProcesses(processes.map(p =>
-                      p.id === proc.id
-                        ? {
-                          ...p,
-                          activities: p.activities.map(a =>
-                            a.id === act.id ? { ...a, description: e.target.value } : a
-                          )
-                        }
-                        : p
+                      p.id === proc.id ? { ...p, header: e.target.value } : p
                     ))
                   }
-                />
-                <textarea
-                  placeholder="Remarks"
-                  value={act.remarks || ""}
-                  onChange={(e) =>
-                    setProcesses(processes.map(p =>
-                      p.id === proc.id
-                        ? {
-                          ...p,
-                          activities: p.activities.map(a =>
-                            a.id === act.id ? { ...a, remarks: e.target.value } : a
-                          )
-                        }
-                        : p
-                    ))
-                  }
-                  className="w-full border border-gray-300 rounded px-3 py-2"
                 />
               </div>
-            ))}
-          </div>
+
+              {/* Location */}
+              <div>
+                <InputGroup
+                  label="Location"
+                  id={`location-${proc.id}`}
+                  value={proc.location}
+                  onChange={(e) =>
+                    setProcesses(processes.map(p =>
+                      p.id === proc.id ? { ...p, location: e.target.value } : p
+                    ))
+                  }
+                />
+              </div>
+
+              {/* Activities */}
+              {proc.activities.map((act) => (
+                <div key={act.id} className="space-y-2 border-t border-gray-200 pt-4">
+                  <div className="flex justify-between items-center">
+                    <h5 className="font-medium">Work Activity</h5>
+                    <div className="space-x-2 flex">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          console.log("Activity Remove clicked for Process ID:", proc.id, "Activity ID:", act.id);
+                          if (proc.activities.length === 1) return;
+                          setActivityToRemove({ procId: proc.id, actId: act.id });
+                          setActivityWarningOpen(true);
+                        }}
+                        disabled={proc.activities.length === 1}
+                        className={`bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600
+                            ${proc.activities.length === 1 ? "opacity-50 cursor-not-allowed hover:bg-gray-200" : ""}`}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addActivity(proc.id)}
+                        className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center text-gray-600"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <InputGroup
+                    label={`Work Activity Description`}
+                    id={`activity-${proc.id}-${act.id}`}
+                    placeholder="Activity description"
+                    value={act.description}
+                    onChange={(e) =>
+                      setProcesses(processes.map(p =>
+                        p.id === proc.id
+                          ? {
+                            ...p,
+                            activities: p.activities.map(a =>
+                              a.id === act.id ? { ...a, description: e.target.value } : a
+                            )
+                          }
+                          : p
+                      ))
+                    }
+                  />
+                  <textarea
+                    placeholder="Remarks"
+                    value={act.remarks || ""}
+                    onChange={(e) =>
+                      setProcesses(processes.map(p =>
+                        p.id === proc.id
+                          ? {
+                            ...p,
+                            activities: p.activities.map(a =>
+                              a.id === act.id ? { ...a, remarks: e.target.value } : a
+                            )
+                          }
+                          : p
+                      ))
+                    }
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
-      
+
+      {showSummaryDialog && (
+        <SummaryDialog
+          title="Generation Summary"
+          message="The following explanations were provided for each process:"
+          processes={summaryList}
+          onClose={() => setShowSummaryDialog(false)}
+        />
+      )}
+      {/* Warning Dialogs */}
+      <WarningDialog
+        isOpen={processWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Process"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          console.log("Process WarningDialog: onDelete called for ID:", processToRemoveId);
+          removeProcess(processToRemoveId);
+          setProcessWarningOpen(false);
+        }}
+        onClose={() => {
+          console.log("Process WarningDialog: onClose called");
+          setProcessWarningOpen(false);
+        }}
+      />
+      <WarningDialog
+        isOpen={activityWarningOpen}
+        icon={<IoWarning />}
+        title="Removing Activity"
+        message="This action is NOT reversible. Please check before executing this action."
+        onDelete={() => {
+          console.log("Activity WarningDialog: onDelete called for", activityToRemove);
+          removeActivity(activityToRemove.procId, activityToRemove.actId);
+          setActivityWarningOpen(false);
+        }}
+        onClose={() => {
+          console.log("Activity WarningDialog: onClose called");
+          setActivityWarningOpen(false);
+        }}
+      />
     </div>
   );
 });

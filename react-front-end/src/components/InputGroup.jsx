@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { MdVisibility, MdVisibilityOff } from "react-icons/md";
 
 export default function InputGroup({
   label,
@@ -13,6 +14,8 @@ export default function InputGroup({
   error = "",
   ...rest
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <div className={`mb-4 ${className}`}>
       {action ? (
@@ -49,18 +52,38 @@ export default function InputGroup({
               {option.label}
             </option>
           ))}
-        </select> ): (
-
-
-      <input
-        id={id}
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        className="block w-full px-4 py-2 text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-md  focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
-        {...rest}
-      /> )}
+        </select>
+      ) : type === "password" ? (
+        <div className="relative">
+          <input
+            id={id}
+            type={showPassword ? "text" : "password"}
+            placeholder={placeholder}
+            value={value}
+            onChange={onChange}
+            className="block w-full pr-10 px-4 py-2 text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
+            {...rest}
+          />
+          <span
+            className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500"
+            onMouseDown={() => setShowPassword(true)}
+            onMouseUp={() => setShowPassword(false)}
+            onMouseLeave={() => setShowPassword(false)}
+          >
+            {showPassword ? <MdVisibilityOff /> : <MdVisibility />}
+          </span>
+        </div>
+      ) : (
+        <input
+          id={id}
+          type={type}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          className="block w-full px-4 py-2 text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
+          {...rest}
+        />
+      )}
       {error && (
         <p className="mt-1 text-sm text-red-500 text-right">
           {error}

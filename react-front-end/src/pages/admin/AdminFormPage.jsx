@@ -395,6 +395,7 @@ export default function AdminForm() {
                   <FormCardA2Admin
                     key={form.id}
                     date={formatDate(form.created_at || form.last_access_date)}
+                    expiryDate={formatDate(form.next_review_date)}
                     title={form.title || "Untitled Form"}
                     owner={form.owner || "Unknown User"}
                     tags={form.tags || [form.status] || ["Unknown"]}
