@@ -404,7 +404,9 @@ def share_form(formId):
                         hazard_activity_id=new_activity.activity_id,
                         hazard=original_hazard.hazard,
                         hazard_type_id=original_hazard.hazard_type_id,
-                        injury=original_hazard.injury
+                        injury=original_hazard.injury,
+                        hazard_implementation_person=original_hazard.hazard_implementation_person,
+                        hazard_due_date=original_hazard.hazard_due_date
                     )
                     
                     db.session.add(new_hazard)
@@ -426,6 +428,9 @@ def share_form(formId):
                             severity=original_risk.severity,
                             likelihood=original_risk.likelihood,
                             RPN=original_risk.RPN,
+                            newSeverity=original_risk.newSeverity,
+                            newLikelihood=original_risk.newLikelihood,
+                            newRPN=original_risk.newRPN
                         )
                         
                         db.session.add(new_risk)
@@ -541,7 +546,9 @@ def duplicate_form(formId):
                         hazard_activity_id=new_activity.activity_id,
                         hazard=original_hazard.hazard,
                         hazard_type_id=original_hazard.hazard_type_id,
-                        injury=original_hazard.injury
+                        injury=original_hazard.injury,
+                        hazard_implementation_person=original_hazard.hazard_implementation_person,
+                        hazard_due_date=original_hazard.hazard_due_date
                     )
                     
                     db.session.add(new_hazard)
@@ -563,6 +570,9 @@ def duplicate_form(formId):
                             severity=original_risk.severity,
                             likelihood=original_risk.likelihood,
                             RPN=original_risk.RPN,
+                            newSeverity=original_risk.newSeverity,
+                            newLikelihood=original_risk.newLikelihood,
+                            newRPN=original_risk.newRPN
                         )
                         
                         db.session.add(new_risk)
