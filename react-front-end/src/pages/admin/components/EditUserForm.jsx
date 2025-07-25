@@ -75,7 +75,6 @@ export default function EditUserForm({ isOpen, user, onClose, onUserUpdated }) {
         id: "",
         name: "",
         email: "",
-        designation: "",
         role: "",
         cluster: null
     });
@@ -91,7 +90,6 @@ export default function EditUserForm({ isOpen, user, onClose, onUserUpdated }) {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                designation: user.designation || "",
                 role: user.role === "Admin" ? "0" : "1",
                 cluster: user.cluster
             });
@@ -128,7 +126,6 @@ export default function EditUserForm({ isOpen, user, onClose, onUserUpdated }) {
                 user_id: formData.id,
                 user_name: formData.name,
                 user_email: formData.email,
-                user_designation: formData.designation,
                 user_role: parseInt(formData.role),
                 user_cluster: formData.cluster
             };
@@ -161,7 +158,6 @@ export default function EditUserForm({ isOpen, user, onClose, onUserUpdated }) {
                     name: response.data.user.user_name,
                     email: response.data.user.user_email,
                     role: response.data.user.user_role === 0 ? "Admin" : "User",
-                    designation: response.data.user.user_designation || "Not specified",
                     cluster: response.data.user.user_cluster,
                     clusterName: clusterDisplayName // Add cluster name for display
                 };
@@ -216,18 +212,9 @@ export default function EditUserForm({ isOpen, user, onClose, onUserUpdated }) {
                         required
                     />
 
-                    <InputGroup
-                        label="Designation"
-                        id="designation"
-                        type="text"
-                        value={formData.designation}
-                        onChange={e => setFormData({ ...formData, designation: e.target.value })}
-                        placeholder="e.g. Developer, Manager, etc."
-                    />
-
                     <div className="space-y-1">
                         <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                            Role
+                            Account Type
                         </label>
                         <select
                             id="role"
@@ -245,7 +232,6 @@ export default function EditUserForm({ isOpen, user, onClose, onUserUpdated }) {
                             Programme Cluster
                         </label>
                         <InputGroup
-                        label="Programme Cluster"
                         id="programmeCluster"
                         value={programmeCluster}
                         onChange={(e) => setProgrammeCluster(e.target.value)}
