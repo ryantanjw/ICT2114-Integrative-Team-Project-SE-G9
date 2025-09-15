@@ -1564,11 +1564,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // For unselected values (0), use gray
     if (value === 0) return "bg-gray-200";
 
-    if (key === "severity" || key === "likelihood") {
-      if (value >= 4) return "bg-red-700";
-      if (value === 3) return "bg-yellow-400";
-      return "bg-green-600";
-    }
+    // if (key === "severity" || key === "likelihood") {
+    //   if (value >= 4) return "bg-red-700";
+    //   if (value === 3) return "bg-yellow-400";
+    //   return "bg-green-600";
+    // }
     if (key === "rpn") {
       if (value >= 15) return "bg-red-700 animate-pulse"; // Add animation for high RPN
       if (value >= 7) return "bg-yellow-400";
@@ -2416,7 +2416,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                             className={`${getDropdownColor(
                                               field.name.toLowerCase(),
                                               h[field.name.toLowerCase()] ?? 0
-                                            )} text-white rounded px-2 py-1`}
+                                            )} text-black rounded px-2 py-1`}
                                           >
                                             <option value={0}>Select</option>
                                             {[1, 2, 3, 4, 5].map((v) => (
