@@ -6,6 +6,8 @@ import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete, MdExpandMore, MdExpandLess, MdAdd } from "react-icons/md";
 import { toast } from "react-hot-toast";
+
+import ProcessFab from "./ProcessFab.jsx";
 import { LuMinus } from "react-icons/lu";
 
 
@@ -234,7 +236,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               activities: proc.activities.map(act => ({
                 ...act,
                 id: act.id || act.activity_id,
-                activity_id: act.activity_id || act.id
+                activity_id: act.activity_id || act.id,
+                source: act.source || (act.activity_id ? "DB matched" : undefined),
               }))
             }));
 
@@ -284,7 +287,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               activities: proc.activities.map(act => ({
                 ...act,
                 id: act.id || act.activity_id,
-                activity_id: act.activity_id || act.id
+                activity_id: act.activity_id || act.id,
+                source: act.source || (act.activity_id ? "DB matched" : undefined),
               }))
             }));
             setProcesses(processesWithIds);
@@ -397,6 +401,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               id: Date.now() + idx,
               description: name,
               remarks: "",
+              source: "AI generated"
             }));
 
             // return {
@@ -871,7 +876,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           >
             <span className="font-semibold text-lg flex-1 flex items-center gap-2">
               {collapsedProcessIds.includes(proc.id) ? <MdExpandMore /> : <MdExpandLess />}
-              {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}
+              {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title"}`}
             </span>
             <CTAButton
               icon={LuMinus}
@@ -894,7 +899,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
                   label="Process Title"
                   id={`title-${proc.id}`}
                   value={proc.header}
-                  placeholder="Enter Process Title Here"
+                  placeholder="Enter Process Title"
                   onChange={(e) =>
                     setProcesses(processes.map(p =>
                       p.id === proc.id ? { ...p, header: e.target.value } : p
@@ -921,7 +926,22 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               {proc.activities.map((act) => (
                 <div key={act.id} className="space-y-2 border-t border-gray-200 pt-4">
                   <div className="flex justify-between items-center">
-                    <h5 className="font-medium">Work Activity</h5>
+                    <div className="flex items-center gap-2">
+                      <h5 className="font-medium">Work Activity</h5>
+                      {act.source && (
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            act.source === "DB matched"
+                              ? "bg-green-100 text-green-800"
+                              : act.source === "AI generated"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {act.source === "DB matched" ? "DB" : act.source === "AI generated" ? "AI" : act.source}
+                        </span>
+                      )}
+                    </div>
                     <div className="space-x-2 flex">
                       <button
                         type="button"
@@ -1027,6 +1047,8 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
           setActivityWarningOpen(false);
         }}
       />
+      <div id="form1-bottom" className="h-4"></div>
+      <ProcessFab onAddProcess={addProcess} />
     </div>
   );
 });
