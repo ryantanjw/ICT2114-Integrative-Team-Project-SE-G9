@@ -2254,6 +2254,35 @@ def get_form_data_for_document(formId):
             },
             'activities_data': []  # Flattened for easier document processing
         }
+
+        team_data = None
+        
+        if form.form_RA_team_id:
+            ra_team = RA_team.query.get(form.form_RA_team_id)
+            if ra_team:
+                team_data = {
+                    "team_id": ra_team.RA_team_id,
+                    "leader": None,
+                    "members": []
+                }
+                # Get leader info
+                leader = User.query.get(ra_team.RA_leader)
+                if leader:
+                    team_data["leader"] = {
+                        "user_id": leader.user_id,
+                        "user_name": leader.user_name,
+                        "user_email": leader.user_email,
+                        "user_designation": leader.user_designation
+                    }
+                # Get team members
+                team_members_query = text(f"SELECT * FROM risk_database.RA_team_member WHERE RA_team_id = {ra_team.RA_team_id}")
+                team_members_result = db.session.execute(team_members_query)
+                for member_row in team_members_result:
+                    member_name = member_row[2] if len(member_row) > 2 else None
+                    if member_name:
+                        team_data["members"].append({"user_name": member_name})
+
+        document_data['form']['team_data'] = team_data
         
         for process in processes:
             activities = Activity.query.filter_by(activity_process_id=process.process_id).all()

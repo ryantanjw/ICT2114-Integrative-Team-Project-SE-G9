@@ -45,6 +45,13 @@ class DocxTemplateGenerator:
             print(f"form_data type: {type(form_data)}")
             print(f"form_data content: {form_data}")
             print("=== END DEBUG ===")
+
+            # Check for team_data in form_data
+            if form_data and 'form' in form_data and 'team_data' in form_data['form']:
+                print(f"=== DEBUG: team_data found ===")
+                print(f"team_data: {form_data['form']['team_data']}")
+            else:
+                print("=== DEBUG: team_data NOT found in form_data['form'] ===")
             
             # Use provided form_data or fallback to sample data
             if form_data is None or not form_data:
@@ -137,6 +144,10 @@ class DocxTemplateGenerator:
                 'next_review': format_date(form_info.get('next_review_date', 'N/A')),
                 'title': form_info.get('title', f'Risk Assessment {assessment_id}')
             }
+
+            # Add team_data if present
+            if 'team_data' in form_info and isinstance(form_info['team_data'], dict):
+                basic_info['team_data'] = form_info['team_data']
             
             print(f"=== TRANSFORM DEBUG: basic_info: {basic_info}")
             
@@ -251,6 +262,16 @@ class DocxTemplateGenerator:
         print(f"Template '{self.template_path}' not found")
         return None
     
+    def _flatten_dict(self, d, parent_key='', sep='.'):
+        items = {}
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.update(self._flatten_dict(v, new_key, sep=sep))
+            else:
+                items[new_key] = v
+        return items
+    
     def _process_template_with_risk_data(self, doc, data):
         """Process template and populate with risk assessment data"""
         
@@ -271,9 +292,18 @@ class DocxTemplateGenerator:
     
     def _replace_simple_placeholders(self, doc, basic_info):
         """Replace simple text placeholders in the document"""
+
+        # Flatten nested team_data if present
+        flat_info = basic_info.copy()
+        print("Basic info before flattening:", flat_info)
+        if 'team_data' in flat_info and isinstance(flat_info['team_data'], dict):
+            flat_info.update(self._flatten_dict(flat_info['team_data'], 'team_data'))
+            print("Flattened team_data:", {k: v for k, v in flat_info.items() if k.startswith('team_data.')})
+            del flat_info['team_data']  
+
         # Replace in paragraphs
         for paragraph in doc.paragraphs:
-            for key, value in basic_info.items():
+            for key, value in flat_info.items():
                 placeholder = f"{{{key}}}"
                 if placeholder in paragraph.text:
                     paragraph.text = paragraph.text.replace(placeholder, str(value))
@@ -282,7 +312,7 @@ class DocxTemplateGenerator:
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
-                    for key, value in basic_info.items():
+                    for key, value in flat_info.items():
                         placeholder = f"{{{key}}}"
                         if placeholder in cell.text:
                             cell.text = cell.text.replace(placeholder, str(value))
