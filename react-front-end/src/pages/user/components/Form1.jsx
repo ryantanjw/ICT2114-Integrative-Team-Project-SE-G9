@@ -410,9 +410,12 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             // };
             return {
               ...proc,
-              activities: [...newActivities, ...proc.activities].filter(
-                act => act.description && act.description.trim() !== ""
-              ),
+              activities:
+                activityNames.length > 0
+                  ? [...newActivities, ...proc.activities].filter(
+                      act => act.description && act.description.trim() !== ""
+                    )
+                  : proc.activities, // Keep existing activities if none generated
             };
 
           } catch (err) {
@@ -821,6 +824,9 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     setProcesses(updatedProcesses);
   };
 
+  const canGenerateActivities = processes.some(proc => proc.header && proc.header.trim() !== "");
+
+
   return (
     <div className="space-y-6">
       {/* Header inputs */}
@@ -853,6 +859,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             text="Generate Work Activities"
             onClick={generateWorkActivities}
             className="w-full mb-4"
+            disabled={!canGenerateActivities}
           />
         </div>
         <div className="col-span-full xl:col-span-12 w-full">
