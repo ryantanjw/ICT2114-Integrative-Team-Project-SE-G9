@@ -782,6 +782,14 @@ const generateActivitiesForProcess = async (proc, index) => {
 
   const canGenerateActivities = processes.every(proc => proc.header && proc.header.trim() !== "");
 
+  const generateActivitiesForAll = async () => {
+  for (let i = 0; i < processes.length; i++) {
+    const proc = processes[i];
+    if (proc.header && proc.header.trim()) {
+      await generateActivitiesForProcess(proc, i);
+    }
+  }
+};
 
   return (
     <div className="space-y-6">
@@ -812,8 +820,8 @@ const generateActivitiesForProcess = async (proc, index) => {
         <div className="col-span-full xl:col-span-4 w-full">
           <CTAButton
             icon={MdAdd}
-            text="Generate Work Activities"
-            onClick={generateActivitiesForProcess}
+            text="Generate Work Activities For All"
+            onClick={generateActivitiesForAll}
             className="w-full mb-4"
             disabled={!canGenerateActivities}
           />
