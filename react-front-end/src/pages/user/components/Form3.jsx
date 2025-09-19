@@ -308,7 +308,6 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     const uniqueMembers = new Set(nonEmptyMembers);
     return uniqueMembers.size !== nonEmptyMembers.length;
   };
-
   const handleSave = async () => {
     console.log("handlesave was clicked");
     try {
@@ -323,8 +322,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         errors.push("Division must be selected");
       }
 
+      // Filter out empty team members for validation
+      const nonEmptyTeamMembers = raTeam.filter(member => member && member.trim() !== "");
+
       // Check for duplicate team members
-      if (hasDuplicateMembers(raTeam)) {
+      if (hasDuplicateMembers(nonEmptyTeamMembers)) {
         errors.push("Duplicate team members are not allowed. Please ensure each team member is unique");
       }
 
@@ -344,13 +346,14 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         last_review_date: lastReviewDate,
         next_review_date: nextReviewDate,
         raLeader,
-        raTeam: raTeam.filter(member => member.trim() !== ""),
+        raTeam: nonEmptyTeamMembers, // Use filtered team members
         approvedBy,
         signature,
         designation
       };
 
-      console.log("formData HERE:", formData);
+      console.log("Form3 - handleSave - formData:", formData);
+      console.log("Form3 - handleSave - RA Team:", nonEmptyTeamMembers);
 
       // Only include form_id if it exists (for updates)
       if (formId) {
@@ -399,8 +402,6 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       setIsLoading(false);
     }
   };
-
-
   // Update the ref to properly expose save and validation methods
   useEffect(() => {
     if (ref) {
@@ -410,11 +411,14 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             // Validate the form before saving
             const validation = ref.current.validate();
             if (!validation.valid) {
-              alert(`Error: ${validation.message}`);
+              console.error(`Validation failed: ${validation.message}`);
               return null;
             }
 
             setIsLoading(true);
+
+            // Filter out empty team members but keep non-empty ones
+            const filteredRaTeam = raTeam.filter(member => member && member.trim() !== "");
 
             // Prepare form data
             const dataToSave = {
@@ -425,7 +429,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               last_review_date: lastReviewDate,
               next_review_date: nextReviewDate,
               raLeader,
-              raTeam: raTeam.filter(member => member.trim() !== ""),
+              raTeam: filteredRaTeam, // Use filtered team members
               approvedBy,
               signature,
               designation
@@ -435,6 +439,9 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             if (formId) {
               dataToSave.form_id = formId;
             }
+
+            console.log("Form3 - Saving data:", dataToSave);
+            console.log("Form3 - RA Team being saved:", filteredRaTeam);
 
             // Call /form3 endpoint (which handles both creation and updates)
             const response = await fetch('/api/user/form3', {
@@ -447,20 +454,22 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
             if (response.ok) {
               const result = await response.json();
-              console.log("Form saved successfully:", result);
+              console.log("Form3 - Save successful:", result);
 
               // Update formId if it was created (new form)
-              const updatedFormId = result.form_id;
-              if (result.action === 'created' && updatedFormId) {
-                setFormId(updatedFormId);
+              const updatedFormId = result.form_id || formId;
+              if (result.action === 'created' && result.form_id) {
+                setFormId(result.form_id);
               }
 
               // Update parent component if needed
               if (updateFormData) {
-                updateFormData({
+                const updatedData = {
                   ...dataToSave,
                   form_id: updatedFormId
-                });
+                };
+                console.log("Form3 - Updating parent with:", updatedData);
+                updateFormData(updatedData);
               }
 
               setIsLoading(false);
@@ -475,21 +484,19 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 last_review_date: lastReviewDate,
                 next_review_date: nextReviewDate,
                 raLeader,
-                raTeam: raTeam.filter(member => member.trim() !== ""),
+                raTeam: filteredRaTeam, // Return filtered team members
                 approvedBy,
                 signature,
                 designation
               };
             } else {
               const errorData = await response.json();
-              console.error("Error saving form:", errorData);
-              alert(`Error: ${errorData.error || "Failed to save form"}`);
+              console.error("Form3 - Save failed:", errorData);
               setIsLoading(false);
               return null;
             }
           } catch (error) {
             console.error("Error saving Form 3:", error);
-            alert("An error occurred while saving the form. Please try again.");
             setIsLoading(false);
             return null;
           }
@@ -506,8 +513,9 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             errors.push("Division must be selected");
           }
 
-          // Check for duplicate team members
-          if (hasDuplicateMembers(raTeam)) {
+          // Check for duplicate team members (only non-empty ones)
+          const nonEmptyTeamMembers = raTeam.filter(member => member && member.trim() !== "");
+          if (hasDuplicateMembers(nonEmptyTeamMembers)) {
             errors.push("Duplicate team members are not allowed. Please ensure each team member is unique");
           }
 
@@ -524,20 +532,23 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             message: ""
           };
         },
-        getData: () => ({
-          form_id: formId,
-          title,
-          division,
-          location,
-          form_reference_number: referenceNumber,
-          last_review_date: lastReviewDate,
-          next_review_date: nextReviewDate,
-          raLeader,
-          raTeam: raTeam.filter(member => member.trim() !== ""),
-          approvedBy,
-          signature,
-          designation
-        }),
+        getData: () => {
+          const filteredRaTeam = raTeam.filter(member => member && member.trim() !== "");
+          return {
+            form_id: formId,
+            title,
+            division,
+            location,
+            form_reference_number: referenceNumber,
+            last_review_date: lastReviewDate,
+            next_review_date: nextReviewDate,
+            raLeader,
+            raTeam: filteredRaTeam,
+            approvedBy,
+            signature,
+            designation
+          };
+        },
         goBack: () => {
           // No special handling needed for going back from Form 3
           return true;
@@ -547,9 +558,8 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   }, [
     ref, formId, title, division, location, referenceNumber,
     lastReviewDate, nextReviewDate, raLeader, raTeam,
-    approvedBy, signature, designation, hasDuplicateMembers, handleSave
+    approvedBy, signature, designation, hasDuplicateMembers
   ]);
-
   return (
     <div className="space-y-6">
       {/* Top row */}
