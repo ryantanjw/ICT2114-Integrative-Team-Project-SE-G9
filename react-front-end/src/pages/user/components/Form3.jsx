@@ -129,31 +129,25 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       const formattedDate = today.toISOString().split('T')[0];
       setLastReviewDate(formattedDate);
 
-      // Set next review date to 3 years from now
+      // Set next review date to 3 years - 1 day from today
       const nextDate = new Date(today);
       nextDate.setFullYear(nextDate.getFullYear() + 3);
+      nextDate.setDate(nextDate.getDate() - 1); // Subtract 1 day
       setNextReviewDate(nextDate.toISOString().split('T')[0]);
     }
   }, [lastReviewDate]);
 
-  // Fetch current user information
+  // Add new useEffect to handle next review date calculation when last review date changes
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await fetch('/api/user/current');
-        if (response.ok) {
-          const userData = await response.json();
-          setCurrentUser(userData);
-          // Set RA Leader to current user's name
-          setRaLeader(userData.user_name);
-        }
-      } catch (error) {
-        console.error("Error fetching current user:", error);
-      }
-    };
-
-    fetchCurrentUser();
-  }, []);
+    if (lastReviewDate) {
+      const lastDate = new Date(lastReviewDate);
+      // Calculate next review date as 3 years - 1 day from last review date
+      const nextDate = new Date(lastDate);
+      nextDate.setFullYear(nextDate.getFullYear() + 3);
+      nextDate.setDate(nextDate.getDate() - 1); // Subtract 1 day
+      setNextReviewDate(nextDate.toISOString().split('T')[0]);
+    }
+  }, [lastReviewDate]);
 
   // Load form data from API if formId exists
   useEffect(() => {
@@ -320,11 +314,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     try {
       // Validate the form before saving
       const errors = [];
-      
+
       if (!title.trim()) {
         errors.push("Title is required");
       }
-      
+
       if (!division || division.trim() === "") {
         errors.push("Division must be selected");
       }
@@ -503,11 +497,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         validate: () => {
           // Validate required fields
           const errors = [];
-          
+
           if (!title.trim()) {
             errors.push("Title is required");
           }
-          
+
           if (!division || division.trim() === "") {
             errors.push("Division must be selected");
           }
