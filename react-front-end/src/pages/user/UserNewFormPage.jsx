@@ -426,9 +426,12 @@ export default function UserNewForm() {
       // Save data based on current tab
       if (currentTab === 0 && form3Ref.current) {
         // Save Form 3 data (Overall Details)
-        if (form3Ref.current.validate && !form3Ref.current.validate()) {
-          toast.error("Please complete the Overall Details before proceeding.");
-          return;
+        if (form3Ref.current.validate) {
+          const validation = form3Ref.current.validate();
+          if (!validation.valid) {
+            toast.error(`Please complete the Overall Details before proceeding: ${validation.message}`);
+            return;
+          }
         }
 
         console.log("Saving Form 3 before tab change...");

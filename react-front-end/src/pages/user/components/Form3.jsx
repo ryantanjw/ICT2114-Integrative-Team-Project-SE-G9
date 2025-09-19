@@ -318,10 +318,24 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const handleSave = async () => {
     console.log("handlesave was clicked");
     try {
-      // Only check for duplicates if there are non-empty team members
-      const nonEmptyTeamMembers = raTeam.filter(member => member.trim() !== "");
-      if (nonEmptyTeamMembers.length > 0 && hasDuplicateMembers(raTeam)) {
-        alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
+      // Validate the form before saving
+      const errors = [];
+      
+      if (!title.trim()) {
+        errors.push("Title is required");
+      }
+      
+      if (!division || division.trim() === "") {
+        errors.push("Division must be selected");
+      }
+
+      // Check for duplicate team members
+      if (hasDuplicateMembers(raTeam)) {
+        errors.push("Duplicate team members are not allowed. Please ensure each team member is unique");
+      }
+
+      if (errors.length > 0) {
+        alert(`Error: ${errors.join(". ")}`);
         return false;
       }
 
@@ -399,10 +413,10 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       ref.current = {
         saveForm: async () => {
           try {
-            // Only check for duplicates if there are non-empty team members
-            const nonEmptyTeamMembers = raTeam.filter(member => member.trim() !== "");
-            if (nonEmptyTeamMembers.length > 0 && hasDuplicateMembers(raTeam)) {
-              alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
+            // Validate the form before saving
+            const validation = ref.current.validate();
+            if (!validation.valid) {
+              alert(`Error: ${validation.message}`);
               return null;
             }
 
@@ -488,19 +502,33 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         },
         validate: () => {
           // Validate required fields
+          const errors = [];
+          
           if (!title.trim()) {
-            alert("Error: Title is required");
-            return false;
+            errors.push("Title is required");
+          }
+          
+          if (!division || division.trim() === "") {
+            errors.push("Division must be selected");
           }
 
           // Check for duplicate team members
           if (hasDuplicateMembers(raTeam)) {
-            alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
-            return false;
+            errors.push("Duplicate team members are not allowed. Please ensure each team member is unique");
           }
 
-          // Important: Always return true here for cases with no validation errors
-          return true;
+          // Return validation result with detailed error message
+          if (errors.length > 0) {
+            return {
+              valid: false,
+              message: errors.join(". ")
+            };
+          }
+
+          return {
+            valid: true,
+            message: ""
+          };
         },
         getData: () => ({
           form_id: formId,
@@ -537,10 +565,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="ref-number"
           value={referenceNumber}
           onChange={(e) => setReferenceNumber(e.target.value)}
+          disabled
         />
         <div className="flex-1">
           <InputGroup
-            label="Division"
+            label="Division *"
             id="form-division"
             value={division}
             onChange={(e) => setDivision(e.target.value)}
@@ -550,13 +579,15 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               ...divisions
             ]}
             disabled={divisionsLoading}
+            required
           />
         </div>
         <InputGroup
-          label="Title"
+          label="Title *"
           id="form3-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          required
         />
       </div>
 
@@ -567,6 +598,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="form3-location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
+          disabled
         />
         <InputGroup
           label="Last Review Date"
@@ -581,6 +613,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           type="date"
           value={nextReviewDate}
           onChange={(e) => setNextReviewDate(e.target.value)}
+          disabled
         />
         <InputGroup
           label="RA Leader"
