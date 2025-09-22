@@ -1744,7 +1744,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   };
 
   const addHazardsToProcess = async (targetProcessId) => {
-    
+
     // Find the process by id
     const process = raProcesses.find(p => p.id === targetProcessId);
     if (!process) return;
@@ -1788,12 +1788,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             //   ...act,
             //   hazards: [...newHazards, ...act.hazards]
             // };
-              return {
-                ...act,
-                hazards: [...newHazards, ...act.hazards].filter(
-                  h => h.description && h.description.trim() !== ""
-                )
-              };
+            return {
+              ...act,
+              hazards: [...newHazards, ...act.hazards].filter(
+                h => h.description && h.description.trim() !== ""
+              )
+            };
 
 
           } else {
@@ -1900,8 +1900,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     ...act,
                     // hazards: [...newHazards, ...act.hazards]  // prepend
                     hazards: [...newHazards, ...act.hazards].filter(
-                        h => h.description && h.description.trim() !== ""
-                      )
+                      h => h.description && h.description.trim() !== ""
+                    )
                   };
 
                 } else {
@@ -2420,8 +2420,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           >
                                             <option value={0}>Select</option>
                                             {[1, 2, 3, 4, 5].map((v) => (
-                                              <option key={v} value={v}>
-                                                {v}
+                                              <option
+                                                key={v}
+                                                value={v}
+                                                disabled={field.name.toLowerCase() === 'likelihood' && v === 1}
+                                                style={field.name.toLowerCase() === 'likelihood' && v === 1 ?
+                                                  { color: '#999', cursor: 'not-allowed' } : {}
+                                                }
+                                              >
+                                                {v}{field.name.toLowerCase() === 'likelihood' && v === 1 ? ' (Not Available)' : ''}
                                               </option>
                                             ))}
                                           </select>
@@ -2688,9 +2695,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                               >
                                                 <option value={0}>Select</option>
                                                 {[1, 2, 3, 4, 5].map((v) => (
-                                                  <option key={v} value={v}>
-                                                    {v}
+                                                  <option
+                                                    key={v}
+                                                    value={v}
+                                                    disabled={field.name === "Likelihood" && v === 1}
+                                                    style={field.name === "Likelihood" && v === 1 ?
+                                                      { color: '#999', cursor: 'not-allowed' } : {}
+                                                    }
+                                                  >
+                                                    {v}{field.name === "Likelihood" && v === 1 ? ' (Not Available)' : ''}
                                                   </option>
+
                                                 ))}
                                               </select>
                                             )}
