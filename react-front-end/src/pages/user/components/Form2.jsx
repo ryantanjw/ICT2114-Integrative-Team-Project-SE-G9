@@ -1362,6 +1362,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           ) {
             missingFields.push('Existing Risk Controls');
           }
+
+          // Check for Risk Control Category (mandatory field)
+          if (
+            !(
+              Array.isArray(hazard.riskControls) &&
+              hazard.riskControls.some(rc => rc.riskControlType && rc.riskControlType.trim())
+            ) &&
+            !(hazard.riskControlType && hazard.riskControlType.trim())
+          ) {
+            missingFields.push('Risk Control Category');
+          }
           if (hazard.severity === 0) missingFields.push('Severity');
           if (hazard.likelihood === 0) missingFields.push('Likelihood');
 
@@ -1372,6 +1383,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           // Additional required fields when RPN >= 15
           if (rpn >= 15) {
             if (!hazard.additionalControls.trim()) missingFields.push('Additional Risk Controls');
+            
+            // Check for Additional Risk Control Category (mandatory when RPN >= 15)
+            if (
+              !(
+                Array.isArray(hazard.additionalRiskControls) &&
+                hazard.additionalRiskControls.some(arc => arc.controlType && arc.controlType.trim())
+              ) &&
+              !(hazard.additionalControlType && hazard.additionalControlType.trim())
+            ) {
+              missingFields.push('Additional Risk Control Category');
+            }
+            
             if (hazard.newLikelihood === 0) missingFields.push('New Likelihood (After Controls)');
             if (!hazard.dueDate) missingFields.push('Due Date');
             if (!hazard.implementationPerson.trim()) missingFields.push('Implementation Person');
@@ -1388,6 +1411,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             if (hasAdditionalControlsData) {
               // If they started adding additional controls, validate they're complete
               if (!hazard.additionalControls?.trim()) missingFields.push('Additional Risk Controls (incomplete)');
+              
+              // Check for Additional Risk Control Category when optional controls are filled
+              if (
+                !(
+                  Array.isArray(hazard.additionalRiskControls) &&
+                  hazard.additionalRiskControls.some(arc => arc.controlType && arc.controlType.trim())
+                ) &&
+                !(hazard.additionalControlType && hazard.additionalControlType.trim())
+              ) {
+                missingFields.push('Additional Risk Control Category (incomplete)');
+              }
+              
               if (hazard.newLikelihood === 0) missingFields.push('New Likelihood (After Controls)');
             }
           }
