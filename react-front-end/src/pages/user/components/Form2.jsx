@@ -1758,17 +1758,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Toggle collapse on Additional Risk Controls block
   const toggleAdditionalControlsSection = (processId, activityId, hazardId) => {
-    setRaProcesses(prev => {
-      const hazard = prev
-        .find(p => p.id === processId)
-        ?.activities.find(a => a.id === activityId)
-        ?.hazards.find(h => h.id === hazardId);
-
-      // Check if we need to create an additionalControlId
-      const isExpanding = !(hazard?.additionalControlsExpanded || false);
-      const additionalControlId = hazard?.additionalControlId || uuidv4();
-
-      return prev.map(proc =>
+    setRaProcesses(prev =>
+      prev.map(proc =>
         proc.id !== processId ? proc : {
           ...proc,
           activities: proc.activities.map(act =>
@@ -1777,28 +1768,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               hazards: act.hazards.map(haz =>
                 haz.id !== hazardId ? haz : {
                   ...haz,
-                  additionalControlsExpanded: !haz.additionalControlsExpanded,
-                  additionalControlId: haz.additionalControlId || additionalControlId,
-                  // If expanding and there's no additionalControlId, ensure there's a risk control entry
-                  riskControls: isExpanding && !haz.additionalControlId
-                    ? [
-                      ...(haz.riskControls || []),
-                      {
-                        id: additionalControlId,
-                        existingControls: haz.additionalControls || "",
-                        riskControlType: "",
-                        expanded: true,
-                        isAdditionalControl: true
-                      }
-                    ]
-                    : haz.riskControls
+                  additionalControlsExpanded: !haz.additionalControlsExpanded
                 }
               )
             }
           )
         }
-      );
-    });
+      )
+    );
     scheduleBatchedUpdate();
   };
 
@@ -2625,7 +2602,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           ✕
                                         </button>
                                       )}
-                                      <span className="cursor-pointer" onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}>
+                                      <span className="cursor-pointer" onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        toggleAdditionalControlsSection(proc.id, act.id, h.id);
+                                      }}>
                                         {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
                                       </span>
                                     </div>
@@ -2633,12 +2614,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                   {h.additionalControlsExpanded && (
                                     <div className="p-3">
                                       {/* Render each additional risk control */}
-                                      {(h.additionalRiskControls || [{
-                                        id: uuidv4(),
-                                        controlText: h.additionalControls || "",
-                                        controlType: h.additionalControlType || "",
-                                        expanded: true
-                                      }]).map((additionalControl, acIndex) => (
+                                      {(h.additionalRiskControls && h.additionalRiskControls.length > 0 
+                                        ? h.additionalRiskControls 
+                                        : [{
+                                          id: `default-${h.id}`,
+                                          controlText: h.additionalControls || "",
+                                          controlType: h.additionalControlType || "",
+                                          expanded: true
+                                        }]
+                                      ).map((additionalControl, acIndex) => (
                                         <div key={additionalControl.id} className="mb-4 pb-4 border-b border-gray-200">
                                           {/* Label + Buttons */}
                                           <div className="flex items-center justify-between mb-1">
@@ -2648,7 +2632,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                             <div className="flex space-x-2">
                                               <button
                                                 type="button"
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
                                                   setAdditionalRiskControlWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id, acIndex });
                                                   setAdditionalRiskControlWarningOpen(true);
                                                 }}
@@ -2659,7 +2645,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                               </button>
                                               <button
                                                 type="button"
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
                                                   // Add a new additional risk control to the current hazard
                                                   setRaProcesses(prev =>
                                                     prev.map(p =>
@@ -2714,7 +2702,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                 <button
                                                   type="button"
                                                   key={typeObj.value}
-                                                  onClick={() => {
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
                                                     // Update specific additional risk control
                                                     setRaProcesses(prev =>
                                                       prev.map(p =>
@@ -2727,7 +2717,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                                 hz.id === h.id ? {
                                                                   ...hz,
                                                                   // Update the additionalRiskControls array
-                                                                  additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
+                                                                  additionalRiskControls: (hz.additionalRiskControls && hz.additionalRiskControls.length > 0 
+                                                                    ? hz.additionalRiskControls 
+                                                                    : [{
+                                                                        id: `default-${hz.id}`,
+                                                                        controlText: hz.additionalControls || "",
+                                                                        controlType: hz.additionalControlType || "",
+                                                                        expanded: true
+                                                                      }]
+                                                                  ).map((ctrl, index) =>
                                                                     index === acIndex ? {
                                                                       ...ctrl,
                                                                       controlType: ctrl.controlType === typeObj.value ? "" : typeObj.value
@@ -2776,7 +2774,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                             hz.id === h.id ? {
                                                               ...hz,
                                                               // Update the additionalRiskControls array
-                                                              additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
+                                                              additionalRiskControls: (hz.additionalRiskControls && hz.additionalRiskControls.length > 0 
+                                                                ? hz.additionalRiskControls 
+                                                                : [{
+                                                                    id: `default-${hz.id}`,
+                                                                    controlText: hz.additionalControls || "",
+                                                                    controlType: hz.additionalControlType || "",
+                                                                    expanded: true
+                                                                  }]
+                                                              ).map((ctrl, index) =>
                                                                 index === acIndex ? {
                                                                   ...ctrl,
                                                                   controlText: e.target.value
