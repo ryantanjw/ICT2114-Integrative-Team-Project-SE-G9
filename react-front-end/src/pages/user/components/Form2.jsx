@@ -2548,10 +2548,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                           ...hz,
                                                           showAdditionalControls: false,
                                                           additionalControlsExpanded: false,
-                                                          // Clear additional controls data if empty
+                                                          // Clear all additional controls data completely
                                                           additionalControls: "",
                                                           additionalControlType: "",
                                                           newLikelihood: 0,
+                                                          newSeverity: hz.severity || 0, // Reset to original severity
                                                           newRpn: 0,
                                                           dueDate: "",
                                                           implementationPerson: "",
