@@ -1368,6 +1368,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
             // Ensure that new RPN is less than 15 after additional controls
             if (newRpn >= 15) missingFields.push('Stronger controls needed (RPN must be <15)');
+          } else if (hazard.showAdditionalControls) {
+            // Optional additional controls validation - only if user opted to add them
+            // Check if user started filling additional controls but left them incomplete
+            const hasAdditionalControlsData = hazard.additionalRiskControls?.some(control => 
+              control.controlText?.trim() || control.controlType?.trim()
+            ) || hazard.additionalControls?.trim();
+            
+            if (hasAdditionalControlsData) {
+              // If they started adding additional controls, validate they're complete
+              if (!hazard.additionalControls?.trim()) missingFields.push('Additional Risk Controls (incomplete)');
+              if (hazard.newLikelihood === 0) missingFields.push('New Likelihood (After Controls)');
+            }
           }
 
           // If any fields are missing, add to invalid hazards list
@@ -2434,24 +2446,98 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                             </div>
                             {/* <- Existing Risk Control Section END --> */}
 
-                            {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
+                            {/* Show Additional Risk Controls button or required message */}
+                            {(h.severity || 0) * (h.likelihood || 0) >= 15 ? (
+                              <div className="bg-blue-600 text-white p-2 my-2 rounded text-base">
+                                Risk Controls only reduce likelihood; Severity is constant
+                              </div>
+                            ) : (!h.showAdditionalControls && (
+                              <div className="mt-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // Toggle show additional controls for this hazard
+                                    setRaProcesses(prev =>
+                                      prev.map(p =>
+                                        p.id === proc.id ? {
+                                          ...p,
+                                          activities: p.activities.map(a =>
+                                            a.id === act.id ? {
+                                              ...a,
+                                              hazards: a.hazards.map(hz =>
+                                                hz.id === h.id ? {
+                                                  ...hz,
+                                                  showAdditionalControls: true,
+                                                  additionalControlsExpanded: true
+                                                } : hz
+                                              )
+                                            } : a
+                                          )
+                                        } : p
+                                      )
+                                    );
+                                    scheduleBatchedUpdate();
+                                  }}
+                                  className="px-4 py-2 bg-yellow-100 text-black border border-yellow-300 rounded hover:bg-yellow-200 transition-colors"
+                                >
+                                  + Add Additional Risk Controls
+                                </button>
+                              </div>
+                            ))}
+
+                            {/* Show Additional Risk Controls section when required (RPN >= 15) or when user opted in */}
+                            {((h.severity || 0) * (h.likelihood || 0) >= 15 || h.showAdditionalControls) && (
                               <>
-                                <div className="bg-blue-600 text-white p-2 my-5 rounded text-base">
-                                  Risk Controls only reduce likelihood; Severity is constant
-                                </div>
 
                                 {/* Additional Risk Controls Section */}
                                 <div className="mb-2 border border-gray-200 rounded-lg">
-                                  <div
-                                    className="bg-yellow-100 px-4 py-2 rounded-t cursor-pointer"
-                                    onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
-                                  >
-                                    <span className="text-lg font-medium text-zinc-900">
-                                      Additional Risk Controls*
-                                    </span>
-                                    <span className="float-right">
-                                      {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
-                                    </span>
+                                  <div className="bg-yellow-100 px-4 py-2 rounded-t flex items-center justify-between">
+                                    <div
+                                      className="cursor-pointer flex-1"
+                                      onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
+                                    >
+                                      <span className="text-lg font-medium text-zinc-900">
+                                        Additional Risk Controls{(h.severity || 0) * (h.likelihood || 0) >= 15 ? '*' : ' (Optional)'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      {/* Hide button - only show when it's optional (RPN < 15) */}
+                                      {(h.severity || 0) * (h.likelihood || 0) < 15 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            // Hide additional controls for this hazard
+                                            setRaProcesses(prev =>
+                                              prev.map(p =>
+                                                p.id === proc.id ? {
+                                                  ...p,
+                                                  activities: p.activities.map(a =>
+                                                    a.id === act.id ? {
+                                                      ...a,
+                                                      hazards: a.hazards.map(hz =>
+                                                        hz.id === h.id ? {
+                                                          ...hz,
+                                                          showAdditionalControls: false,
+                                                          additionalControlsExpanded: false
+                                                        } : hz
+                                                      )
+                                                    } : a
+                                                  )
+                                                } : p
+                                              )
+                                            );
+                                            scheduleBatchedUpdate();
+                                          }}
+                                          className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs"
+                                          title="Remove Additional Risk Controls"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                      <span className="cursor-pointer" onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}>
+                                        {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
+                                      </span>
+                                    </div>
                                   </div>
                                   {h.additionalControlsExpanded && (
                                     <div className="p-3">
