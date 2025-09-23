@@ -2813,7 +2813,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                 className={`${getDropdownColor(
                                                   field.name.toLowerCase(),
                                                   field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)
-                                                )} text-white rounded px-2 py-1 ${field.name === "Likelihood" && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500 animate-pulse" : ""}`}
+                                                )} text-black rounded px-2 py-1 ${field.name === "Likelihood" && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500 animate-pulse" : ""}`}
                                               >
                                                 <option value={0}>Select</option>
                                                 {[1, 2, 3, 4, 5].map((v) => (
