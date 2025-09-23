@@ -128,10 +128,17 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       const today = new Date();
       const formattedDate = today.toISOString().split('T')[0];
       setLastReviewDate(formattedDate);
+    }
+  }, []);
 
-      // Set next review date to 3 years from now
-      const nextDate = new Date(today);
+  // Calculate next review date whenever last review date changes
+  useEffect(() => {
+    if (lastReviewDate) {
+      const lastDate = new Date(lastReviewDate);
+      // Set next review date to 3 years minus 1 day from last review date
+      const nextDate = new Date(lastDate);
       nextDate.setFullYear(nextDate.getFullYear() + 3);
+      nextDate.setDate(nextDate.getDate() - 1);
       setNextReviewDate(nextDate.toISOString().split('T')[0]);
     }
   }, [lastReviewDate]);
@@ -537,6 +544,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="ref-number"
           value={referenceNumber}
           onChange={(e) => setReferenceNumber(e.target.value)}
+          disabled
         />
         <div className="flex-1">
           <InputGroup
@@ -567,6 +575,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="form3-location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
+          disabled
         />
         <InputGroup
           label="Last Review Date"
@@ -581,6 +590,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           type="date"
           value={nextReviewDate}
           onChange={(e) => setNextReviewDate(e.target.value)}
+          disabled
         />
         <InputGroup
           label="RA Leader"
@@ -637,12 +647,14 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="approved-by"
           value={approvedBy}
           onChange={(e) => setApprovedBy(e.target.value)}
+          disabled
         />
         <InputGroup
           label="Designation"
           id="designation"
           value={designation}
           onChange={(e) => setDesignation(e.target.value)}
+          disabled
         />
       </div>
 
