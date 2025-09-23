@@ -391,8 +391,22 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
             const data = await response.json();
             const activityNames = Array.isArray(data.activities) ? data.activities : [];
-            // For each activity, push an entry with processName, activityName, aiOrNot
-            activityNames.forEach(name => {
+            
+            // Get existing activity descriptions for this process (case-insensitive)
+            const existingActivityDescriptions = proc.activities.map(act => 
+              act.description ? act.description.toLowerCase().trim() : ""
+            ).filter(desc => desc !== "");
+
+            // Filter out activities that already exist in the process
+            const uniqueActivityNames = activityNames.filter(name => {
+              const newActivityDescription = name ? name.toLowerCase().trim() : "";
+              return newActivityDescription !== "" && !existingActivityDescriptions.includes(newActivityDescription);
+            });
+
+            console.log(`Filtered ${activityNames.length - uniqueActivityNames.length} duplicate activities for process: ${processName}`);
+
+            // For each unique activity, push an entry with processName, activityName, aiOrNot
+            uniqueActivityNames.forEach(name => {
               aiOrNotList.push({
                 processName,
                 activityName: name,
@@ -400,16 +414,12 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               });
             });
 
-            const newActivities = activityNames.map((name, idx) => ({
+            const newActivities = uniqueActivityNames.map((name, idx) => ({
               id: Date.now() + idx,
               description: name,
               remarks: "",
             }));
 
-            // return {
-            //   ...proc,
-            //   activities: [...newActivities, ...proc.activities],
-            // };
             return {
               ...proc,
               activities: [...newActivities, ...proc.activities].filter(
@@ -440,6 +450,18 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
             : "No AI summary available."
         };
       });
+
+      // Log summary of newly added activities
+      const totalNewActivities = aiOrNotList.length;
+      if (totalNewActivities > 0) {
+        console.log(`=== NEWLY ADDED ACTIVITIES (${totalNewActivities} total) ===`);
+        aiOrNotList.forEach((item, index) => {
+          console.log(`${index + 1}. "${item.activityName}" in ${item.processName} - Source: ${item.aiOrNot}`);
+        });
+        console.log(`=== END OF NEWLY ADDED ACTIVITIES ===`);
+      } else {
+        console.log("No new activities were added (all were duplicates or failed to generate)");
+      }
 
       setProcesses(updatedWithAI);
       setSummaryList(summaryByProcess);
