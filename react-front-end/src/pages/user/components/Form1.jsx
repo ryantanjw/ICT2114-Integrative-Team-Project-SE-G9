@@ -327,6 +327,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       // Validate required fields
       if (!title.trim()) return { valid: false, message: 'Title is required' };
 
+      // Check if at least one process has a location
+      const hasLocation = processes.some(p => p.location?.trim());
+      if (!hasLocation) return {
+        valid: false,
+        message: 'At least one process must have a location specified'
+      };
+
       // Check if any process has no title
       const invalidProcess = processes.find(p => !p.header?.trim());
       if (invalidProcess) return {
