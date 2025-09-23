@@ -351,6 +351,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         showInjuryInput: false,
         // Collapse/expand flags
         additionalControlsExpanded: true,
+        // Show additional controls if there's existing data or if RPN >= 15
+        showAdditionalControls: (() => {
+          const hasExistingAdditionalData = parsedAdditionalRiskControls.some(control => 
+            control.controlText?.trim() || control.controlType?.trim()
+          ) || (hazard.additionalControls && hazard.additionalControls.trim());
+          
+          return hasExistingAdditionalData || ((hazard.severity ?? 0) * (hazard.likelihood ?? 0) >= 15);
+        })(),
         // Use the parsed risk controls
         riskControls: parsedRiskControls,
         // Use the parsed additional risk controls
@@ -994,6 +1002,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       implementationPerson: "",
                       // Collapse/expand flags
                       additionalControlsExpanded: true,
+                      // Initialize showAdditionalControls as false for new hazards
+                      showAdditionalControls: false,
                       // Add empty risk controls
                       riskControls: [{
                         id: uuidv4(),
@@ -1665,6 +1675,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Collapse/expand flags
       additionalControlsExpanded: true,
       additionalControlType: additionalControlType || "", // Use provided or empty string
+      // Initialize showAdditionalControls based on RPN or existing additional controls
+      showAdditionalControls: rpn >= 15 || (additionalControls && additionalControls.trim()),
       riskControls: [{
         id: uuidv4(),
         existingControls: existingControls || "",
@@ -2451,42 +2463,59 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                               <div className="bg-blue-600 text-white p-2 my-2 rounded text-base">
                                 Risk Controls only reduce likelihood; Severity is constant
                               </div>
-                            ) : (!h.showAdditionalControls && (
-                              <div className="mt-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    // Toggle show additional controls for this hazard
-                                    setRaProcesses(prev =>
-                                      prev.map(p =>
-                                        p.id === proc.id ? {
-                                          ...p,
-                                          activities: p.activities.map(a =>
-                                            a.id === act.id ? {
-                                              ...a,
-                                              hazards: a.hazards.map(hz =>
-                                                hz.id === h.id ? {
-                                                  ...hz,
-                                                  showAdditionalControls: true,
-                                                  additionalControlsExpanded: true
-                                                } : hz
+                            ) : (() => {
+                              // Check if there are existing additional risk controls with actual data
+                              const hasAdditionalControlsData = h.additionalRiskControls?.some(control => 
+                                control.controlText?.trim() || control.controlType?.trim()
+                              ) || h.additionalControls?.trim();
+                              
+                              // Show button only if no additional controls exist and not currently showing
+                              if (!hasAdditionalControlsData && !h.showAdditionalControls) {
+                                return (
+                                  <div className="mt-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        // Toggle show additional controls for this hazard
+                                        setRaProcesses(prev =>
+                                          prev.map(p =>
+                                            p.id === proc.id ? {
+                                              ...p,
+                                              activities: p.activities.map(a =>
+                                                a.id === act.id ? {
+                                                  ...a,
+                                                  hazards: a.hazards.map(hz =>
+                                                    hz.id === h.id ? {
+                                                      ...hz,
+                                                      showAdditionalControls: true,
+                                                      additionalControlsExpanded: true
+                                                    } : hz
+                                                  )
+                                                } : a
                                               )
-                                            } : a
+                                            } : p
                                           )
-                                        } : p
-                                      )
-                                    );
-                                    scheduleBatchedUpdate();
-                                  }}
-                                  className="px-4 py-2 bg-yellow-100 text-black border border-yellow-300 rounded hover:bg-yellow-200 transition-colors"
-                                >
-                                  + Add Additional Risk Controls
-                                </button>
-                              </div>
-                            ))}
+                                        );
+                                        scheduleBatchedUpdate();
+                                      }}
+                                      className="px-4 py-2 bg-yellow-100 text-black border border-yellow-300 rounded hover:bg-yellow-200 transition-colors"
+                                    >
+                                      + Add Additional Risk Controls
+                                    </button>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
 
-                            {/* Show Additional Risk Controls section when required (RPN >= 15) or when user opted in */}
-                            {((h.severity || 0) * (h.likelihood || 0) >= 15 || h.showAdditionalControls) && (
+                            {/* Show Additional Risk Controls section when required (RPN >= 15), when user opted in, or when existing data exists */}
+                            {(() => {
+                              const hasAdditionalControlsData = h.additionalRiskControls?.some(control => 
+                                control.controlText?.trim() || control.controlType?.trim()
+                              ) || h.additionalControls?.trim();
+                              
+                              return ((h.severity || 0) * (h.likelihood || 0) >= 15 || h.showAdditionalControls || hasAdditionalControlsData);
+                            })() && (
                               <>
 
                                 {/* Additional Risk Controls Section */}
@@ -2497,7 +2526,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                       onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
                                     >
                                       <span className="text-lg font-medium text-zinc-900">
-                                        Additional Risk Controls{(h.severity || 0) * (h.likelihood || 0) >= 15 ? '*' : ' (Optional)'}
+                                        Additional Risk Controls{(h.severity || 0) * (h.likelihood || 0) >= 15 ? '*' : ''}
                                       </span>
                                     </div>
                                     <div className="flex items-center space-x-2">
@@ -2518,7 +2547,21 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                         hz.id === h.id ? {
                                                           ...hz,
                                                           showAdditionalControls: false,
-                                                          additionalControlsExpanded: false
+                                                          additionalControlsExpanded: false,
+                                                          // Clear additional controls data if empty
+                                                          additionalControls: "",
+                                                          additionalControlType: "",
+                                                          newLikelihood: 0,
+                                                          newRpn: 0,
+                                                          dueDate: "",
+                                                          implementationPerson: "",
+                                                          // Reset additional risk controls to empty state
+                                                          additionalRiskControls: [{
+                                                            id: uuidv4(),
+                                                            controlText: "",
+                                                            controlType: "",
+                                                            expanded: true
+                                                          }]
                                                         } : hz
                                                       )
                                                     } : a
