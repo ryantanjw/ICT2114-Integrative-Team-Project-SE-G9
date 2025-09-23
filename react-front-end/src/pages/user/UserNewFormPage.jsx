@@ -427,7 +427,7 @@ export default function UserNewForm() {
       if (currentTab === 0 && form3Ref.current) {
         // Save Form 3 data (Overall Details)
         if (form3Ref.current.validate && !form3Ref.current.validate()) {
-          toast.error("Please complete the Overall Details before proceeding.");
+          // toast.error("Please complete the Overall Details before proceeding.");
           return;
         }
 
