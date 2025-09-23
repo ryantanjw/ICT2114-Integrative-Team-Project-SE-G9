@@ -13,6 +13,7 @@ import ConfirmForm from "./components/ConfirmForm.jsx"; // will be used for Conf
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import ScrollFab from "./components/ScrollFab.jsx";
+import PromptDialog from "./components/PromptDialog.jsx";
 
 export default function UserNewForm() {
   const location = useLocation();
@@ -39,6 +40,7 @@ export default function UserNewForm() {
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
   // Function to validate Form 1
   const validateForm1 = useCallback((data) => {
@@ -519,44 +521,7 @@ export default function UserNewForm() {
 
   // Save handler for current tab
   const handleSaveClick = async () => {
-    console.log("Calling form3Ref.current.saveForm()");
-    toast(
-      (t) => (
-        <div className="flex flex-col space-y-2">
-          <p className="font-medium">Do you want to save your changes?</p>
-          <div className="flex space-x-2">
-            <button
-              onClick={async () => {
-                toast.dismiss(t.id); // close the confirmation toast
-                try {
-                  if (currentTab === 0 && form3Ref.current) {
-                    await form3Ref.current.saveForm();
-                  } else if (currentTab === 1 && form1Ref.current) {
-                    await form1Ref.current.saveForm();
-                  } else if (currentTab === 2 && form2Ref.current) {
-                    await form2Ref.current.saveForm();
-                  }
-                  toast.success("Form has been saved successfully!");
-                } catch (err) {
-                  console.error("Error saving form:", err);
-                  toast.error("Failed to save form. Please try again.");
-                }
-              }}
-              className="bg-green-500 text-white px-3 py-1 rounded"
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="bg-gray-400 text-white px-3 py-1 rounded"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: 4000 }
-    );
+    setIsSaveDialogOpen(true);
   };
   //   console.log("Calling form3Ref.current.saveForm()");
   //   if (currentTab === 0 && form3Ref.current) {
@@ -810,6 +775,31 @@ export default function UserNewForm() {
         </div>
       </div>
       {/* Floating Bottom Nav */}
+      <PromptDialog
+        isOpen={isSaveDialogOpen}
+        title="Save Changes"
+        message="Do you want to save your changes?"
+        confirmLabel="Save"
+        confirmClassName="bg-green-600 hover:bg-green-700"
+        onClose={() => setIsSaveDialogOpen(false)}
+        onDelete={async () => {
+          try {
+            if (currentTab === 0 && form3Ref.current) {
+              await form3Ref.current.saveForm();
+            } else if (currentTab === 1 && form1Ref.current) {
+              await form1Ref.current.saveForm();
+            } else if (currentTab === 2 && form2Ref.current) {
+              await form2Ref.current.saveForm();
+            }
+            setIsSaveDialogOpen(false);
+            toast.success("Form has been saved successfully!");
+          } catch (err) {
+            console.error("Error saving form:", err);
+            setIsSaveDialogOpen(false);
+            toast.error("Failed to save form. Please try again.");
+          }
+        }}
+      />
       <StickyBottomNav
         buttonsLeft={[
           {

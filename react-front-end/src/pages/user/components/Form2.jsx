@@ -2073,13 +2073,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               <div key={act.id} className="">
                 <div className="sticky top-5 border border-gray-200 rounded-lg inset-x-0 z-20 flex items-center justify-between bg-gray-100 p-3 rounded-t">
                   <div
-                    className="flex items-center space-x-2 cursor-pointer flex"
+                    className="flex items-center space-x-2 cursor-pointer"
                     onClick={() => toggleExpand(proc.id, act.id)}
                   >
                     {act.expanded ? <FiChevronUp /> : <FiChevronDown />}
-                    <span className="font-semibold text-xl">
-                      Work Activity {idx + 1} {act.description && `- ${act.description}`}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                        NEW
+                      </span>
+                      <span className="font-semibold text-xl">
+                        Work Activity {idx + 1} {act.description && `- ${act.description}`}
+                      </span>
+                    </div>
                   </div>
                   {proc.activities.length > 1 && (
                     <CTAButton
@@ -2136,7 +2141,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       >
                         {/* header with remove/add hazard */}
                         <div className="flex justify-between items-center">
-                          <h6 className="font-semibold text-xl">Hazard {hi + 1}</h6>
+                         <div className="flex items-center gap-3">
+                           <span className="font-semibold text-xl">
+                            Hazard {hi + 1}
+                          </span>
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                            NEW
+                          </span>
+                         </div>
                           <div className="space-x-2 flex">
                             <button
                               onClick={() => {
