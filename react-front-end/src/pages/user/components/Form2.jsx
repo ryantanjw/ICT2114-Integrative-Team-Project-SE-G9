@@ -681,15 +681,31 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
   }, [formData?.form_id, sessionData?.current_form_id, formData?.processes?.length]); // Also depend on processes length changes
 
-  // Auto-generate hazards when form is fully loaded Tag AI
+  // Auto-generate hazards when form is fully loaded - ONCE per form lifetime Tag AI
   useEffect(() => {
-    // Only run when form is fully loaded with data
-    if (dataLoaded && raProcesses.length > 0 && title && !hasRun.current) {
-      console.log("Form2 fully loaded - calling addHazardsToAllProcesses");
-      addHazardsToAllProcesses(title);
-      hasRun.current = true; // Prevent multiple runs
+    // Only run when form is fully loaded with data and we have a form ID
+    if (dataLoaded && raProcesses.length > 0 && title && formId && !hasRun.current) {
+      (async () => {
+        try {
+          // Check if hazards have already been auto-generated for this form
+          const alreadyRun = await hasRunForForm(formId);
+          
+          if (!alreadyRun) {
+            console.log("First time auto-generating hazards for this form - calling addHazardsToAllProcesses");
+            await addHazardsToAllProcesses(title);
+            // Mark this form as having had hazards auto-generated
+            await storeHasRunInSession(formId);
+            hasRun.current = true; // Also set local flag to prevent multiple runs in same session
+          } else {
+            console.log("Hazards already auto-generated for this form - skipping");
+            hasRun.current = true; // Set local flag to prevent checking again
+          }
+        } catch (error) {
+          console.error("Error checking/storing hasRun status:", error);
+        }
+      })();
     }
-  }, [dataLoaded, raProcesses.length, title]);
+  }, [dataLoaded, raProcesses.length, title, formId]);
 
   // Autocomplete starts from here
   useEffect(() => {
@@ -1901,6 +1917,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const addHazardsToAllProcesses = async (title) => {
     const toastId = toast.loading("Loading hazards for all processes from database...");
     const autofilledWorkActivities = [];
+    let totalHazardsAdded = 0; // Track actual number of hazards added
     try {
       const updatedProcesses = await Promise.all(
         raProcesses.map(async (proc) => {
@@ -1940,9 +1957,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
               if (!filteredActivityNames.includes(activityName)) {
                 // not in filtered list → keep it with no added hazards
+                // Ensure at least one hazard exists for form structure
+                const existingHazards = act.hazards && act.hazards.length > 0 ? act.hazards : initializeHazards([]);
                 return {
                   ...act,
-                  hazards: [...act.hazards]  // leave as is
+                  hazards: existingHazards
                 };
               }
 
@@ -1974,8 +1993,6 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
                   console.log(`Filtered ${hazardsArray.length - uniqueHazardsArray.length} duplicate hazards for activity: ${activityName}`);
 
-                  autofilledWorkActivities.push(`Hazards for ${activityName} autofilled`);
-
                   const newHazards = uniqueHazardsArray.map(h =>
                     createNewHazard({
                       description: h.description,
@@ -1990,12 +2007,29 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     })
                   );
 
+                  // Only count and log if hazards were actually added
+                  if (newHazards.length > 0) {
+                    totalHazardsAdded += newHazards.length;
+                    autofilledWorkActivities.push(`${newHazards.length} hazard(s) for ${activityName} autofilled`);
+                  }
+
+                  // Combine new hazards with existing ones, but preserve at least one hazard
+                  const combinedHazards = [...newHazards, ...act.hazards];
+                  const filledHazards = combinedHazards.filter(
+                    h => h.description && h.description.trim() !== ""
+                  );
+                  
+                  // Always ensure at least one hazard exists (even if empty) to maintain form structure
+                  let finalHazards = filledHazards.length > 0 ? filledHazards : act.hazards;
+                  
+                  // Final safety check: if still no hazards, initialize with default
+                  if (!finalHazards || finalHazards.length === 0) {
+                    finalHazards = initializeHazards([]);
+                  }
+
                   return {
                     ...act,
-                    // hazards: [...newHazards, ...act.hazards]  // prepend
-                    hazards: [...newHazards, ...act.hazards].filter(
-                        h => h.description && h.description.trim() !== ""
-                      )
+                    hazards: finalHazards
                   };
 
                 } else {
@@ -2004,7 +2038,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 }
               } catch (err) {
                 console.error(`Error getting hazards for activity: ${activityName}`, err);
-                throw err;
+                // On error, return the activity with its existing hazards (ensuring at least one exists)
+                const existingHazards = act.hazards && act.hazards.length > 0 ? act.hazards : initializeHazards([]);
+                return {
+                  ...act,
+                  hazards: existingHazards
+                };
               }
             })
           );
@@ -2018,11 +2057,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
       setRaProcesses(updatedProcesses);
       console.log("Autofilled values:", autofilledWorkActivities);
-      const totalHazards = autofilledWorkActivities.length;
-      if (totalHazards === 0) {
+      console.log(`Total hazards added: ${totalHazardsAdded}`);
+      
+      if (totalHazardsAdded === 0) {
         toast.error("No hazards were generated. Please check your inputs.", { id: toastId });
       } else {
-        toast.success("All hazards loaded successfully.", { id: toastId });
+        toast.success(`${totalHazardsAdded} hazard(s) loaded successfully.`, { id: toastId });
       }
     } catch (err) {
       toast.error("Failed to load hazards for all processes.", { id: toastId });
