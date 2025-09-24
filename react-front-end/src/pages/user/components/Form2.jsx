@@ -681,11 +681,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
   }, [formData?.form_id, sessionData?.current_form_id, formData?.processes?.length]); // Also depend on processes length changes
 
-  // useEffect(() => {
-  //   if (raProcesses.length > 0) {
-  //     addHazardsToAllProcesses(title);
-  //   }
-  // }, [raProcesses]);
+  // Auto-generate hazards when form is fully loaded Tag AI
+  useEffect(() => {
+    // Only run when form is fully loaded with data
+    if (dataLoaded && raProcesses.length > 0 && title && !hasRun.current) {
+      console.log("Form2 fully loaded - calling addHazardsToAllProcesses");
+      addHazardsToAllProcesses(title);
+      hasRun.current = true; // Prevent multiple runs
+    }
+  }, [dataLoaded, raProcesses.length, title]);
 
   // Autocomplete starts from here
   useEffect(() => {
@@ -1895,7 +1899,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // END OF TO BE REMOVED LATER
 
   const addHazardsToAllProcesses = async (title) => {
-    const toastId = toast.loading("Loading hazards for all processes...");
+    const toastId = toast.loading("Loading hazards for all processes from database...");
     const autofilledWorkActivities = [];
     try {
       const updatedProcesses = await Promise.all(
@@ -1956,9 +1960,23 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     : [aiData.hazard_data];
 
                   console.log(`Generated hazards for ${activityName}:`, hazardsArray);
+
+                  // Get existing hazard descriptions for this activity (case-insensitive)
+                  const existingHazardDescriptions = act.hazards.map(h => 
+                    h.description ? h.description.toLowerCase().trim() : ""
+                  ).filter(desc => desc !== "");
+
+                  // Filter out hazards that already exist in the activity
+                  const uniqueHazardsArray = hazardsArray.filter(h => {
+                    const newHazardDescription = h.description ? h.description.toLowerCase().trim() : "";
+                    return newHazardDescription !== "" && !existingHazardDescriptions.includes(newHazardDescription);
+                  });
+
+                  console.log(`Filtered ${hazardsArray.length - uniqueHazardsArray.length} duplicate hazards for activity: ${activityName}`);
+
                   autofilledWorkActivities.push(`Hazards for ${activityName} autofilled`);
 
-                  const newHazards = hazardsArray.map(h =>
+                  const newHazards = uniqueHazardsArray.map(h =>
                     createNewHazard({
                       description: h.description,
                       type: h.type,
