@@ -385,6 +385,109 @@ const generateActivitiesForProcess = async (proc, index) => {
       toast.error(`Failed to generate activities for Process ${proc.processNumber}`, { id: `generate-activities-${proc.id}` });
       return;
     }
+    try {
+      const updatedProcesses = await Promise.all(
+        processes.map(async (proc, i) => {
+          const processName = proc.header || `(Process ${i + 1})`;
+          try {
+            const response = await fetch('/api/user/get_activities', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ title, processName }),
+            });
+
+            if (!response.ok) {
+              console.error(`Failed to fetch activities for ${processName}`);
+              return proc;
+            }
+
+            const data = await response.json();
+            const activityNames = Array.isArray(data.activities) ? data.activities : [];
+            
+            // Get existing activity descriptions for this process (case-insensitive)
+            const existingActivityDescriptions = proc.activities.map(act => 
+              act.description ? act.description.toLowerCase().trim() : ""
+            ).filter(desc => desc !== "");
+
+            // Filter out activities that already exist in the process
+            const uniqueActivityNames = activityNames.filter(name => {
+              const newActivityDescription = name ? name.toLowerCase().trim() : "";
+              return newActivityDescription !== "" && !existingActivityDescriptions.includes(newActivityDescription);
+            });
+
+            console.log(`Filtered ${activityNames.length - uniqueActivityNames.length} duplicate activities for process: ${processName}`);
+
+            // For each unique activity, push an entry with processName, activityName, aiOrNot
+            uniqueActivityNames.forEach(name => {
+              aiOrNotList.push({
+                processName,
+                activityName: name,
+                aiOrNot: data.text
+              });
+            });
+
+            const newActivities = uniqueActivityNames.map((name, idx) => ({
+              id: Date.now() + idx,
+              description: name,
+              remarks: "",
+            }));
+
+            return {
+              ...proc,
+              activities: [...newActivities, ...proc.activities].filter(
+                act => act.description && act.description.trim() !== ""
+              ),
+            };
+
+          } catch (err) {
+            console.error(`Error fetching activities for ${processName}:`, err);
+            return proc;
+          }
+        })
+      );
+
+      // Attach aiOrNot string to each process (legacy, not used in summaryList now)
+      const updatedWithAI = updatedProcesses.map((proc, idx) => ({
+        ...proc,
+        aiOrNot: aiOrNotList[idx]?.aiOrNot || "No AI summary available."
+      }));
+
+      // Group summary by process, and display each activity with its AI explanation
+      const summaryByProcess = processes.map((proc) => {
+        const matching = aiOrNotList.filter(item => item.processName === proc.header || item.processName === `(Process ${proc.processNumber})`);
+        return {
+          name: `Process ${proc.processNumber} - ${proc.header || "Untitled"}`,
+          aiOrNot: matching.length > 0
+            ? matching.map(m => `Activity: ${m.activityName} — ${m.aiOrNot}`).join("\n")
+            : "No AI summary available."
+        };
+      });
+
+      // Log summary of newly added activities
+      const totalNewActivities = aiOrNotList.length;
+      if (totalNewActivities > 0) {
+        console.log(`=== NEWLY ADDED ACTIVITIES (${totalNewActivities} total) ===`);
+        aiOrNotList.forEach((item, index) => {
+          console.log(`${index + 1}. "${item.activityName}" in ${item.processName} - Source: ${item.aiOrNot}`);
+        });
+        console.log(`=== END OF NEWLY ADDED ACTIVITIES ===`);
+      } else {
+        console.log("No new activities were added (all were duplicates or failed to generate)");
+      }
+
+      setProcesses(updatedWithAI);
+      setSummaryList(summaryByProcess);
+      setShowSummaryDialog(true);
+      toast.success(
+        "Work activities generated successfully!",
+        { id: "generate-activities" }
+      );
+    } catch (error) {
+      console.error("Global error in generateWorkActivities:", error);
+      toast.error("Failed to generate work activities. Please try again.", { id: "generate-activities" });
+    }
 
     const data = await response.json();
     const activityNames = Array.isArray(data.activities) ? data.activities : [];

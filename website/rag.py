@@ -77,6 +77,7 @@ def generate_answer(user_input, context):
             Severity Score:
             Likelihood Score:
             RPN:
+            
 
             Take note for hazard types just give the type of hazard, no need explanation or examples.
             Take note for the severity score and likelihood score, its between 1 to 5, where 1 is the lowest and 5 is the highest.
@@ -84,6 +85,7 @@ def generate_answer(user_input, context):
             Take note for the risk control type, it can be one type.
 
             Important: Take note for the hazard type, please only provide one from the following: Physical, Chemical, Biological, Mechanical and Electrical.
+            Important: Take note for the risk control type, please only provide one from the following: Elimination, Substitution, Engineering Controls, Administrative Controls, Personal Protective Equipment (PPE).
 
             For example:
             Hazard Type: Physical
@@ -117,6 +119,7 @@ def parse_multiple_risk_assessments(response_text):
 
         hazard_description = re.search(r"Hazard Description:\s*(.*)", block)
         injuries = re.search(r"Possible Injuries:\s*(.*)", block)
+        risk_control_type = re.search(r"Risk Control Type:\s*(.*)", block)
         risk_control = re.search(r"Risk Controls:\s*(.*)", block)
         severity = re.search(r"Severity Score:\s*(\d+)", block)
         likelihood = re.search(r"Likelihood Score:\s*(\d+)", block)
@@ -126,11 +129,12 @@ def parse_multiple_risk_assessments(response_text):
             "type": [t.strip() for t in hazard_type.split(",")],
             "description": hazard_description.group(1).strip() if hazard_description else None,
             "injuries": [injuries.group(1).strip()] if injuries else [],
-            "risk_type": risk_control.group(1).strip() if risk_control else None,
+            "risk_type": risk_control_type.group(1).strip() if risk_control_type else None,
             "existingControls": risk_control.group(1).strip() if risk_control else None,
             "severity": int(severity.group(1)) if severity else None,
             "likelihood": int(likelihood.group(1)) if likelihood else None,
             "rpn": int(rpn.group(1)) if rpn else None,
+            "from": "AI" # for the summary purpose
         })
 
     return parsed
@@ -167,7 +171,8 @@ def ai_function(activity):
             "existingControls": row.control,
             "severity": row.severity,
             "likelihood": row.likelihood,
-            "rpn": row.rpn
+            "rpn": row.rpn,
+            "from": "Database" # for the summary purpose
             }
             for row in hazard_rows
         ]
