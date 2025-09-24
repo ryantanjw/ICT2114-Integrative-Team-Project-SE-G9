@@ -800,25 +800,21 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const hasRun = useRef(false);
 
   useEffect(() => {
-    // DISABLED: Automatic hazard generation on form load
-    // This was causing issues when navigating from Form1 to Form2
-    // Users should explicitly click "Generate Hazards" button if they want AI generation
-    
-    // if (raProcesses.length === 0) return;
+    if (raProcesses.length === 0) return;
 
-    // (async () => {
-    //   if (hasRun.current) return; // Prevent multiple runs
-    //   const alreadyRun = await hasRunForForm(formId);
+    (async () => {
+      if (hasRun.current) return; // Prevent multiple runs
+      const alreadyRun = await hasRunForForm(formId);
 
-    //   if (!alreadyRun) {
-    //     console.log("First time running addHazardsToAllProcesses for this form");
-    //     addHazardsToAllProcesses(title);
-    //     await storeHasRunInSession(formId);
-    //     hasRun.current = true; // Set flag to prevent future runs
-    //   } else {
-    //     console.log("ℹAlready ran for this form — skipping");
-    //   }
-    // })();
+      if (!alreadyRun) {
+        console.log("First time running addHazardsToAllProcesses for this form");
+        addHazardsToAllProcesses(title);
+        await storeHasRunInSession(formId);
+        hasRun.current = true; // Set flag to prevent future runs
+      } else {
+        console.log("ℹAlready ran for this form — skipping");
+      }
+    })();
   }, [raProcesses, formId]);
 
 
