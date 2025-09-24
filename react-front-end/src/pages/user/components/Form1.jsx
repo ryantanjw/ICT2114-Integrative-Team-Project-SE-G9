@@ -6,8 +6,6 @@ import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete, MdExpandMore, MdExpandLess, MdAdd } from "react-icons/md";
 import { toast } from "react-hot-toast";
-
-import ProcessFab from "./ProcessFab.jsx";
 import { LuMinus } from "react-icons/lu";
 
 
@@ -236,8 +234,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               activities: proc.activities.map(act => ({
                 ...act,
                 id: act.id || act.activity_id,
-                activity_id: act.activity_id || act.id,
-                source: act.source || (act.activity_id ? "DB matched" : undefined),
+                activity_id: act.activity_id || act.id
               }))
             }));
 
@@ -287,8 +284,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               activities: proc.activities.map(act => ({
                 ...act,
                 id: act.id || act.activity_id,
-                activity_id: act.activity_id || act.id,
-                source: act.source || (act.activity_id ? "DB matched" : undefined),
+                activity_id: act.activity_id || act.id
               }))
             }));
             setProcesses(processesWithIds);
@@ -370,53 +366,115 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   }));
 
   // Tag AI generate work activities
-const generateActivitiesForProcess = async (proc, index) => {
-  toast.loading(`Generating activities for Process ${proc.processNumber}...`, { id: `generate-activities-${proc.id}` });
+  const generateWorkActivities = async () => {
+    toast.loading("Generating work activities...", { id: "generate-activities" });
 
-  try {
-    const processName = proc.header || `(Process ${proc.processNumber})`;
-    const response = await fetch('/api/user/get_activities', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, processName }),
-    });
+    const aiOrNotList = [];
 
-    if (!response.ok) {
-      toast.error(`Failed to generate activities for Process ${proc.processNumber}`, { id: `generate-activities-${proc.id}` });
-      return;
-    }
+    try {
+      const updatedProcesses = await Promise.all(
+        processes.map(async (proc, i) => {
+          const processName = proc.header || `(Process ${i + 1})`;
+          try {
+            const response = await fetch('/api/user/get_activities', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ title, processName }),
+            });
 
-    const data = await response.json();
-    const activityNames = Array.isArray(data.activities) ? data.activities : [];
-    const newActivities = activityNames.map((name, idx) => ({
-      id: Date.now() + idx,
-      description: name,
-      remarks: "",
-      source: "AI generated"
-    }));
-
-    setProcesses(prev =>
-      prev.map((p, i) =>
-        i === index
-          ? {
-              ...p,
-              activities:
-                activityNames.length > 0
-                  ? [...newActivities, ...p.activities].filter(
-                      act => act.description && act.description.trim() !== ""
-                    )
-                  : p.activities,
+            if (!response.ok) {
+              console.error(`Failed to fetch activities for ${processName}`);
+              return proc;
             }
-          : p
-      )
-    );
 
-    toast.success(`Activities generated for Process ${proc.processNumber}!`, { id: `generate-activities-${proc.id}` });
-  } catch (error) {
-    console.error("Error generating activities for process:", error);
-    toast.error("Failed to generate activities. Please try again.", { id: `generate-activities-${proc.id}` });
-  }
-};
+            const data = await response.json();
+            const activityNames = Array.isArray(data.activities) ? data.activities : [];
+            
+            // Get existing activity descriptions for this process (case-insensitive)
+            const existingActivityDescriptions = proc.activities.map(act => 
+              act.description ? act.description.toLowerCase().trim() : ""
+            ).filter(desc => desc !== "");
+
+            // Filter out activities that already exist in the process
+            const uniqueActivityNames = activityNames.filter(name => {
+              const newActivityDescription = name ? name.toLowerCase().trim() : "";
+              return newActivityDescription !== "" && !existingActivityDescriptions.includes(newActivityDescription);
+            });
+
+            console.log(`Filtered ${activityNames.length - uniqueActivityNames.length} duplicate activities for process: ${processName}`);
+
+            // For each unique activity, push an entry with processName, activityName, aiOrNot
+            uniqueActivityNames.forEach(name => {
+              aiOrNotList.push({
+                processName,
+                activityName: name,
+                aiOrNot: data.text
+              });
+            });
+
+            const newActivities = uniqueActivityNames.map((name, idx) => ({
+              id: Date.now() + idx,
+              description: name,
+              remarks: "",
+            }));
+
+            return {
+              ...proc,
+              activities: [...newActivities, ...proc.activities].filter(
+                act => act.description && act.description.trim() !== ""
+              ),
+            };
+
+          } catch (err) {
+            console.error(`Error fetching activities for ${processName}:`, err);
+            return proc;
+          }
+        })
+      );
+
+      // Attach aiOrNot string to each process (legacy, not used in summaryList now)
+      const updatedWithAI = updatedProcesses.map((proc, idx) => ({
+        ...proc,
+        aiOrNot: aiOrNotList[idx]?.aiOrNot || "No AI summary available."
+      }));
+
+      // Group summary by process, and display each activity with its AI explanation
+      const summaryByProcess = processes.map((proc) => {
+        const matching = aiOrNotList.filter(item => item.processName === proc.header || item.processName === `(Process ${proc.processNumber})`);
+        return {
+          name: `Process ${proc.processNumber} - ${proc.header || "Untitled"}`,
+          aiOrNot: matching.length > 0
+            ? matching.map(m => `Activity: ${m.activityName} — ${m.aiOrNot}`).join("\n")
+            : "No AI summary available."
+        };
+      });
+
+      // Log summary of newly added activities
+      const totalNewActivities = aiOrNotList.length;
+      if (totalNewActivities > 0) {
+        console.log(`=== NEWLY ADDED ACTIVITIES (${totalNewActivities} total) ===`);
+        aiOrNotList.forEach((item, index) => {
+          console.log(`${index + 1}. "${item.activityName}" in ${item.processName} - Source: ${item.aiOrNot}`);
+        });
+        console.log(`=== END OF NEWLY ADDED ACTIVITIES ===`);
+      } else {
+        console.log("No new activities were added (all were duplicates or failed to generate)");
+      }
+
+      setProcesses(updatedWithAI);
+      setSummaryList(summaryByProcess);
+      setShowSummaryDialog(true);
+      toast.success(
+        "Work activities generated successfully!",
+        { id: "generate-activities" }
+      );
+    } catch (error) {
+      console.error("Global error in generateWorkActivities:", error);
+      toast.error("Failed to generate work activities. Please try again.", { id: "generate-activities" });
+    }
+  };
 
 
 
@@ -787,17 +845,6 @@ const generateActivitiesForProcess = async (proc, index) => {
     setProcesses(updatedProcesses);
   };
 
-  const canGenerateActivities = processes.every(proc => proc.header && proc.header.trim() !== "");
-
-  const generateActivitiesForAll = async () => {
-  for (let i = 0; i < processes.length; i++) {
-    const proc = processes[i];
-    if (proc.header && proc.header.trim()) {
-      await generateActivitiesForProcess(proc, i);
-    }
-  }
-};
-
   return (
     <div className="space-y-6">
       {/* Header inputs */}
@@ -827,10 +874,9 @@ const generateActivitiesForProcess = async (proc, index) => {
         <div className="col-span-full xl:col-span-4 w-full">
           <CTAButton
             icon={MdAdd}
-            text="Generate Work Activities For All"
-            onClick={generateActivitiesForAll}
+            text="Generate Work Activities"
+            onClick={generateWorkActivities}
             className="w-full mb-4"
-            disabled={!canGenerateActivities}
           />
         </div>
         <div className="col-span-full xl:col-span-12 w-full">
@@ -854,28 +900,19 @@ const generateActivitiesForProcess = async (proc, index) => {
           >
             <span className="font-semibold text-lg flex-1 flex items-center gap-2">
               {collapsedProcessIds.includes(proc.id) ? <MdExpandMore /> : <MdExpandLess />}
-              {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title"}`}
+              {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}
             </span>
-            <div className="flex items-center gap-2">
-              <CTAButton
-                icon={MdAdd}
-                text="Generate Work Activities"
-                onClick={() => generateActivitiesForProcess(proc, index)}
-                className="mb-0"
-                disabled={!proc.header || !proc.header.trim()}
-              />
-              <CTAButton
-                icon={LuMinus}
-                text="Remove"
-                onClick={(e) => {
-                  console.log("Process Remove clicked for ID:", proc.id);
-                  e.stopPropagation();
-                  setProcessToRemoveId(proc.id);
-                  setProcessWarningOpen(true);
-                }}
-                className="text-black"
-              />  
-            </div>
+            <CTAButton
+              icon={LuMinus}
+              text="Remove"
+              onClick={(e) => {
+                console.log("Process Remove clicked for ID:", proc.id);
+                e.stopPropagation();
+                setProcessToRemoveId(proc.id);
+                setProcessWarningOpen(true);
+              }}
+              className="text-black"
+            />
           </div>
           {/* Content wrapper - only show if not collapsed */}
           {!collapsedProcessIds.includes(proc.id) && (
@@ -886,7 +923,7 @@ const generateActivitiesForProcess = async (proc, index) => {
                   label="Process Title"
                   id={`title-${proc.id}`}
                   value={proc.header}
-                  placeholder="Enter Process Title"
+                  placeholder="Enter Process Title Here"
                   onChange={(e) =>
                     setProcesses(processes.map(p =>
                       p.id === proc.id ? { ...p, header: e.target.value } : p
@@ -913,22 +950,7 @@ const generateActivitiesForProcess = async (proc, index) => {
               {proc.activities.map((act) => (
                 <div key={act.id} className="space-y-2 border-t border-gray-200 pt-4">
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <h5 className="font-medium">Work Activity</h5>
-                      {act.source && (
-                        <span
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            act.source === "DB matched"
-                              ? "bg-green-100 text-green-800"
-                              : act.source === "AI generated"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {act.source === "DB matched" ? "DB" : act.source === "AI generated" ? "AI" : act.source}
-                        </span>
-                      )}
-                    </div>
+                    <h5 className="font-medium">Work Activity</h5>
                     <div className="space-x-2 flex">
                       <button
                         type="button"
@@ -1034,8 +1056,6 @@ const generateActivitiesForProcess = async (proc, index) => {
           setActivityWarningOpen(false);
         }}
       />
-      <div id="form1-bottom" className="h-4"></div>
-      <ProcessFab onAddProcess={addProcess} />
     </div>
   );
 });

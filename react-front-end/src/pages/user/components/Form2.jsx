@@ -1653,7 +1653,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     newLikelihood = 0,
     newRpn = 0,
     implementationPerson = "",
-    additionalControlType = ""
+    additionalControlType = "",
+    from = "" // for summary purpose
   } = {}) => {
     // // Extract any existing risk control type from existingControls
     // const typeRegex = /^\[(.*?)\]\s*/;
@@ -1668,6 +1669,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // }
     // newly added for rag function 
     let finalRiskControlType = riskControlType; // if provided, use it
+    console.log(`createNewHazard received riskControlType: "${riskControlType}"`);
+    
     if (!finalRiskControlType) {
       // If there's a type in the existingControls, extract it
       const typeRegex = /^\[(.*?)\]\s*/;
@@ -1679,6 +1682,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         finalRiskControlType = typeObj ? typeObj.value : "";
       }
     }
+    
+    console.log(`createNewHazard using finalRiskControlType: "${finalRiskControlType}"`);
+    console.log(`createNewHazard received "from" value: "${from}"`);
     // end of newly added for rag function
     return {
       id: uuidv4(),
@@ -1729,7 +1735,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         controlText: additionalControls || "",
         controlType: additionalControlType || "",
         expanded: true
-      }]
+      }],
+      from: from // Store the source of the hazard data (Database/AI)
     };
   };
   // Toggle collapse on a specific Risk Controls sub-section
@@ -1811,7 +1818,20 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
             console.log("Generated hazards:", hazardsArray);
 
-            const newHazards = hazardsArray.map(h =>
+            // Get existing hazard descriptions for this activity (case-insensitive)
+            const existingHazardDescriptions = act.hazards.map(h => 
+              h.description ? h.description.toLowerCase().trim() : ""
+            ).filter(desc => desc !== "");
+
+            // Filter out hazards that already exist in the activity
+            const uniqueHazardsArray = hazardsArray.filter(h => {
+              const newHazardDescription = h.description ? h.description.toLowerCase().trim() : "";
+              return newHazardDescription !== "" && !existingHazardDescriptions.includes(newHazardDescription);
+            });
+
+            console.log(`Filtered ${hazardsArray.length - uniqueHazardsArray.length} duplicate hazards for activity: ${activityName}`);
+
+            const newHazards = uniqueHazardsArray.map(h =>
               createNewHazard({
                 description: h.description,
                 type: h.type,
@@ -1820,20 +1840,19 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 existingControls: h.existingControls,
                 severity: h.severity,
                 likelihood: h.likelihood,
-                rpn: h.rpn
+                rpn: h.rpn,
+                from: h.from || "" // fallback to empty string if not provided
               })
             );
 
-            // return {
-            //   ...act,
-            //   hazards: [...newHazards, ...act.hazards]
-            // };
-              return {
-                ...act,
-                hazards: [...newHazards, ...act.hazards].filter(
-                  h => h.description && h.description.trim() !== ""
-                )
-              };
+            console.log("Created hazards with 'from' values:", newHazards.map(h => ({ description: h.description, from: h.from })));
+
+            return {
+              ...act,
+              hazards: [...newHazards, ...act.hazards].filter(
+                h => h.description && h.description.trim() !== ""
+              )
+            };
 
 
           } else {
@@ -1857,7 +1876,23 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         };
       })
     );
+
+    // Log summary of newly added hazards with their sources TO BE REMOVED LATER
+    const allNewHazards = updatedActivities.flatMap(act => 
+      act.hazards.filter(h => h.from && h.from !== "") // Only show hazards with 'from' value (newly added)
+    );
+    
+    if (allNewHazards.length > 0) {
+      console.log(`=== NEWLY ADDED HAZARDS (${allNewHazards.length} total) ===`);
+      allNewHazards.forEach((hazard, index) => {
+        console.log(`${index + 1}. "${hazard.description}" - Source: ${hazard.from}`);
+      });
+      console.log(`=== END OF NEWLY ADDED HAZARDS ===`);
+    } else {
+      console.log("No new hazards were added (all were duplicates or failed to generate)");
+    }
   };
+    // END OF TO BE REMOVED LATER
 
   const addHazardsToAllProcesses = async (title) => {
     const toastId = toast.loading("Loading hazards for all processes...");
@@ -1932,7 +1967,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       existingControls: h.existingControls,
                       severity: h.severity,
                       likelihood: h.likelihood,
-                      rpn: h.rpn
+                      rpn: h.rpn,
+                      from: h.from || "" // fallback to empty string if not provided
                     })
                   );
 
@@ -2264,7 +2300,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                               {(h.riskControls?.[0] || {}).expanded && (
                                 <div className="p-3">
                                   {/* Risk control blocks */}
-                                  {(h.riskControls || [{ id: uuidv4(), existingControls: h.existingControls || "", riskControlType: h.riskControlType || "", expanded: true }]).map((rc, rcIndex) => (
+                                  {(h.riskControls && h.riskControls.length > 0 
+                                    ? h.riskControls 
+                                    : [{ id: uuidv4(), existingControls: h.existingControls || "", riskControlType: "", expanded: true }]
+                                  ).map((rc, rcIndex) => (
                                     <div key={rc.id} className="mb-4 pb-4 border-b border-gray-200">
                                       {/* Label + Buttons */}
                                       <div className="flex items-center justify-between mb-1">
