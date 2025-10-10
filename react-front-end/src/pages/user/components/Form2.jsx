@@ -144,7 +144,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Auto-save form data to cookies whenever form state changes
   const saveFormDataToTempStorage = useCallback(() => {
-    if (formId) {
+    if (formId && dataLoaded && tempDataLoaded && raProcesses.length > 0) {
       const currentFormData = {
         title,
         division,
@@ -154,15 +154,16 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       console.log('🍪 Form2: Auto-saving Form2 data to cookies for formId:', formId, 'data:', {
         title: currentFormData.title,
         division: currentFormData.division,
-        processCount: currentFormData.processes.length
+        processCount: currentFormData.processes.length,
+        hasHazards: currentFormData.processes.some(p => p.hazards && p.hazards.length > 0)
       });
       
       saveFormData('form2', formId, currentFormData);
       console.log('🍪 Form2: Form2 data auto-saved to cookies successfully');
     } else {
-      console.log('🍪 Form2: Skipping auto-save - no formId available');
+      console.log('🍪 Form2: Skipping auto-save - formId:', formId, 'dataLoaded:', dataLoaded, 'tempDataLoaded:', tempDataLoaded, 'raProcesses.length:', raProcesses.length);
     }
-  }, [formId, title, division, raProcesses]);
+  }, [formId, title, division, raProcesses, dataLoaded, tempDataLoaded]);
 
   // Load temporary form data from cookies
   const loadTempFormData = useCallback(() => {
@@ -171,34 +172,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       const tempData = loadFormData('form2', formId);
       
       if (tempData) {
-        console.log('🍪 Form2: Found temporary Form2 data, restoring:', tempData);
+        console.log('🍪 Form2: Found temporary Form2 data, will be handled in main data loading');
+        // Don't restore here - let the main data loading handle it to avoid conflicts
         
-        // Check if temp data has meaningful content (be more lenient)
-        const hasValidTempData = tempData.title || tempData.division || 
-          (tempData.processes && tempData.processes.length > 0);
-        
-        if (hasValidTempData) {
-          console.log('🍪 Form2: Restoring Form2 temp data...');
-          if (tempData.title !== undefined) {
-            console.log('🍪 Form2: Restoring title:', tempData.title);
-            setTitle(tempData.title);
-          }
-          if (tempData.division !== undefined) {
-            console.log('🍪 Form2: Restoring division:', tempData.division);
-            setDivision(tempData.division);
-          }
-          if (tempData.processes && Array.isArray(tempData.processes) && tempData.processes.length > 0) {
-            console.log('🍪 Form2: Restoring processes:', tempData.processes.length, 'processes');
-            setRaProcesses(tempData.processes);
-          }
-          
-          toast.success('Previous form data restored from temporary storage', {
-            duration: 3000,
-            icon: '🔄'
-          });
-        } else {
-          console.log('🍪 Form2: Temp data found but not valid for restoration');
-        }
+        toast.success('Previous form data found - will be restored during data loading', {
+          duration: 3000,
+          icon: '🔄'
+        });
       } else {
         console.log('🍪 Form2: No temporary data found for formId:', formId);
       }
@@ -211,8 +191,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Auto-save effect - save form data to cookies when state changes
   useEffect(() => {
-    if (formId) {
-      console.log('🍪 Form2: Auto-save effect triggered for formId:', formId);
+    if (formId && dataLoaded && tempDataLoaded && raProcesses.length > 0) {
+      console.log('🍪 Form2: Auto-save effect triggered for formId:', formId, 'with dataLoaded:', dataLoaded, 'tempDataLoaded:', tempDataLoaded, 'raProcesses.length:', raProcesses.length);
       // Small delay to prevent excessive saves during rapid state changes
       const timeoutId = setTimeout(() => {
         console.log('🍪 Form2: Executing auto-save after delay');
@@ -224,9 +204,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         clearTimeout(timeoutId);
       };
     } else {
-      console.log('🍪 Form2: Auto-save effect skipped - no formId');
+      console.log('🍪 Form2: Auto-save effect skipped - formId:', formId, 'dataLoaded:', dataLoaded, 'tempDataLoaded:', tempDataLoaded, 'raProcesses.length:', raProcesses.length);
     }
-  }, [formId, title, division, raProcesses]); // Only depend on actual data, not the callback
+  }, [formId, title, division, raProcesses, dataLoaded, tempDataLoaded]); // Also depend on tempDataLoaded
 
   // Load temp data as soon as formId is available
   useEffect(() => {
@@ -634,7 +614,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       }
 
       // Process and initialize the processes with proper hazard structure
-      if (hazardData.processes && hazardData.processes.length > 0) {
+      // But first check if we have temp data that should be preserved
+      const tempData = loadFormData('form2', id);
+      const hasTempProcesses = tempData && tempData.processes && tempData.processes.length > 0;
+      
+      if (hasTempProcesses) {
+        console.log('🍪 Form2: Found temp data during API load, preserving temp processes:', tempData.processes.length);
+        // Use temp data instead of overwriting it
+        setRaProcesses(tempData.processes);
+      } else if (hazardData.processes && hazardData.processes.length > 0) {
         console.log("calling line 191:(");
         const processesWithHazards = hazardData.processes.map(proc => ({
           ...proc,
