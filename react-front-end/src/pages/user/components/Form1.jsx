@@ -7,6 +7,7 @@ import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete, MdExpandMore, MdExpandLess, MdAdd } from "react-icons/md";
 import { toast } from "react-hot-toast";
 import { LuMinus } from "react-icons/lu";
+import { saveFormData, loadFormData, clearFormData } from "../../../utils/cookieUtils.js";
 
 
 // Convert to forwardRef to expose methods to parent
@@ -47,7 +48,21 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   const [divisionsLoading, setDivisionsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false); // Track if data has been loaded
+  const [tempDataLoaded, setTempDataLoaded] = useState(false); // Track if temp data has been checked
   const formIdRef = useRef(formData?.form_id || null);
+  
+  // Early trigger to load temp data when formId becomes available from props
+  useEffect(() => {
+    console.log('Form1: Early trigger useEffect - formData?.form_id:', formData?.form_id, 'current formId:', formId);
+    if (formData?.form_id && formData.form_id !== formId) {
+      console.log('Form1: FormId changed from props:', formData.form_id);
+      setFormId(formData.form_id);
+      updateFormId(formData.form_id);
+      
+      // Reset temp data loaded to trigger re-check
+      setTempDataLoaded(false);
+    }
+  }, [formData?.form_id, formId]);
   const lastFetchTime = useRef(0);
   const [deletedProcessIds, setDeletedProcessIds] = useState([]); //Use this state to track deleted processes
   const [deletedActivityIds, setDeletedActivityIds] = useState([]); //Use this state to track deleted activities
@@ -121,6 +136,77 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     setFormId(id);
     formIdRef.current = id; // This is immediately available
   };
+
+  // Auto-save form data to cookies whenever form state changes
+  const saveFormDataToTempStorage = useCallback(() => {
+    if (formId) {
+      const currentFormData = {
+        title,
+        division,
+        processes
+      };
+      
+      saveFormData('form1', formId, currentFormData);
+      console.log('Form1 data auto-saved to cookies');
+    }
+  }, [formId, title, division, processes]);
+
+  // Load temporary form data from cookies
+  const loadTempFormData = useCallback(() => {
+    if (formId && !tempDataLoaded) {
+      console.log('Checking for temporary Form1 data in cookies...');
+      const tempData = loadFormData('form1', formId);
+      
+      if (tempData) {
+        console.log('Found temporary Form1 data, restoring:', tempData);
+        
+        // Check if temp data has meaningful content
+        const hasValidTempData = tempData.title || tempData.division || 
+          (tempData.processes && tempData.processes.length > 0 && 
+           tempData.processes.some(p => p.header || (p.activities && p.activities.some(a => a.description))));
+        
+        if (hasValidTempData) {
+          console.log('Restoring Form1 temp data...');
+          if (tempData.title !== undefined) setTitle(tempData.title);
+          if (tempData.division !== undefined) setDivision(tempData.division);
+          if (tempData.processes && Array.isArray(tempData.processes) && tempData.processes.length > 0) {
+            setProcesses(tempData.processes);
+          }
+          
+          toast.success('Previous form data restored from temporary storage', {
+            duration: 3000,
+            icon: '🔄'
+          });
+        }
+      }
+      
+      setTempDataLoaded(true);
+    }
+  }, [formId, tempDataLoaded]);
+
+  // Auto-save effect - save form data to cookies when state changes
+  useEffect(() => {
+    if (tempDataLoaded && formId) {
+      // Small delay to prevent excessive saves during rapid state changes
+      const timeoutId = setTimeout(() => {
+        saveFormDataToTempStorage();
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formId, title, division, processes, tempDataLoaded]); // Depend on actual data
+
+  // Load temp data as soon as formId is available
+  useEffect(() => {
+    if (formId && !tempDataLoaded) {
+      // Small delay to let component stabilize
+      const timeoutId = setTimeout(() => {
+        loadTempFormData();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formId, loadTempFormData, tempDataLoaded]);
 
   // Debounced store form ID in session to prevent excessive calls
   const storeFormIdInSession = useCallback(async (form_id) => {
@@ -802,6 +888,12 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
 
       // Clear any locally stored pending data since we've successfully saved
       localStorage.removeItem('form1_pending_data');
+      
+      // Clear temporary cookie data since form has been officially saved
+      if (formId) {
+        clearFormData('form1', formId);
+        console.log('Temporary Form1 data cleared from cookies after successful save');
+      }
 
       setIsLoading(false);
       console.log('All data saved successfully');

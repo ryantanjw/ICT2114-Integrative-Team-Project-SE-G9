@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Form Cookie Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .result { background: #f0f0f0; padding: 10px; margin-top: 10px; }
+        .cookie-data { background: #e8f4f8; padding: 10px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Form Cookie Data Test</h1>
+    <p>This page helps test if the cookie-based form data persistence is working correctly.</p>
+    
+    <div class="test-section">
+        <h3>Test Form Data Cookies</h3>
+        <button onclick="testSaveFormData()">Save Test Form Data</button>
+        <button onclick="testLoadFormData()">Load Form Data</button>
+        <button onclick="listAllCookies()">List All Cookies</button>
+        <button onclick="clearTestCookies()">Clear Test Cookies</button>
+        <div id="results" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Instructions for Testing Form Navigation</h3>
+        <ol>
+            <li>Open your React app at <a href="http://localhost:5173" target="_blank">http://localhost:5173</a></li>
+            <li>Navigate to the form creation page</li>
+            <li>Fill out some data in Form1 (title, division, process information)</li>
+            <li>Navigate to Form2</li>
+            <li>Fill out some data in Form2 (hazards, risk controls)</li>
+            <li>Go back to Form1 - your data should still be there!</li>
+            <li>Go back to Form2 - your data should still be there!</li>
+            <li>Check browser console for cookie debugging messages</li>
+        </ol>
+    </div>
+
+    <script>
+        // Import the cookie utilities (this would normally be done via ES6 modules)
+        // For testing, we'll recreate the key functions here
+        
+        function generateFormCookieKey(formName, formId) {
+            return `temp_${formName}_data_${formId}`;
+        }
+        
+        function saveFormDataToCookie(cookieKey, formData) {
+            try {
+                const dataToSave = {
+                    ...formData,
+                    timestamp: Date.now()
+                };
+                
+                const jsonString = JSON.stringify(dataToSave);
+                const expiryDate = new Date();
+                expiryDate.setTime(expiryDate.getTime() + (24 * 60 * 60 * 1000)); // 24 hours
+                
+                document.cookie = `${cookieKey}=${encodeURIComponent(jsonString)}; expires=${expiryDate.toUTCString()}; path=/; SameSite=Strict`;
+                return true;
+            } catch (error) {
+                console.error('Error saving to cookie:', error);
+                return false;
+            }
+        }
+        
+        function loadFormDataFromCookie(cookieKey) {
+            try {
+                const cookies = document.cookie.split(';');
+                const targetCookie = cookies.find(cookie => 
+                    cookie.trim().startsWith(`${cookieKey}=`)
+                );
+                
+                if (!targetCookie) return null;
+                
+                const cookieValue = targetCookie.split('=')[1];
+                const decodedValue = decodeURIComponent(cookieValue);
+                const parsedData = JSON.parse(decodedValue);
+                
+                const { timestamp, ...formData } = parsedData;
+                return formData;
+            } catch (error) {
+                console.error('Error loading from cookie:', error);
+                return null;
+            }
+        }
+        
+        function testSaveFormData() {
+            const testData = {
+                title: "Test Form Title " + Date.now(),
+                division: "Test Division",
+                processes: [
+                    {
+                        id: 1,
+                        header: "Test Process",
+                        location: "Test Location",
+                        activities: [
+                            { id: 1, description: "Test Activity", remarks: "Test remarks" }
+                        ]
+                    }
+                ]
+            };
+            
+            const formId = "test123";
+            const success = saveFormDataToCookie(generateFormCookieKey('form1', formId), testData);
+            
+            document.getElementById('results').innerHTML = 
+                `<div class="cookie-data">
+                    <strong>Save Result:</strong> ${success ? 'Success' : 'Failed'}<br>
+                    <strong>Data Saved:</strong><br>
+                    <pre>${JSON.stringify(testData, null, 2)}</pre>
+                </div>`;
+        }
+        
+        function testLoadFormData() {
+            const formId = "test123";
+            const data = loadFormDataFromCookie(generateFormCookieKey('form1', formId));
+            
+            document.getElementById('results').innerHTML = 
+                `<div class="cookie-data">
+                    <strong>Load Result:</strong> ${data ? 'Found data' : 'No data found'}<br>
+                    <strong>Data Loaded:</strong><br>
+                    <pre>${data ? JSON.stringify(data, null, 2) : 'null'}</pre>
+                </div>`;
+        }
+        
+        function listAllCookies() {
+            const cookies = document.cookie.split(';');
+            const tempCookies = cookies.filter(cookie => 
+                cookie.trim().includes('temp_form')
+            );
+            
+            let html = '<div class="cookie-data"><strong>All Form Temp Cookies:</strong><br>';
+            if (tempCookies.length === 0) {
+                html += 'No temporary form cookies found.';
+            } else {
+                tempCookies.forEach(cookie => {
+                    const [name] = cookie.trim().split('=');
+                    html += `• ${name}<br>`;
+                });
+            }
+            html += '</div>';
+            
+            document.getElementById('results').innerHTML = html;
+        }
+        
+        function clearTestCookies() {
+            const cookies = document.cookie.split(';');
+            let cleared = 0;
+            
+            cookies.forEach(cookie => {
+                const cookieName = cookie.trim().split('=')[0];
+                if (cookieName.includes('temp_form')) {
+                    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                    cleared++;
+                }
+            });
+            
+            document.getElementById('results').innerHTML = 
+                `<div class="cookie-data">Cleared ${cleared} temporary form cookies.</div>`;
+        }
+    </script>
+</body>
+</html>

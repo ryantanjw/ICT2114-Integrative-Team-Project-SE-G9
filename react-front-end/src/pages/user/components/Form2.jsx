@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { IoIosWarning } from "react-icons/io";
 import { toast } from "react-hot-toast";
 import { HiSparkles } from "react-icons/hi";
+import { saveFormData, loadFormData, clearFormData } from "../../../utils/cookieUtils.js";
 
 
 const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
@@ -29,9 +30,23 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const [formId, setFormId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [tempDataLoaded, setTempDataLoaded] = useState(false); // Track if temp data has been checked
   const [currentUserName, setCurrentUserName] = useState("");
   const [currentUserDesignation, setCurrentUserDesignation] = useState("");
   const [lastSaveTime, setLastSaveTime] = useState(0); // Track when we last saved
+
+  // Early trigger to load temp data when formId becomes available from props
+  useEffect(() => {
+    console.log('🍪 Form2: Early trigger useEffect - formData?.form_id:', formData?.form_id, 'current formId:', formId);
+    if (formData?.form_id && formData.form_id !== formId) {
+      console.log('🍪 Form2: FormId changed from props:', formData.form_id);
+      setFormId(formData.form_id);
+      updateFormId(formData.form_id);
+      
+      // Reset temp data loaded to trigger re-check
+      setTempDataLoaded(false);
+    }
+  }, [formData?.form_id, formId]);
 
   // For warning dialog on hazard removal
   const [warningOpen, setWarningOpen] = useState(false);
@@ -122,10 +137,108 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {
-    console.log('Updating formId to:', id);
+    console.log('🍪 Form2: Updating formId to:', id);
     setFormId(id);
     formIdRef.current = id; // This is immediately available
   };
+
+  // Auto-save form data to cookies whenever form state changes
+  const saveFormDataToTempStorage = useCallback(() => {
+    if (formId) {
+      const currentFormData = {
+        title,
+        division,
+        processes: raProcesses
+      };
+      
+      console.log('🍪 Form2: Auto-saving Form2 data to cookies for formId:', formId, 'data:', {
+        title: currentFormData.title,
+        division: currentFormData.division,
+        processCount: currentFormData.processes.length
+      });
+      
+      saveFormData('form2', formId, currentFormData);
+      console.log('🍪 Form2: Form2 data auto-saved to cookies successfully');
+    } else {
+      console.log('🍪 Form2: Skipping auto-save - no formId available');
+    }
+  }, [formId, title, division, raProcesses]);
+
+  // Load temporary form data from cookies
+  const loadTempFormData = useCallback(() => {
+    if (formId && !tempDataLoaded) {
+      console.log('🍪 Form2: Checking for temporary Form2 data in cookies for formId:', formId);
+      const tempData = loadFormData('form2', formId);
+      
+      if (tempData) {
+        console.log('🍪 Form2: Found temporary Form2 data, restoring:', tempData);
+        
+        // Check if temp data has meaningful content (be more lenient)
+        const hasValidTempData = tempData.title || tempData.division || 
+          (tempData.processes && tempData.processes.length > 0);
+        
+        if (hasValidTempData) {
+          console.log('🍪 Form2: Restoring Form2 temp data...');
+          if (tempData.title !== undefined) {
+            console.log('🍪 Form2: Restoring title:', tempData.title);
+            setTitle(tempData.title);
+          }
+          if (tempData.division !== undefined) {
+            console.log('🍪 Form2: Restoring division:', tempData.division);
+            setDivision(tempData.division);
+          }
+          if (tempData.processes && Array.isArray(tempData.processes) && tempData.processes.length > 0) {
+            console.log('🍪 Form2: Restoring processes:', tempData.processes.length, 'processes');
+            setRaProcesses(tempData.processes);
+          }
+          
+          toast.success('Previous form data restored from temporary storage', {
+            duration: 3000,
+            icon: '🔄'
+          });
+        } else {
+          console.log('🍪 Form2: Temp data found but not valid for restoration');
+        }
+      } else {
+        console.log('🍪 Form2: No temporary data found for formId:', formId);
+      }
+      
+      setTempDataLoaded(true);
+    } else {
+      console.log('🍪 Form2: Skipping temp data load - formId:', formId, 'tempDataLoaded:', tempDataLoaded);
+    }
+  }, [formId, tempDataLoaded]);
+
+  // Auto-save effect - save form data to cookies when state changes
+  useEffect(() => {
+    if (formId) {
+      console.log('🍪 Form2: Auto-save effect triggered for formId:', formId);
+      // Small delay to prevent excessive saves during rapid state changes
+      const timeoutId = setTimeout(() => {
+        console.log('🍪 Form2: Executing auto-save after delay');
+        saveFormDataToTempStorage();
+      }, 500); // Reduced delay for faster saves
+
+      return () => {
+        console.log('🍪 Form2: Auto-save timeout cleared');
+        clearTimeout(timeoutId);
+      };
+    } else {
+      console.log('🍪 Form2: Auto-save effect skipped - no formId');
+    }
+  }, [formId, title, division, raProcesses]); // Only depend on actual data, not the callback
+
+  // Load temp data as soon as formId is available
+  useEffect(() => {
+    if (formId && !tempDataLoaded) {
+      // Small delay to let component stabilize
+      const timeoutId = setTimeout(() => {
+        loadTempFormData();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formId, loadTempFormData, tempDataLoaded]);
 
   // Updated initializeHazards function that parses formatted risk controls
   const initializeHazards = (hazards) => {
@@ -680,6 +793,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       }
     }
   }, [formData?.form_id, sessionData?.current_form_id, formData?.processes?.length]); // Also depend on processes length changes
+
+  // Trigger temp data loading after form initialization
+  useEffect(() => {
+    if (formId && !tempDataLoaded) {
+      console.log('🍪 Form2: Triggering temp data load check for formId:', formId);
+      const timeoutId = setTimeout(() => {
+        loadTempFormData();
+      }, 100); // Reduced delay for faster loading
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formId, tempDataLoaded, loadTempFormData]); // Removed dataLoaded dependency
 
   // Auto-generate hazards when form is fully loaded - ONCE per form lifetime Tag AI
   useEffect(() => {
@@ -1623,6 +1748,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
         // Record the save time to prevent reinitialization from stale data
         setLastSaveTime(Date.now());
+
+        // Clear temporary cookie data since form has been officially saved
+        if (currentFormId) {
+          clearFormData('form2', currentFormId);
+          console.log('Temporary Form2 data cleared from cookies after successful save');
+        }
 
         toast.success("Form Saved");
 

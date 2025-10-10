@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Form2 Cookies</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #005a84; }
+        textarea { width: 100%; height: 100px; margin: 10px 0; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; white-space: pre-wrap; }
+        .emoji { font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍪 Form2 Cookie Debug Tool</h1>
+        
+        <div class="section">
+            <h3>Test Form2 Cookie Storage</h3>
+            <label>Form ID: <input type="text" id="formId" value="367" placeholder="Enter form ID"></label><br>
+            <label>Title: <input type="text" id="title" value="Test Form2 Title" placeholder="Enter title"></label><br>
+            <label>Division: <input type="text" id="division" value="5" placeholder="Enter division"></label><br>
+            <label>Processes (JSON): 
+                <textarea id="processes">[{"id": 1, "header": "Test Process", "activities": [{"id": 1, "description": "Test Activity", "hazards": [{"id": "test-hazard", "description": "Test Hazard"}]}]}]</textarea>
+            </label><br>
+            
+            <button onclick="saveForm2Data()">🍪 Save Form2 Data</button>
+            <button onclick="loadForm2Data()">📥 Load Form2 Data</button>
+            <button onclick="clearForm2Data()">🗑️ Clear Form2 Data</button>
+            <button onclick="clearAllCookies()">🧹 Clear All Cookies</button>
+        </div>
+
+        <div class="section">
+            <h3>Current Form2 Cookie Data</h3>
+            <button onclick="showForm2Cookie()">🔍 Show Form2 Cookie</button>
+            <pre id="cookieOutput">Click "Show Form2 Cookie" to see current data</pre>
+        </div>
+
+        <div class="section">
+            <h3>All Cookies</h3>
+            <button onclick="showAllCookies()">📋 Show All Cookies</button>
+            <pre id="allCookiesOutput">Click "Show All Cookies" to see all cookies</pre>
+        </div>
+
+        <div class="section">
+            <h3>Debug Log</h3>
+            <pre id="debugLog">Debug messages will appear here...</pre>
+        </div>
+    </div>
+
+    <script>
+        // Cookie utility functions (copied from cookieUtils.js)
+        function saveFormData(formType, formId, data) {
+            const cookieName = `temp_${formType}_data_${formId}`;
+            const cookieData = {
+                ...data,
+                timestamp: Date.now()
+            };
+            
+            const cookieValue = encodeURIComponent(JSON.stringify(cookieData));
+            
+            // Set cookie with 24 hour expiration
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (24 * 60 * 60 * 1000));
+            
+            document.cookie = `${cookieName}=${cookieValue}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+            
+            log(`🍪 Saved ${formType} data for form ${formId}`);
+            return true;
+        }
+
+        function loadFormData(formType, formId) {
+            const cookieName = `temp_${formType}_data_${formId}`;
+            const cookies = document.cookie.split(';');
+            
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === cookieName) {
+                    try {
+                        const data = JSON.parse(decodeURIComponent(value));
+                        log(`🍪 Loaded ${formType} data for form ${formId}`);
+                        return data;
+                    } catch (e) {
+                        log(`❌ Error parsing ${formType} cookie data: ${e.message}`);
+                        return null;
+                    }
+                }
+            }
+            
+            log(`🍪 No ${formType} data found for form ${formId}`);
+            return null;
+        }
+
+        function clearFormData(formType, formId) {
+            const cookieName = `temp_${formType}_data_${formId}`;
+            document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+            log(`🗑️ Cleared ${formType} data for form ${formId}`);
+        }
+
+        // Test functions
+        function saveForm2Data() {
+            const formId = document.getElementById('formId').value;
+            const title = document.getElementById('title').value;
+            const division = document.getElementById('division').value;
+            const processesText = document.getElementById('processes').value;
+            
+            try {
+                const processes = JSON.parse(processesText);
+                const data = { title, division, processes };
+                
+                const success = saveFormData('form2', formId, data);
+                if (success) {
+                    log(`✅ Successfully saved Form2 data for ID: ${formId}`);
+                    showForm2Cookie();
+                }
+            } catch (e) {
+                log(`❌ Error saving Form2 data: ${e.message}`);
+            }
+        }
+
+        function loadForm2Data() {
+            const formId = document.getElementById('formId').value;
+            const data = loadFormData('form2', formId);
+            
+            if (data) {
+                document.getElementById('title').value = data.title || '';
+                document.getElementById('division').value = data.division || '';
+                document.getElementById('processes').value = JSON.stringify(data.processes || [], null, 2);
+                log(`✅ Successfully loaded Form2 data for ID: ${formId}`);
+            } else {
+                log(`❌ No Form2 data found for ID: ${formId}`);
+            }
+        }
+
+        function clearForm2Data() {
+            const formId = document.getElementById('formId').value;
+            clearFormData('form2', formId);
+            log(`✅ Cleared Form2 data for ID: ${formId}`);
+            showForm2Cookie();
+        }
+
+        function showForm2Cookie() {
+            const formId = document.getElementById('formId').value;
+            const data = loadFormData('form2', formId);
+            
+            document.getElementById('cookieOutput').textContent = data 
+                ? JSON.stringify(data, null, 2) 
+                : `No Form2 cookie data found for ID: ${formId}`;
+        }
+
+        function showAllCookies() {
+            const cookies = document.cookie.split(';');
+            let output = 'All Cookies:\n\n';
+            
+            cookies.forEach(cookie => {
+                const [name, value] = cookie.trim().split('=');
+                if (name.startsWith('temp_')) {
+                    try {
+                        const data = JSON.parse(decodeURIComponent(value));
+                        output += `${name}:\n${JSON.stringify(data, null, 2)}\n\n`;
+                    } catch (e) {
+                        output += `${name}: [Invalid JSON]\n\n`;
+                    }
+                } else {
+                    output += `${name}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}\n\n`;
+                }
+            });
+            
+            document.getElementById('allCookiesOutput').textContent = output || 'No cookies found';
+        }
+
+        function clearAllCookies() {
+            const cookies = document.cookie.split(';');
+            cookies.forEach(cookie => {
+                const name = cookie.trim().split('=')[0];
+                if (name.startsWith('temp_')) {
+                    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                }
+            });
+            log('🧹 Cleared all temporary cookies');
+            showAllCookies();
+        }
+
+        // Debug logging
+        function log(message) {
+            const debugLog = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.textContent += `[${timestamp}] ${message}\n`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(message);
+        }
+
+        // Initialize
+        window.onload = function() {
+            log('🚀 Form2 Cookie Debug Tool loaded');
+            showAllCookies();
+        };
+    </script>
+</body>
+</html>
