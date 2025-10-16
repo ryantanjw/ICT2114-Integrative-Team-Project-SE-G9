@@ -62,8 +62,12 @@ export default function AdminDB() {
       try {
         const res = await axios.get("/api/admin/get_new_hazard");
         if (res.data.hazards.length > 0) {
-          setHazards(res.data.hazards);
-          console.log("successfully fetched hazards", res.data.hazards);
+          // setHazards(res.data.hazards);
+          // console.log("successfully fetched hazards", res.data.hazards);
+          console.log("successfully fetched hazards");
+          res.data.hazards.forEach((item, i) => {
+            console.log(`#${i}`, item.hazard, item.existing_risk_control);
+          });
         }
       } catch (err) {
         console.error("Error fetching hazards", err);

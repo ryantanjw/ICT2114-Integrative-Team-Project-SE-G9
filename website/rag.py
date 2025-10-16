@@ -13,9 +13,11 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 kb_path = os.path.join(base_dir, "kb.txt")
 kb_hazard_path = os.path.join(base_dir, "kbhazard.txt")
 kb_titleprocess_path = os.path.join(base_dir, "kbtitleprocess.txt")
+kb_control_path = os.path.join(base_dir, "kbcontrol.txt")
 embedding_cache_path = os.path.join(base_dir, "kb_embeddings.npy")
 embedding_hazard_cache_path = os.path.join(base_dir, "kbhazard_embeddings.npy")
 embedding_titleprocess_cache_path = os.path.join(base_dir, "kbtitleprocess_embeddings.npy")
+embedding_control_cache_path = os.path.join(base_dir, "kbcontrol_embeddings.npy")
 
 # load existing data from file
 def load_knowledge_base_from_file(filepath):
@@ -247,11 +249,27 @@ def load_hazard_kb_and_embeddings():
 
     return knowledge_base, kb_embeddings
 
+def load_control_kb_and_embeddings():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_control_path)
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_control_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_control_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_control_cache_path, kb_embeddings)
+
+    return knowledge_base, kb_embeddings
+
+# db page gold mine
 def get_hazard_match(activity, knowledge_base, kb_embeddings):
     top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
     context_text, similarity = top_matches[0]
     print (f"activity: {activity}, similarity: {similarity}")
-    return similarity <= 0.35
+    # return similarity <= 0.35
+    return similarity <= 0.85
 
 def generate_ai_work_activities(title, processName, db_result):
     user_prompt = (

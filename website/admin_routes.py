@@ -132,29 +132,34 @@ def approve_hazard():
     print("Hazard approval process completed successfully")
     return jsonify({"success": True, "message": "Hazard approved", "hazard_id": data.get("hazard_id")})
 
+#db management gold mine
 @admin.route('/get_new_hazard', methods=['GET', 'POST'])
 def get_new_hazard():
     # Query all hazards where approval is NULL
     knowledge_base, kb_embeddings = load_hazard_kb_and_embeddings()
-    hazards = Hazard.query.filter(Hazard.approval == None).all()
+    knowledge_base_control, kb_embeddings_control = load_control_kb_and_embeddings()
+    # hazards = Hazard.query.filter(Hazard.approval == None).all()
+    hazards = Hazard.query.filter(Hazard.approval.is_(None), Hazard.ai == 'ai').all()
     matched_hazards = []
     for hazard in hazards:
         if not hazard.hazard or not hazard.hazard.strip():
             print(f"Skipping invalid hazard text: {hazard.hazard!r}")
             continue
-
-        if get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings):
-            matched_hazards.append(hazard)
         else:
-            hazard.approval = 0
-            db.session.commit()
+            matched_hazards.append(hazard)
+
+        # if get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings):
+        #     matched_hazards.append(hazard)
+        # else:
+        #     hazard.approval = 0
+        #     db.session.commit()
     
     results = []
     for hazard in matched_hazards:
         try:
             # Get the related activity and hazard type using relationships
             activity = Activity.query.get(hazard.hazard_activity_id) if hazard.hazard_activity_id else None
-            hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
+            # hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
             
             # More robust form lookup
             form = None
@@ -163,9 +168,9 @@ def get_new_hazard():
                 if process and process.process_form_id:
                     form = Form.query.get(process.process_form_id)
             
-            user = User.query.get(form.form_user_id) if form and form.form_user_id else None
+            # user = User.query.get(form.form_user_id) if form and form.form_user_id else None
             risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
-            process = Process.query.get(activity.activity_process_id)
+            # process = Process.query.get(activity.activity_process_id)
             
             def format_date(date_obj):
                 return date_obj.isoformat() if date_obj else None
@@ -174,21 +179,41 @@ def get_new_hazard():
             # FIX THIS LATER !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
             #THIS PART HERE
+            # for each hazard from ai, check if it exists in db
+            # for each control in that hazard check if it exists in db
+            # return new or old for both hazard and control
+            try:
+                is_new = bool(get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings))
+            except Exception as me:
+                print(f"Error matching hazard {getattr(hazard, 'hazard_id', None)}: {me}")
+                is_new = False
+
+            hazard_field = [hazard.hazard or "No hazard description", "new" if is_new else "old"]
+
+            try:
+                is_new_control = bool(get_hazard_match(risk.existing_risk_control, knowledge_base_control, kb_embeddings_control))
+            except Exception as me:
+                # print(f"Error matching hazard {getattr(hazard, 'hazard_id', None)}: {me}")
+                is_new_control = False
+            existing_risk_control_field = [risk.existing_risk_control or "No risk control description", "new" if is_new_control else "old"]
+
             results.append({
                 'hazard_id': hazard.hazard_id,
                 'hazard_activity_id': hazard.hazard_activity_id,
                 'process': process.process_title if process else "Unknown Process",
-                'hazard': hazard.hazard or "No hazard description",
+                # 'hazard': hazard.hazard or "No hazard description",
+                'hazard': hazard_field,
                 'injury': hazard.injury or "No injury description",
                 'hazard_type_id': hazard.hazard_type_id,
                 'remarks': hazard.remarks or "No remarks",
                 'approval': hazard.approval,
                 'work_activity': activity.work_activity if activity else "Unknown activity",
-                'hazard_type': hazard_type.hazard_type if hazard_type else "Unknown type",
+                # 'hazard_type': hazard_type.hazard_type if hazard_type else "Unknown type",
                 "form_title": form.title if form else "Unknown form",
                 "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
-                "owner": user.user_name if user else "Unknown user",
-                "existing_risk_control": risk.existing_risk_control if risk else "None specified",
+                # "owner": user.user_name if user else "Unknown user",
+                # "existing_risk_control": risk.existing_risk_control if risk else "None specified",
+                "existing_risk_control": existing_risk_control_field,
                 "additional_risk_control": risk.additional_risk_control if risk else "None specified",
                 "severity": risk.severity if risk else 0,
                 "likelihood": risk.likelihood if risk else 0,
