@@ -155,6 +155,7 @@ def get_new_hazard():
         #     db.session.commit()
     
     results = []
+    hazard_type_lookup = {ht.hazard_type_id: getattr(ht, 'hazard_type', None) or "Unknown type" for ht in HazardType.query.all()}
     for hazard in matched_hazards:
         try:
             # Get the related activity and hazard type using relationships
@@ -163,6 +164,7 @@ def get_new_hazard():
             
             # More robust form lookup
             form = None
+            process = None
             if activity and activity.activity_process_id:
                 process = Process.query.get(activity.activity_process_id)
                 if process and process.process_form_id:
@@ -205,6 +207,7 @@ def get_new_hazard():
                 'hazard': hazard_field,
                 'injury': hazard.injury or "No injury description",
                 'hazard_type_id': hazard.hazard_type_id,
+                'hazard_type': hazard_type_lookup.get(hazard.hazard_type_id, "Unknown type"),
                 'remarks': hazard.remarks or "No remarks",
                 'approval': hazard.approval,
                 'work_activity': activity.work_activity if activity else "Unknown activity",
@@ -220,10 +223,19 @@ def get_new_hazard():
                 "RPN": risk.RPN if risk else 0,
             })
         except Exception as e:
-            print(f"Error processing hazard {hazard.hazard_id}: {str(e)}")
+            print(f"Error processing hazard {getattr(hazard, 'hazard_id', None)}: {e}")
             continue
-    
     return jsonify({'success': True, 'hazards': results})
+# Endpoint to retrieve all hazard categories as id→name list
+@admin.route('/hazard_types', methods=['GET'])
+def get_hazard_types():
+    try:
+        types = HazardType.query.all()
+        payload = [{'id': t.hazard_type_id, 'name': t.hazard_type} for t in types]
+        return jsonify({'success': True, 'hazard_types': payload})
+    except Exception as e:
+        print(f"Error retrieving hazard types: {e}")
+        return jsonify({'success': False, 'error': 'Failed to retrieve hazard types'}), 500
 
     
 
