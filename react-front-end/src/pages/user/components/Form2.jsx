@@ -1795,7 +1795,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     newRpn = 0,
     implementationPerson = "",
     additionalControlType = "",
-    from = "" // for summary purpose
+    ai = "" // for summary purpose
   } = {}) => {
     // // Extract any existing risk control type from existingControls
     // const typeRegex = /^\[(.*?)\]\s*/;
@@ -1825,7 +1825,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
     
     console.log(`createNewHazard using finalRiskControlType: "${finalRiskControlType}"`);
-    console.log(`createNewHazard received "from" value: "${from}"`);
+    console.log(`createNewHazard received "from" value: "${ai}"`);
     // end of newly added for rag function
     return {
       id: uuidv4(),
@@ -1877,7 +1877,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         controlType: additionalControlType || "",
         expanded: true
       }],
-      from: from // Store the source of the hazard data (Database/AI)
+      ai: ai // Store the source of the hazard data (Database/AI)
     };
   };
   // Toggle collapse on a specific Risk Controls sub-section
@@ -1986,7 +1986,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               })
             );
 
-            console.log("Created hazards with 'ai' values:", newHazards.map(h => ({ description: h.description, ai: h.from })));
+            console.log("Created hazards with 'ai' values:", newHazards.map(h => ({ description: h.description, ai: h.ai })));
 
             return {
               ...act,
