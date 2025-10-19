@@ -249,7 +249,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           existingControls: "",
           riskControlType: "",
           expanded: true
-        }]
+        }],
+        ai: "",
       }];
     }
 
@@ -455,7 +456,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         // Use the parsed risk controls
         riskControls: parsedRiskControls,
         // Use the parsed additional risk controls
-        additionalRiskControls: parsedAdditionalRiskControls
+        additionalRiskControls: parsedAdditionalRiskControls,
+        ai: hazard.ai || "" // FIXED: Use 'ai' field
       };
     });
   };
@@ -1980,11 +1982,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 severity: h.severity,
                 likelihood: h.likelihood,
                 rpn: h.rpn,
-                from: h.from || "" // fallback to empty string if not provided
+                ai: h.from || "" // fallback to empty string if not provided
               })
             );
 
-            console.log("Created hazards with 'from' values:", newHazards.map(h => ({ description: h.description, from: h.from })));
+            console.log("Created hazards with 'ai' values:", newHazards.map(h => ({ description: h.description, ai: h.from })));
 
             return {
               ...act,
@@ -2018,13 +2020,13 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
     // Log summary of newly added hazards with their sources TO BE REMOVED LATER
     const allNewHazards = updatedActivities.flatMap(act => 
-      act.hazards.filter(h => h.from && h.from !== "") // Only show hazards with 'from' value (newly added)
+      act.hazards.filter(h => h.ai && h.ai !== "") // Only show hazards with 'ai' value (newly added)
     );
     
     if (allNewHazards.length > 0) {
       console.log(`=== NEWLY ADDED HAZARDS (${allNewHazards.length} total) ===`);
       allNewHazards.forEach((hazard, index) => {
-        console.log(`${index + 1}. "${hazard.description}" - Source: ${hazard.from}`);
+        console.log(`${index + 1}. "${hazard.description}" - Source: ${hazard.ai}`);
       });
       console.log(`=== END OF NEWLY ADDED HAZARDS ===`);
     } else {
