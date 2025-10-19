@@ -138,8 +138,10 @@ def get_new_hazard():
     # Query all hazards where approval is NULL
     knowledge_base, kb_embeddings = load_hazard_kb_and_embeddings()
     knowledge_base_control, kb_embeddings_control = load_control_kb_and_embeddings()
-    # hazards = Hazard.query.filter(Hazard.approval == None).all()
-    hazards = Hazard.query.filter(Hazard.approval.is_(None), Hazard.ai == 'ai').all()
+    knowledge_base_activity, kb_embeddings_activity = load_activity_kb_and_embeddings()
+    knowledge_base_injury, kb_embeddings_injury = load_injury_kb_and_embeddings()
+    hazards = Hazard.query.filter(Hazard.approval == None).all()
+    # hazards = Hazard.query.filter(Hazard.approval.is_(None), Hazard.ai == 'ai').all()
     matched_hazards = []
     for hazard in hazards:
         if not hazard.hazard or not hazard.hazard.strip():
@@ -182,6 +184,7 @@ def get_new_hazard():
             # for each hazard from ai, check if it exists in db
             # for each control in that hazard check if it exists in db
             # return new or old for both hazard and control
+            # hazard matching
             try:
                 is_new = bool(get_hazard_match(hazard.hazard, knowledge_base, kb_embeddings))
             except Exception as me:
@@ -189,13 +192,28 @@ def get_new_hazard():
                 is_new = False
 
             hazard_field = [hazard.hazard or "No hazard description", "new" if is_new else "old"]
-
+            #risk matching
             try:
                 is_new_control = bool(get_hazard_match(risk.existing_risk_control, knowledge_base_control, kb_embeddings_control))
             except Exception as me:
                 # print(f"Error matching hazard {getattr(hazard, 'hazard_id', None)}: {me}")
                 is_new_control = False
             existing_risk_control_field = [risk.existing_risk_control or "No risk control description", "new" if is_new_control else "old"]
+            #activities matching
+            try:
+                is_new_activity = bool(get_hazard_match(activity.work_activity, knowledge_base_activity, kb_embeddings_activity))
+            except Exception as me:
+                print(f"Error matching activity {getattr(activity, 'activity_id', None)}: {me}")
+                is_new_activity = False
+            existing_activity_field = [activity.work_activity or "No activity description", "new" if is_new_activity else "old"]
+
+            #injury matching
+            try:
+                is_new_injury = bool(get_hazard_match(hazard.injury, knowledge_base_injury, kb_embeddings_injury))
+            except Exception as me:
+                print(f"Error matching injury {getattr(hazard, 'hazard_id', None)}: {me}")
+                is_new_injury = False
+            existing_injury_field = [hazard.injury or "No injury description", "new" if is_new_injury else "old"]
 
             results.append({
                 'hazard_id': hazard.hazard_id,

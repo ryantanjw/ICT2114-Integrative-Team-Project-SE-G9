@@ -14,10 +14,12 @@ kb_path = os.path.join(base_dir, "kb.txt")
 kb_hazard_path = os.path.join(base_dir, "kbhazard.txt")
 kb_titleprocess_path = os.path.join(base_dir, "kbtitleprocess.txt")
 kb_control_path = os.path.join(base_dir, "kbcontrol.txt")
+kb_injury_path = os.path.join(base_dir, "kbinjury.txt")
 embedding_cache_path = os.path.join(base_dir, "kb_embeddings.npy")
 embedding_hazard_cache_path = os.path.join(base_dir, "kbhazard_embeddings.npy")
 embedding_titleprocess_cache_path = os.path.join(base_dir, "kbtitleprocess_embeddings.npy")
 embedding_control_cache_path = os.path.join(base_dir, "kbcontrol_embeddings.npy")
+embedding_injury_cache_path = os.path.join(base_dir, "kbinjury_embeddings.npy")
 
 # load existing data from file
 def load_knowledge_base_from_file(filepath):
@@ -260,6 +262,34 @@ def load_control_kb_and_embeddings():
         print("Generating and caching embeddings using batch processing...")
         kb_embeddings = get_embeddings_batched(knowledge_base)
         save_embeddings(embedding_control_cache_path, kb_embeddings)
+
+    return knowledge_base, kb_embeddings
+
+def load_activity_kb_and_embeddings():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_path)
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_cache_path, kb_embeddings)
+
+    return knowledge_base, kb_embeddings
+
+def load_injury_kb_and_embeddings():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_injury_path)
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_injury_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_injury_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_injury_cache_path, kb_embeddings)
 
     return knowledge_base, kb_embeddings
 
