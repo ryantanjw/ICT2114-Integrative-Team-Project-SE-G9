@@ -1,73 +1,326 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import HeaderAdmin from "../../components/HeaderAdmin.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
-import ActionCard from "../../components/ActionCard.jsx";
-import DatabaseTabs from "./components/DatabaseTabs.jsx";
 import FormCardC from "../../components/FormCardC.jsx";
-import { MdPeople } from "react-icons/md";
-import { BiSolidUserAccount } from "react-icons/bi";
-import { IoMdDocument } from "react-icons/io";
+import StatusSwitch from "./components/StatusSwitch.jsx";
+import TextField from "./components/TextField.jsx";
+import TableInfo from "./components/TableInfo.jsx";
+import CTAButton from "../../components/CTAButton.jsx";
+import { MdDelete } from "react-icons/md";
+import { FaSave } from "react-icons/fa";
 import axios from "axios";
-import { toast } from "react-hot-toast";
 
 export default function AdminDB() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [adminData, setAdminData] = useState(null);
-
-  const [currentTab, setCurrentTab] = useState(0);
-  const [expandedCardIndex, setExpandedCardIndex] = useState(null);
-  const [hazards, setHazards] = useState([]);
   const [isLoadingDBPage, setIsLoadingDBPage] = useState(true);
-  
-  // Check session when component mounts
+  const [adminData, setAdminData] = useState(null);
+  const [hazards, setHazards] = useState([]);
+  const [status, setStatus] = useState("Pending");
+  // Toggle data source at code level: "API" or "Placeholder"
+  const DATA_SOURCE = "API"; // change to "Placeholder" to use nested demo
+
+    // --- Dummy nested data ---
+  const data = useMemo(
+  () => ({
+    processes: [
+      {
+        id: "p1",
+        name: "Practical lesson and Projects",
+        activities: [
+          {
+            id: "a1",
+            name: "Conducting Practical Sessions and Project",
+            hazardCategories: [
+              {
+                id: "hc1",
+                name: "Physical",
+                hazards: [
+                  {
+                    id: "h1",
+                    name: "Transmission of infectious disease from Symptomatic/Asymptomatic Users.",
+                    injuries: [
+                      { id: "i1", name: "Infectious disease", existingControls: "1) Mask policy in lab.\n\n2) Hand hygiene facilities available.", additionalControls: "1) Mandatory ART before sessions if community cases are high." },
+                      { id: "i2", name: "Organ damage", existingControls: "1) Proper use of PPE.\n\n2) Adherence to BSL-2 protocols.", additionalControls: "1) Supervisor sign-off before handling high-risk biological agents." },
+                    ],
+                  },
+                  {
+                    id: "h2",
+                    name: "Musculoskeletal strain due to improper lifting of equipment",
+                    injuries: [
+                      { id: "i3", name: "Back strain", existingControls: "1) Provide lifting aids (trolleys).\n\n2) Team lift for heavy items (>20kg).", additionalControls: "1) Annual refresher on manual handling techniques." }
+                    ],
+                  },
+                ],
+              },
+              { 
+                id: "hc2", 
+                name: "Mechanical", 
+                hazards: [ 
+                  { 
+                    id: "h3", 
+                    name: "Pinch points on moving parts of lab apparatus", 
+                    injuries: [
+                      { id: "i4", name: "Crushing injury", existingControls: "1) Machine guarding in place.\n\n2) Emergency stop buttons are accessible.", additionalControls: "1) Visual inspection of guards before each use." }
+                    ] 
+                  } 
+                ] 
+              },
+              { id: "hc3", name: "Electrical", hazards: [] },
+              { id: "hc4", name: "Chemical", hazards: [] },
+              { id: "hc5", name: "Psychological", hazards: [] },
+            ],
+          },
+          { 
+            id: "a2", 
+            name: "Running Western Blot", 
+            hazardCategories: [
+              {
+                id: "hc4",
+                name: "Chemical",
+                hazards: [
+                  {
+                    id: "h4",
+                    name: "Exposure to Acrylamide/Bis-acrylamide solution",
+                    injuries: [
+                      { id: "i5", name: "Neurotoxicity", existingControls: "1) Use of pre-cast gels where possible.\n\n2) Work performed in a certified chemical fume hood.", additionalControls: "1) Substitution with less toxic alternatives is reviewed annually." },
+                    ],
+                  },
+                  {
+                    id: "h5",
+                    name: "Inhalation of Methanol fumes",
+                    injuries: [
+                      { id: "i6", name: "Poisoning", existingControls: "1) Wear appropriate PPE (nitrile gloves, lab coat, safety goggles).\n\n2) Ensure adequate ventilation.", additionalControls: "1) Keep a methanol-specific spill kit readily available." },
+                    ],
+                  },
+                ],
+              },
+              {
+                id: "hc3",
+                name: "Electrical",
+                hazards: [
+                  {
+                    id: "h6",
+                    name: "Electrocution from electrophoresis power supply",
+                    injuries: [
+                      { id: "i7", name: "Electric shock, Burns", existingControls: "1) Power supplies have safety interlocks.\n\n2) Inspect cables for fraying or damage before use.", additionalControls: "1) Annual Portable Appliance Testing (PAT) for all electrical lab equipment." },
+                    ],
+                  },
+                ],
+              },
+            ] 
+          },
+          { id: "a3", name: "Experiment setup", hazardCategories: [] },
+          { id: "a4", name: "Sample analysis", hazardCategories: [] },
+          { 
+            id: "a5", 
+            name: "Waste disposal", 
+            hazardCategories: [
+              {
+                id: "hc4",
+                name: "Chemical",
+                hazards: [
+                  {
+                    id: "h7",
+                    name: "Mixing of incompatible chemical waste",
+                    injuries: [
+                      { id: "i8", name: "Explosion, Toxic Gas Release", existingControls: "1) Clearly labeled, segregated waste containers (e.g., halogenated vs. non-halogenated).\n\n2) Waste disposal chart displayed in the lab.", additionalControls: "1) Implement a digital waste tracking and inventory system." },
+                    ],
+                  },
+                ],
+              },
+              {
+                id: "hc1",
+                name: "Physical",
+                hazards: [
+                  {
+                    id: "h8",
+                    name: "Puncture from contaminated sharps (needles, glassware)",
+                    injuries: [
+                      { id: "i9", name: "Cuts, Infection", existingControls: "1) Use of designated sharps containers.\n\n2) Never recap needles.", additionalControls: "1) Mandatory training on proper sharps disposal for all new lab users." },
+                    ],
+                  },
+                ],
+              },
+            ] 
+          },
+        ],
+      },
+      { 
+        id: "p2", 
+        name: "Field Work", 
+        activities: [
+          {
+            id: "a6",
+            name: "Collecting environmental samples",
+            hazardCategories: [
+              {
+                id: "hc1",
+                name: "Physical",
+                hazards: [
+                  {
+                    id: "h9",
+                    name: "Slips, trips, and falls on uneven or wet terrain",
+                    injuries: [
+                      { id: "i10", name: "Sprains, Fractures", existingControls: "1) Mandate appropriate, sturdy footwear.\n\n2) Conduct site reconnaissance before work.", additionalControls: "1) Implement a buddy system for all off-campus fieldwork." },
+                    ],
+                  },
+                ],
+              },
+              {
+                id: "hc5",
+                name: "Psychological",
+                hazards: [
+                  {
+                    id: "h10",
+                    name: "Stress from working alone in remote areas",
+                    injuries: [
+                      { id: "i11", name: "Anxiety", existingControls: "1) Regular check-in schedule with supervisor via mobile phone.", additionalControls: "1) Provide personal locator beacons (PLBs) for high-risk remote work." },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ] 
+      },
+      { id: "p3", name: "Office Procedures", activities: [] },
+      { 
+        id: "p4", 
+        name: "Equipment Maintenance", 
+        activities: [
+          {
+            id: "a7",
+            name: "Calibrating a high-speed centrifuge",
+            hazardCategories: [
+              {
+                id: "hc2",
+                name: "Mechanical",
+                hazards: [
+                  {
+                    id: "h11",
+                    name: "Entanglement with rotating parts",
+                    injuries: [
+                      { id: "i12", name: "Amputation, Severe lacerations", existingControls: "1) Lockout-tagout (LOTO) procedures followed before maintenance.\n\n2) Machine is fully de-energized and tested for zero energy state.", additionalControls: "1) Only OEM-certified technicians are authorized to perform this maintenance." },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ] 
+      },
+      { id: "p5", name: "Chemical Handling", activities: [] },
+      { id: "p6", name: "Miscellaneous", activities: [] },
+    ],
+  }),
+  []
+);
+
+    // --- Selection state ---
+  const [pIdx, setPIdx] = useState(0);
+  const [aIdx, setAIdx] = useState(0);
+  const [hcIdx, setHCIdx] = useState(0);
+  const [hIdx, setHIdx] = useState(0);
+  const [iIdx, setIIdx] = useState(0);
+
+  const [existingControls, setExistingControls] = useState("");
+  const [additionalControls, setAdditionalControls] = useState("");
+
+  let processes = data.processes;
+  let activities = processes[pIdx]?.activities ?? [];
+  let hazCats = activities[aIdx]?.hazardCategories ?? [];
+  let hazardsList = hazCats[hcIdx]?.hazards ?? [];
+  let injuries = hazardsList[hIdx]?.injuries ?? [];
+
+  // For fade/highlight: any item with children gets highlighted
+  let activeP = processes.map((p) => (p.activities?.length ? 1 : 0));
+  let activeA = activities.map((a) => (a.hazardCategories?.length ? 1 : 0));
+  let activeHC = hazCats.map((hc) => (hc.hazards?.length ? 1 : 0));
+  let activeH = hazardsList.map((h) => (h.injuries?.length ? 1 : 0));
+
+  let selectedInjury = injuries[iIdx] || null;
+
+  useEffect(() => {
+    setExistingControls(selectedInjury?.existingControls || "");
+    setAdditionalControls(selectedInjury?.additionalControls || "");
+  }, [selectedInjury]);
+
+  // Session handling + methods (moved from AdminDBPage_Old.jsx)
   useEffect(() => {
     const checkSession = async () => {
       try {
         console.log("Checking admin session...");
         setIsLoading(true);
-        
+
         const response = await axios.get("/api/check_session", {
-          withCredentials: true
+          withCredentials: true,
         });
-        
+
         console.log("Session check response:", response.data);
-        
+
         // If not logged in, redirect to login page
         if (!response.data.logged_in) {
           console.log("No active session found, redirecting to login");
           navigate("/auth/login");
-          return;
+          return false;
         }
-        
+
         // If user is not an admin, redirect to user dashboard
         if (response.data.user_role !== 0) {
           console.log("Non-admin user detected, redirecting to user dashboard");
           navigate("/home");
-          return;
+          return false;
         }
-        
+
         // Store admin data for display
         setAdminData(response.data);
-        setIsLoading(false);
+        return true;
       } catch (error) {
         console.error("Error checking session:", error);
         // If there's an error, assume not logged in and redirect
         navigate("/auth/login");
+        return false;
+      } finally {
+        setIsLoading(false);
       }
     };
 
     const fetchHazards = async () => {
       try {
         const res = await axios.get("/api/admin/get_new_hazard");
-        if (res.data.hazards.length > 0) {
-          // setHazards(res.data.hazards);
-          // console.log("successfully fetched hazards", res.data.hazards);
-          console.log("successfully fetched hazards");
-          res.data.hazards.forEach((item, i) => {
-            console.log(`#${i}`, item.hazard, item.existing_risk_control);
+        const list = res.data?.hazards || [];
+
+        if (Array.isArray(list) && list.length > 0) {
+          setHazards(list);
+
+          console.log("[API] /api/admin/get_new_hazard → count:", list.length);
+          console.log("[API] sample item structure:", list[0]);
+
+          const getPair = (val) => Array.isArray(val) ? { text: val[0], state: val[1] } : { text: val, state: "" };
+
+          // Detailed line-by-line printout
+          list.forEach((item, i) => {
+            const hz = getPair(item.hazard);
+            const rc = getPair(item.existing_risk_control);
+            console.log(
+              `[#${i}] HAZARD: "${hz.text}" [${hz.state}]  |  RISK_CONTROL: "${rc.text}" [${rc.state}]`,
+            );
           });
+
+          // Summary counts by status ("new" vs "old")
+          const isNew = (x) => Array.isArray(x) && x[1] === "new";
+          const isOld = (x) => Array.isArray(x) && x[1] === "old";
+
+          const pendingItems = list.filter((it) => isNew(it.hazard) || isNew(it.existing_risk_control));
+          const existingItems = list.filter((it) => isOld(it.hazard) && isOld(it.existing_risk_control));
+
+          console.log(`[SUMMARY] pending(new) items: ${pendingItems.length}`);
+          console.log(`[SUMMARY] existing(old) items: ${existingItems.length}`);
+        } else {
+          setHazards([]);
+          console.log("[API] /api/admin/get_new_hazard → empty list");
         }
       } catch (err) {
         console.error("Error fetching hazards", err);
@@ -75,14 +328,103 @@ export default function AdminDB() {
     };
 
     const init = async () => {
-    setIsLoadingDBPage(true); // Start fullscreen loading
-    await checkSession();
-    await fetchHazards();
-    setIsLoadingDBPage(false); // Stop fullscreen loading
+      const ok = await checkSession();
+      if (ok && DATA_SOURCE === "API") {
+        await fetchHazards();
+      }
+      setIsLoadingDBPage(false); // Stop fullscreen loading
+    };
+
+    init();
+  }, [navigate]);
+
+  // console.log("Current status:", status);
+
+  // --- Helpers & derived lists for API mode ---
+  const parsePair = (val) => (Array.isArray(val) ? { text: val[0], state: val[1] } : { text: String(val ?? ""), state: "" });
+  const apiPending = hazards.filter((it) => {
+    const h = parsePair(it.hazard).state; const rc = parsePair(it.existing_risk_control).state;
+    return h === "new" || rc === "new";
+  });
+  const apiExisting = hazards.filter((it) => {
+    const h = parsePair(it.hazard).state; const rc = parsePair(it.existing_risk_control).state;
+    return h === "old" && rc === "old";
+  });
+  const apiList = status === "Pending" ? apiPending : apiExisting;
+
+
+  // Build tree matching the placeholder shape from flat API items
+  const buildTreeFromAPI = (items) => {
+    const procs = new Map();
+    items.forEach((it, idx) => {
+      const proc = it.process || "Unspecified Process";
+      const act = it.work_activity || "Unspecified Activity";
+      const cat = it.hazard_type || (it.hazard_type_id != null ? String(it.hazard_type_id) : "Other");
+      const hazPair = parsePair(it.hazard);
+      const rcPair = parsePair(it.existing_risk_control);
+      const hz = hazPair.text || "(Unnamed Hazard)";
+      const inj = it.injury || "—";
+      const existingRC = rcPair.text || "";
+      const additionalRC = it.additional_risk_control || "";
+
+      if (!procs.has(proc)) procs.set(proc, { id: `p_${proc}`, name: proc, activities: [] });
+      const p = procs.get(proc);
+
+      let a = p.activities.find((x) => x.name === act);
+      if (!a) {
+        a = { id: `a_${proc}_${act}`, name: act, hazardCategories: [] };
+        p.activities.push(a);
+      }
+
+      let hc = a.hazardCategories.find((x) => x.name === cat);
+      if (!hc) {
+        hc = { id: `hc_${proc}_${act}_${cat}`, name: cat, hazards: [] };
+        a.hazardCategories.push(hc);
+      }
+
+      let h = hc.hazards.find((x) => x.name === hz);
+      if (!h) {
+        h = { id: `h_${proc}_${act}_${cat}_${idx}`, name: hz, injuries: [], isNew: hazPair.state === "new" };
+        hc.hazards.push(h);
+      } else {
+        // if hazard already exists, preserve any previous flag or set to true if any item marks it as new
+        h.isNew = Boolean(h.isNew || (hazPair.state === "new"));
+      }
+
+      h.injuries.push({
+        id: `i_${it.hazard_activity_id}_${it.hazard_id}_${h.injuries.length}`,
+        name: inj,
+        existingControls: existingRC,
+        additionalControls: additionalRC,
+        rcIsNew: rcPair.state === "new",
+      });
+    });
+    return { processes: Array.from(procs.values()) };
   };
 
-  init();
-  }, [navigate]);
+  const apiTree = useMemo(() => buildTreeFromAPI(apiList), [apiList]);
+
+  // If using API, override the base collections so the existing tables render the live data
+  if (DATA_SOURCE === "API") {
+    processes = apiTree.processes;
+    activities = processes[pIdx]?.activities ?? [];
+    hazCats = activities[aIdx]?.hazardCategories ?? [];
+    hazardsList = hazCats[hcIdx]?.hazards ?? [];
+    injuries = hazardsList[hIdx]?.injuries ?? [];
+
+    activeP = processes.map((p) => (p.activities?.length ? 1 : 0));
+    activeA = activities.map((a) => (a.hazardCategories?.length ? 1 : 0));
+    activeHC = hazCats.map((hc) => (hc.hazards?.length ? 1 : 0));
+    activeH = hazardsList.map((h) => (h.injuries?.length ? 1 : 0));
+
+    selectedInjury = injuries[iIdx] || null;
+  }
+
+  // --- Date formatter helper for API cards ---
+  const fmtDateTime = (iso) => {
+    if (!iso) return "";
+    try { return new Date(iso).toLocaleString(); } catch { return String(iso); }
+  };
 
   if (isLoadingDBPage) {
     return (
@@ -90,20 +432,8 @@ export default function AdminDB() {
         <div className="bg-white p-6 rounded-lg shadow-lg text-center">
           <div className="flex items-center justify-center mb-4">
             <svg className="animate-spin h-6 w-6 text-blue-600 mr-2" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-                fill="none"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-              />
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
             <span className="text-lg font-medium text-gray-700">Fetching data…</span>
           </div>
@@ -112,7 +442,6 @@ export default function AdminDB() {
     );
   }
 
-  // Show loading indicator while checking session
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#F7FAFC]">
@@ -134,132 +463,129 @@ export default function AdminDB() {
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
           Database Management
         </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
-          {/* Optional: Action cards can go here */}
-        </div>
       </div>
 
-      {/* Tabs */}
       <div className="mt-5">
-        <DatabaseTabs onTabChange={setCurrentTab} />
+        <StatusSwitch status={status} values={["Pending", "Existing"]} onToggle={setStatus} />
       </div>
 
-      {currentTab === 0 && (
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 my-6 w-full items-start">
-          {hazards.map((hazard, index) => (
-            <FormCardC
-              key={hazard.hazard_id}
-              status={hazard.approval ?? "Unapproved"}
-              date={hazard.form_date}
-              title={hazard.form_title}
-              owner={hazard.owner}
-              activity={hazard.work_activity}
-              hazard={hazard.hazard}
-              hazardType={hazard.hazard_type}
-              injury={hazard.injury}
-              remarks={hazard.remarks}
-              existingRiskControl={hazard.existing_risk_control}
-              additionalRiskControl={hazard.additional_risk_control}
-              severity={hazard.severity}
-              likelihood={hazard.likelihood}
-              RPN={hazard.RPN}
-              process={hazard.process}
-              isExpanded={expandedCardIndex === index}
-              onExpand={() =>
-                setExpandedCardIndex(expandedCardIndex === index ? null : index)
-              }
-              // onApproveHazard={async () => {
-              //   try {
-              //     // Send the full hazard data to the backend
-              //     const res = await axios.post(
-              //       "/api/admin/approve_hazard",
-              //       { ...hazard },
-              //       { withCredentials: true }
-              //     );
-              //     // Optionally update UI by removing the approved hazard from the list
-              //     setHazards((prev) =>
-              //       prev.filter((h) => h.hazard_id !== hazard.hazard_id)
-              //     );
-                  
-              //     console.log("Hazard approved:", res.data);
-              //   } catch (err) {
-              //     console.error("Error approving hazard:", err);
-              //   }
-              // }}
-              onApproveHazard={async () => {
-                const toastId = toast.loading("Approving hazard...");
-                try {
-                  const res = await axios.post(
-                    "/api/admin/approve_hazard",
-                    hazard,
-                    { withCredentials: true }
-                  );
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-0">
+        <TableInfo
+          title="Process"
+          items={processes.map((p) => p.name)}
+          limit={5}
+          activeIndices={activeP.map((x, i) => (x ? i : -1)).filter((i) => i >= 0)}
+          selectedIndex={pIdx}
+          onSelect={(idx) => {
+            setPIdx(idx);
+            setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
+          }}
+          position={1}
+        />
 
-                  // If the request was successful (status code 2xx), you can access the data:
-                  console.log("Hazard approved:", res.data);
-                  toast.success("Hazard approved successfully.", { id: toastId });
+        <TableInfo
+          title="Activity"
+          items={activities.map((a) => a.name)}
+          limit={5}
+          activeIndices={activeA.map((x, i) => (x ? i : -1)).filter((i) => i >= 0)}
+          selectedIndex={aIdx}
+          onSelect={(idx) => {
+            setAIdx(idx);
+            setHCIdx(0); setHIdx(0); setIIdx(0);
+          }}
+          position={3}
+          emptyText="No activities for this process"
+        />
+      </div>
 
-                  // Remove the approved hazard from the list
-                  setHazards((prev) =>
-                    prev.filter((h) => h.hazard_id !== hazard.hazard_id)
-                  );
+      <div className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-0">
+        <TableInfo
+          title="Hazard Categories"
+          items={hazCats.map((hc) => hc.name)}
+          limit={5}
+          activeIndices={activeHC.map((x, i) => (x ? i : -1)).filter((i) => i >= 0)}
+          selectedIndex={hcIdx}
+          onSelect={(idx) => {
+            setHCIdx(idx);
+            setHIdx(0); setIIdx(0);
+          }}
+          position={1}
+          emptyText="No hazard categories for this activity"
+        />
 
-                } catch (err) {
-                  if (err.response) {
-                    // Server responded with a status other than 2xx
-                    console.error("Error approving hazard:", err.response.data);
-                  } else if (err.request) {
-                    // Request was made but no response received
-                    console.error("No response from server:", err.request);
-                  } else {
-                    // Something else happened
-                    console.error("Error:", err.message);
-                  }
-                  toast.error("Failed to approve hazard.", { id: toastId });
-                }
-              }}
-
-
-
-              onRejectHazard={async () => {
-                const toastId = toast.loading("Rejecting hazard...");
-                try {
-                  const res = await axios.post(
-                    "/api/admin/reject_hazard",
-                    hazard,
-                    { withCredentials: true }
-                  );
-
-                  // If the request was successful (status code 2xx), you can access the data:
-                  console.log("Hazard rejected:", res.data);
-                  toast.success("Hazard rejected successfully.", { id: toastId });
-
-                  // Optionally update UI by removing the rejected hazard from the list
-                  setHazards((prev) =>
-                    prev.filter((h) => h.hazard_id !== hazard.hazard_id)
-                  );
-
-                } catch (err) {
-                  if (err.response) {
-                    // Server responded with a status other than 2xx
-                    console.error("Error rejecting hazard:", err.response.data);
-                  }
-                  else if (err.request) {
-                    // Request was made but no response received
-                    console.error("No response from server:", err.request);
-                  } else {
-                    // Something else happened
-                    console.error("Error:", err.message);
-                  }
-                  toast.error("Failed to reject hazard.", { id: toastId });
-                }
-              }}
-            />
+        <TableInfo
+          title="Hazard List"
+          items={hazardsList.map((h) => (
+            DATA_SOURCE === "API" && h.isNew ? (
+              <div className="flex items-center justify-between">
+                <span className="mr-2 px-2 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">
+                  NEW
+                </span>
+                <span>{h.name}</span>
+              </div>
+            ) : (
+              h.name
+            )
           ))}
-        </div>
-      )}
+          limit={5}
+          activeIndices={activeH.map((x, i) => (x ? i : -1)).filter((i) => i >= 0)}
+          selectedIndex={hIdx}
+          onSelect={(idx) => {
+            setHIdx(idx);
+            setIIdx(0);
+          }}
+          position={3}
+          emptyText="No hazards for this category"
+        />
+      </div>
+
+      <div className="mt-6">
+        <TableInfo
+          title="Injuries"
+          items={injuries.map((i) => (
+            DATA_SOURCE === "API" && i.rcIsNew ? (
+              <div className="flex items-center justify-between">
+                <span className="mr-2 px-2 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">
+                  NEW
+                </span>
+                <span>{i.name}</span>
+              </div>
+            ) : (
+              i.name
+            )
+          ))}
+          limit={3}
+          activeIndices={[]}
+          selectedIndex={iIdx}
+          onSelect={setIIdx}
+          position={4}
+          emptyText="No injuries for this hazard"
+        />
+      </div>
+
+      <div className="mt-6 mb-6 grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
+        <TextField
+          header="Existing Risk Controls"
+          value={existingControls}
+          onChange={setExistingControls}
+          fill
+        />
+
+        <TextField
+          header="Additional Risk Controls"
+          value={additionalControls}
+          onChange={setAdditionalControls}
+          fill
+        />
+      </div>
+      <div className="mt-6 flex justify-end gap-4">
+        <CTAButton icon={FaSave} text="Save Entry" onClick={() => console.log("Save clicked")} />
+        <CTAButton icon={MdDelete} text="Delete Entry" onClick={() => console.log("Delete clicked")} />
+      </div>
+
+
 
     </div>
   );
 }
+  
