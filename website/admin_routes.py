@@ -130,8 +130,7 @@ def approve_hazard():
     try:
         with open(os.path.join(os.path.dirname(__file__), 'kb.txt'), 'a') as f:
             # f.write(f"&&{data.get('work_activity')}")
-            f.write(f"&&{activity.work_activity if activity else "Unknown activity"}")
-        print("Success: Activity name appended to kb.txt")
+            f.write(f"&&{activity.work_activity if activity else 'Unknown activity'}")
         reembed_kb()
         print("Success: reembed_kb() called")
     except Exception as e:
@@ -142,7 +141,7 @@ def approve_hazard():
     try:
         with open(os.path.join(os.path.dirname(__file__), 'kbhazard.txt'), 'a') as f:
             # f.write(f"&&{data.get('hazard')}")
-            f.write(f"&&{hazard.hazard or "No hazard description"}")
+            f.write(f"&&{hazard.hazard or 'No hazard description'}")
         print("Success: Hazard description appended to kbhazard.txt")
         reembed_kbhazard()
         print("Success: reembed_kbhazard() called")
@@ -154,7 +153,7 @@ def approve_hazard():
     try:
         with open(os.path.join(os.path.dirname(__file__), 'kbtitleprocess.txt'), 'a') as f:
             # f.write(f"&&{data.get('form_title')}%%{data.get('process')}")
-            f.write(f"&&{form.title if form else "Unknown form"}%%{process.process_title if process else "Unknown Process"}")
+            f.write(f"&&{form.title if form else 'Unknown form'}%%{process.process_title if process else 'Unknown Process'}")
         print("Success: appended to kbtitleprocess.txt")
         reembed_kbtitleprocess()
         print("Success: reembed_kbtitleprocess() called")
