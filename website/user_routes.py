@@ -808,7 +808,7 @@ def get_form2_data(form_id):
                     "id": hazard.hazard_id,
                     "description": hazard.hazard,
                     "type": [hazard_type_name] if hazard_type_name else [],
-                    "injuries": [hazard.injury] if hazard.injury else [],
+                    "injuries": [i.strip() for i in hazard.injury.split("&&")] if hazard.injury else [],
                     "existingControls": risk.existing_risk_control if risk else "",
                     "additionalControls": risk.additional_risk_control if risk else "",
                     "severity": risk.severity if risk else 1,
@@ -1026,9 +1026,9 @@ def form2_save():
                         
                         hazard.hazard_type_id = hazard_type_obj.hazard_type_id
                     
-                    # Handle injuries - store as comma-separated string
+                    # Handle injuries - store as &&-separated string
                     injuries = haz_data.get('injuries', [])
-                    hazard.injury = ','.join(injuries) if injuries else ''
+                    hazard.injury = '&&'.join(injuries) if injuries else ''
                     
                     db.session.flush()  # Ensure hazard ID is available
                     
@@ -1921,7 +1921,7 @@ def generate_from_db_only():
             {
             "description": row.hazard_des,
             "type": [t.strip() for t in row.hazard_type.split(",")] if row.hazard_type else [],
-            "injuries": [row.injury] if row.injury else [],
+            "injuries": [i.strip() for i in row.injury.split("&&")] if row.injury else [],
             "risk_type": row.risk_type,
             "existingControls": row.control,
             "severity": row.severity,

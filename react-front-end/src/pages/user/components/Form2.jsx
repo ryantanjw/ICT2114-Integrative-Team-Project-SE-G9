@@ -405,22 +405,22 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         type: Array.isArray(hazard.type) ? [...hazard.type] :
           (hazard.type ? [hazard.type] : []),
 
-        // Fix: Handle injuries field properly - split by comma if string, handle arrays
+        // Fix: Handle injuries field properly - split by && if string, handle arrays
         injuries: (() => {
           if (Array.isArray(hazard.injuries)) {
-            // If it's already an array, flatten and split any comma-separated strings
+            // If it's already an array, flatten and split any &&-separated strings
             return hazard.injuries.flatMap(injury =>
-              typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
+              typeof injury === 'string' ? injury.split('&&').map(i => i.trim()).filter(i => i) : [injury]
             );
           } else if (hazard.injury) {
-            // Handle single injury field (split by comma)
+            // Handle single injury field (split by &&)
             return typeof hazard.injury === 'string'
-              ? hazard.injury.split(',').map(i => i.trim()).filter(i => i)
+              ? hazard.injury.split('&&').map(i => i.trim()).filter(i => i)
               : [hazard.injury];
           } else if (hazard.injuries) {
-            // Handle injuries as string (split by comma)
+            // Handle injuries as string (split by &&)
             return typeof hazard.injuries === 'string'
-              ? hazard.injuries.split(',').map(i => i.trim()).filter(i => i)
+              ? hazard.injuries.split('&&').map(i => i.trim()).filter(i => i)
               : [hazard.injuries];
           }
           return [];
@@ -1832,15 +1832,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       hazard_id: uuidv4(),
       description,
       type: Array.isArray(type) ? type : (type ? [type] : []),
-      // Handle injuries - split by comma if string, handle arrays
+      // Handle injuries - split by && if string, handle arrays
       injuries: (() => {
         if (Array.isArray(injuries)) {
           return injuries.flatMap(injury =>
-            typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
+            typeof injury === 'string' ? injury.split('&&').map(i => i.trim()).filter(i => i) : [injury]
           );
         } else if (injuries) {
           return typeof injuries === 'string'
-            ? injuries.split(',').map(i => i.trim()).filter(i => i)
+            ? injuries.split('&&').map(i => i.trim()).filter(i => i)
             : [injuries];
         }
         return [];
