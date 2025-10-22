@@ -73,20 +73,50 @@ def approve_hazard():
     else:
         print(f"Error: Hazard {data.get('hazard_id')} not found")
         return jsonify({"success": False, "message": "Hazard not found"}), 404
+    
+    # need to use data.get('hazard_id') to retrieve other info from hazard table
+    # Get the related activity and hazard type using relationships
+    hazard_type_lookup = {ht.hazard_type_id: getattr(ht, 'hazard_type', None) or "Unknown type" for ht in HazardType.query.all()}
+    activity = Activity.query.get(hazard.hazard_activity_id) if hazard.hazard_activity_id else None
+    hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
+    
+    # More robust form lookup
+    form = None
+    process = None
+    if activity and activity.activity_process_id:
+        process = Process.query.get(activity.activity_process_id)
+        if process and process.process_form_id:
+            form = Form.query.get(process.process_form_id)
+    
+    # user = User.query.get(form.form_user_id) if form and form.form_user_id else None
+    risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
+    # process = Process.query.get(activity.activity_process_id)
 
     # add the data into the known data table
     try:
+        # new_known_data = KnownData(
+        #     title = data.get("form_title"),
+        #     process = data.get("process"),
+        #     activity_name=data.get("work_activity"),
+        #     hazard_type=data.get("hazard_type"),
+        #     hazard_des=data.get("hazard"),
+        #     injury=data.get("injury"),
+        #     control=data.get("existing_risk_control"),
+        #     severity=int(data.get("severity")),
+        #     likelihood=int(data.get("likelihood")),
+        #     rpn=int(data.get("RPN"))
+        # )
         new_known_data = KnownData(
-            title = data.get("form_title"),
-            process = data.get("process"),
-            activity_name=data.get("work_activity"),
-            hazard_type=data.get("hazard_type"),
-            hazard_des=data.get("hazard"),
-            injury=data.get("injury"),
-            control=data.get("existing_risk_control"),
-            severity=int(data.get("severity")),
-            likelihood=int(data.get("likelihood")),
-            rpn=int(data.get("RPN"))
+            title = form.title if form else "Unknown form",
+            process = process.process_title if process else "Unknown Process",
+            activity_name=activity.work_activity if activity else "Unknown activity",
+            hazard_type=hazard_type_lookup.get(hazard.hazard_type_id, "Unknown type"),
+            hazard_des=hazard.hazard or "No hazard description",
+            injury=hazard.injury or "No injury description",
+            control=risk.existing_risk_control if risk else "None specified",
+            severity=risk.severity if risk else 0,
+            likelihood=risk.likelihood if risk else 0,
+            rpn=risk.RPN if risk else 0
         )
         db.session.add(new_known_data)
         db.session.commit()
@@ -99,7 +129,8 @@ def approve_hazard():
     # add activity name into kb.txt and reembed it
     try:
         with open(os.path.join(os.path.dirname(__file__), 'kb.txt'), 'a') as f:
-            f.write(f"&&{data.get('work_activity')}")
+            # f.write(f"&&{data.get('work_activity')}")
+            f.write(f"&&{activity.work_activity if activity else "Unknown activity"}")
         print("Success: Activity name appended to kb.txt")
         reembed_kb()
         print("Success: reembed_kb() called")
@@ -110,7 +141,8 @@ def approve_hazard():
     # add hazard des into kbhazard.txt and reembed it
     try:
         with open(os.path.join(os.path.dirname(__file__), 'kbhazard.txt'), 'a') as f:
-            f.write(f"&&{data.get('hazard')}")
+            # f.write(f"&&{data.get('hazard')}")
+            f.write(f"&&{hazard.hazard or "No hazard description"}")
         print("Success: Hazard description appended to kbhazard.txt")
         reembed_kbhazard()
         print("Success: reembed_kbhazard() called")
@@ -121,7 +153,8 @@ def approve_hazard():
     # add form and process into kbtitleprocess.txt and reembed it
     try:
         with open(os.path.join(os.path.dirname(__file__), 'kbtitleprocess.txt'), 'a') as f:
-            f.write(f"&&{data.get('form_title')}%%{data.get('process')}")
+            # f.write(f"&&{data.get('form_title')}%%{data.get('process')}")
+            f.write(f"&&{form.title if form else "Unknown form"}%%{process.process_title if process else "Unknown Process"}")
         print("Success: appended to kbtitleprocess.txt")
         reembed_kbtitleprocess()
         print("Success: reembed_kbtitleprocess() called")
@@ -131,6 +164,28 @@ def approve_hazard():
 
     print("Hazard approval process completed successfully")
     return jsonify({"success": True, "message": "Hazard approved", "hazard_id": data.get("hazard_id")})
+
+    # add existing controls into kbcontrol.txt and reembed it
+    try:
+        with open(os.path.join(os.path.dirname(__file__), 'kbcontrol.txt'), 'a') as f:
+            f.write(f"&&{data.get('existing_risk_control')}")
+        print("Success: Control appended to kbcontrol.txt")
+        reembed_kbcontrol() # need to create
+        print("Success: reembed_kbcontrol() called")
+    except Exception as e:
+        print(f"Error updating kbcontrol.txt or reembedding: {e}")
+        return jsonify({"success": False, "message": "Failed to update kbcontrol.txt"}), 500
+
+    # add injury into kbinjury.txt and reembed it
+    try:
+        with open(os.path.join(os.path.dirname(__file__), 'kbinjury.txt'), 'a') as f:
+            f.write(f"&&{data.get('injury')}")
+        print("Success: Injury appended to kbinjury.txt")
+        reembed_kbinjury() # need to create
+        print("Success: reembed_kbinjury() called")
+    except Exception as e:
+        print(f"Error updating kbinjury.txt or reembedding: {e}")
+        return jsonify({"success": False, "message": "Failed to update kbinjury.txt"}), 500
 
 #db management gold mine
 @admin.route('/get_new_hazard', methods=['GET', 'POST'])

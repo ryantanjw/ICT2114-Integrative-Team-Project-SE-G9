@@ -235,6 +235,26 @@ def reembed_kbtitleprocess():
 
     return True
 
+def reembed_kbcontrol():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_control_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_control_cache_path, kb_embeddings)
+
+    return True
+
+def reembed_kbinjury():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_injury_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_injury_cache_path, kb_embeddings)
+
+    return True
+
 
 
 def load_hazard_kb_and_embeddings():
