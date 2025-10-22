@@ -248,13 +248,30 @@ def get_new_hazard():
                 is_new = False
 
             hazard_field = [hazard.hazard or "No hazard description", "new" if is_new else "old"]
+
             #risk matching
+            # existing_risk_control may contain multiple controls concatenated with '&&'
+            existing_risk_control_field = []
             try:
-                is_new_control = bool(get_hazard_match(risk.existing_risk_control, knowledge_base_control, kb_embeddings_control))
+                raw_controls = (risk.existing_risk_control or "") if risk else ""
+                # Split by '&&' and trim each part, ignore empty parts
+                control_parts = [p.strip() for p in raw_controls.split('&&') if p and p.strip()]
+                if not control_parts:
+                    # No meaningful control text found
+                    existing_risk_control_field = ["No risk control description", "old"]
+                else:
+                    for part in control_parts:
+                        try:
+                            is_new_part = bool(get_hazard_match(part, knowledge_base_control, kb_embeddings_control))
+                        except Exception:
+                            is_new_part = False
+                        existing_risk_control_field.append(part)
+                        existing_risk_control_field.append("new" if is_new_part else "old")
             except Exception as me:
-                # print(f"Error matching hazard {getattr(hazard, 'hazard_id', None)}: {me}")
-                is_new_control = False
-            existing_risk_control_field = [risk.existing_risk_control or "No risk control description", "new" if is_new_control else "old"]
+                # Fallback: preserve the raw string if something unexpected happens
+                print(f"Error processing existing_risk_control for hazard {getattr(hazard, 'hazard_id', None)}: {me}")
+                existing_risk_control_field = [risk.existing_risk_control or "No risk control description", "old"]
+
             #activities matching
             try:
                 is_new_activity = bool(get_hazard_match(activity.work_activity, knowledge_base_activity, kb_embeddings_activity))
@@ -263,13 +280,24 @@ def get_new_hazard():
                 is_new_activity = False
             existing_activity_field = [activity.work_activity or "No activity description", "new" if is_new_activity else "old"]
 
-            #injury matching
+            # injury matching - support multiple injuries concatenated with '&&'
+            existing_injury_field = []
             try:
-                is_new_injury = bool(get_hazard_match(hazard.injury, knowledge_base_injury, kb_embeddings_injury))
+                raw_injuries = (hazard.injury or "") if hazard else ""
+                injury_parts = [p.strip() for p in raw_injuries.split('&&') if p and p.strip()]
+                if not injury_parts:
+                    existing_injury_field = ["No injury description", "old"]
+                else:
+                    for part in injury_parts:
+                        try:
+                            is_new_inj = bool(get_hazard_match(part, knowledge_base_injury, kb_embeddings_injury))
+                        except Exception:
+                            is_new_inj = False
+                        existing_injury_field.append(part)
+                        existing_injury_field.append("new" if is_new_inj else "old")
             except Exception as me:
-                print(f"Error matching injury {getattr(hazard, 'hazard_id', None)}: {me}")
-                is_new_injury = False
-            existing_injury_field = [hazard.injury or "No injury description", "new" if is_new_injury else "old"]
+                print(f"Error processing injury for hazard {getattr(hazard, 'hazard_id', None)}: {me}")
+                existing_injury_field = [hazard.injury or "No injury description", "old"]
 
             results.append({
                 'hazard_id': hazard.hazard_id,
@@ -277,12 +305,14 @@ def get_new_hazard():
                 'process': process.process_title if process else "Unknown Process",
                 # 'hazard': hazard.hazard or "No hazard description",
                 'hazard': hazard_field,
-                'injury': hazard.injury or "No injury description",
+                # 'injury': hazard.injury or "No injury description",
+                'injury': existing_injury_field,
                 'hazard_type_id': hazard.hazard_type_id,
                 'hazard_type': hazard_type_lookup.get(hazard.hazard_type_id, "Unknown type"),
                 'remarks': hazard.remarks or "No remarks",
                 'approval': hazard.approval,
-                'work_activity': activity.work_activity if activity else "Unknown activity",
+                # 'work_activity': activity.work_activity if activity else "Unknown activity",
+                'work_activity': existing_activity_field,
                 # 'hazard_type': hazard_type.hazard_type if hazard_type else "Unknown type",
                 "form_title": form.title if form else "Unknown form",
                 "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
@@ -297,7 +327,91 @@ def get_new_hazard():
         except Exception as e:
             print(f"Error processing hazard {getattr(hazard, 'hazard_id', None)}: {e}")
             continue
+    
     return jsonify({'success': True, 'hazards': results})
+
+#get approved hazards
+@admin.route('/get_approved_hazard', methods=['GET', 'POST'])
+def get_approved_hazard():
+    hazards = Hazard.query.filter(Hazard.approval == 1).all()
+    results = []
+    hazard_type_lookup = {ht.hazard_type_id: getattr(ht, 'hazard_type', None) or "Unknown type" for ht in HazardType.query.all()}
+    for hazard in hazards:
+        try:
+            # Get the related activity and hazard type using relationships
+            activity = Activity.query.get(hazard.hazard_activity_id) if hazard.hazard_activity_id else None
+            # hazard_type = HazardType.query.get(hazard.hazard_type_id) if hazard.hazard_type_id else None
+            
+            # More robust form lookup
+            form = None
+            process = None
+            if activity and activity.activity_process_id:
+                process = Process.query.get(activity.activity_process_id)
+                if process and process.process_form_id:
+                    form = Form.query.get(process.process_form_id)
+            
+            # user = User.query.get(form.form_user_id) if form and form.form_user_id else None
+            risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first() if hazard.hazard_id else None
+            # process = Process.query.get(activity.activity_process_id)
+            
+            def format_date(date_obj):
+                return date_obj.isoformat() if date_obj else None
+            
+            # form.last_access_date = format_date(form.last_access_date)
+            # FIX THIS LATER !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+            # Split existing risk controls by '&&' into a list (no new/old matching here)
+            try:
+                raw_controls = (risk.existing_risk_control or "") if risk else ""
+                existing_risk_control_list = [p.strip() for p in raw_controls.split('&&') if p and p.strip()]
+                if not existing_risk_control_list:
+                    existing_risk_control_list = ["No risk control description"]
+            except Exception as e:
+                print(f"Error splitting existing_risk_control for hazard {getattr(hazard, 'hazard_id', None)}: {e}")
+                existing_risk_control_list = [risk.existing_risk_control if risk else "No risk control description"]
+
+            # Split injuries by '&&' into a list
+            try:
+                raw_injuries = (hazard.injury or "") if hazard else ""
+                existing_injury_list = [p.strip() for p in raw_injuries.split('&&') if p and p.strip()]
+                if not existing_injury_list:
+                    existing_injury_list = ["No injury description"]
+            except Exception as e:
+                print(f"Error splitting injury for hazard {getattr(hazard, 'hazard_id', None)}: {e}")
+                existing_injury_list = [hazard.injury or "No injury description"]
+
+            results.append({
+                'hazard_id': hazard.hazard_id,
+                'hazard_activity_id': hazard.hazard_activity_id,
+                'process': process.process_title if process else "Unknown Process",
+                'hazard': hazard.hazard or "No hazard description",
+                # 'hazard': hazard_field,
+                'injury': existing_injury_list,
+                # 'injury': existing_injury_field,
+                'hazard_type_id': hazard.hazard_type_id,
+                'hazard_type': hazard_type_lookup.get(hazard.hazard_type_id, "Unknown type"),
+                'remarks': hazard.remarks or "No remarks",
+                'approval': hazard.approval,
+                'work_activity': activity.work_activity if activity else "Unknown activity",
+                # 'work_activity': existing_activity_field,
+                # 'hazard_type': hazard_type.hazard_type if hazard_type else "Unknown type",
+                "form_title": form.title if form else "Unknown form",
+                "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
+                # "owner": user.user_name if user else "Unknown user",
+                "existing_risk_control": existing_risk_control_list,
+                # "existing_risk_control": existing_risk_control_field,
+                "additional_risk_control": risk.additional_risk_control if risk else "None specified",
+                "severity": risk.severity if risk else 0,
+                "likelihood": risk.likelihood if risk else 0,
+                "RPN": risk.RPN if risk else 0,
+            })
+        except Exception as e:
+            print(f"Error processing hazard {getattr(hazard, 'hazard_id', None)}: {e}")
+            continue
+    
+    return jsonify({'success': True, 'hazards': results})
+
+
 # Endpoint to retrieve all hazard categories as id→name list
 @admin.route('/hazard_types', methods=['GET'])
 def get_hazard_types():
