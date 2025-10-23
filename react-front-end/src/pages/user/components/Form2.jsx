@@ -268,26 +268,24 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         }
       }
 
-      // Parse existing risk controls (format: "a) risk control category - existing risk control")
+      // Parse existing risk controls (format: "risk control category1 - risk control1&&risk control category2 - risk control2")
       const parsedRiskControls = [];
       if (hazard.existingControls) {
-        // Only split on newlines to avoid cutting off valid data
-        const controlLines = hazard.existingControls.split(/\n/);
-
-        // If we have properly formatted controls
-        if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
-          console.log('Parsing formatted existing controls:', controlLines);
-
-          controlLines.forEach(line => {
-            const trimmedLine = line.trim();
-            if (trimmedLine) {
-              // Match the pattern: a) Category - Text
-              const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+        // First try to parse the new && delimited format
+        if (hazard.existingControls.includes('&&')) {
+          console.log('Parsing && delimited existing controls:', hazard.existingControls);
+          
+          const controlPairs = hazard.existingControls.split('&&');
+          controlPairs.forEach(pair => {
+            const trimmedPair = pair.trim();
+            if (trimmedPair) {
+              // Match the pattern: Category - Text
+              const match = trimmedPair.match(/^(.*?)\s*-\s*(.*)/);
               if (match) {
                 const [, category, controlText] = match;
                 parsedRiskControls.push({
                   id: uuidv4(),
-                  riskControlType: category,
+                  riskControlType: category.trim(),
                   existingControls: controlText.trim(),
                   expanded: true
                 });
@@ -296,20 +294,53 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 parsedRiskControls.push({
                   id: uuidv4(),
                   riskControlType: "",
-                  existingControls: trimmedLine.replace(/^[a-z]\)\s*/, ''),
+                  existingControls: trimmedPair,
                   expanded: true
                 });
               }
             }
           });
         } else {
-          // If no proper formatting, use the old format
-          parsedRiskControls.push({
-            id: uuidv4(),
-            existingControls: hazard.existingControls,
-            riskControlType: hazard.riskControlType || "",
-            expanded: true
-          });
+          // Try to parse the old alphabetical format for backward compatibility
+          const controlLines = hazard.existingControls.split(/\n/);
+
+          // If we have properly formatted controls with alphabetical prefixes
+          if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
+            console.log('Parsing formatted existing controls (legacy):', controlLines);
+
+            controlLines.forEach(line => {
+              const trimmedLine = line.trim();
+              if (trimmedLine) {
+                // Match the pattern: a) Category - Text
+                const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+                if (match) {
+                  const [, category, controlText] = match;
+                  parsedRiskControls.push({
+                    id: uuidv4(),
+                    riskControlType: category,
+                    existingControls: controlText.trim(),
+                    expanded: true
+                  });
+                } else {
+                  // If not matching expected format, just add as-is
+                  parsedRiskControls.push({
+                    id: uuidv4(),
+                    riskControlType: "",
+                    existingControls: trimmedLine.replace(/^[a-z]\)\s*/, ''),
+                    expanded: true
+                  });
+                }
+              }
+            });
+          } else {
+            // If no proper formatting, use as single control
+            parsedRiskControls.push({
+              id: uuidv4(),
+              existingControls: hazard.existingControls,
+              riskControlType: hazard.riskControlType || "",
+              expanded: true
+            });
+          }
         }
       }
 
@@ -323,26 +354,24 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         });
       }
 
-      // Parse additional risk controls (format: "a) risk control category - additional risk control")
+      // Parse additional risk controls (format: "risk control category1 - risk control1&&risk control category2 - risk control2")
       const parsedAdditionalRiskControls = [];
       if (hazard.additionalControls) {
-        // Only split on newlines to avoid cutting off valid data
-        const controlLines = hazard.additionalControls.split(/\n/);
-
-        // If we have properly formatted controls
-        if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
-          console.log('Parsing formatted additional controls:', controlLines);
-
-          controlLines.forEach(line => {
-            const trimmedLine = line.trim();
-            if (trimmedLine) {
-              // Match the pattern: a) Category - Text
-              const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+        // First try to parse the new && delimited format
+        if (hazard.additionalControls.includes('&&')) {
+          console.log('Parsing && delimited additional controls:', hazard.additionalControls);
+          
+          const controlPairs = hazard.additionalControls.split('&&');
+          controlPairs.forEach(pair => {
+            const trimmedPair = pair.trim();
+            if (trimmedPair) {
+              // Match the pattern: Category - Text
+              const match = trimmedPair.match(/^(.*?)\s*-\s*(.*)/);
               if (match) {
                 const [, category, controlText] = match;
                 parsedAdditionalRiskControls.push({
                   id: uuidv4(),
-                  controlType: category,
+                  controlType: category.trim(),
                   controlText: controlText.trim(),
                   expanded: true
                 });
@@ -351,20 +380,53 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 parsedAdditionalRiskControls.push({
                   id: uuidv4(),
                   controlType: "",
-                  controlText: trimmedLine.replace(/^[a-z]\)\s*/, ''), // Remove the prefix if present
+                  controlText: trimmedPair,
                   expanded: true
                 });
               }
             }
           });
         } else {
-          // If no proper formatting, use the old format
-          parsedAdditionalRiskControls.push({
-            id: uuidv4(),
-            controlText: hazard.additionalControls,
-            controlType: hazard.additionalControlType || "",
-            expanded: true
-          });
+          // Try to parse the old alphabetical format for backward compatibility
+          const controlLines = hazard.additionalControls.split(/\n/);
+
+          // If we have properly formatted controls with alphabetical prefixes
+          if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
+            console.log('Parsing formatted additional controls (legacy):', controlLines);
+
+            controlLines.forEach(line => {
+              const trimmedLine = line.trim();
+              if (trimmedLine) {
+                // Match the pattern: a) Category - Text
+                const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+                if (match) {
+                  const [, category, controlText] = match;
+                  parsedAdditionalRiskControls.push({
+                    id: uuidv4(),
+                    controlType: category,
+                    controlText: controlText.trim(),
+                    expanded: true
+                  });
+                } else {
+                  // If not matching expected format, just add as-is
+                  parsedAdditionalRiskControls.push({
+                    id: uuidv4(),
+                    controlType: "",
+                    controlText: trimmedLine.replace(/^[a-z]\)\s*/, ''), // Remove the prefix if present
+                    expanded: true
+                  });
+                }
+              }
+            });
+          } else {
+            // If no proper formatting, use as single control
+            parsedAdditionalRiskControls.push({
+              id: uuidv4(),
+              controlText: hazard.additionalControls,
+              controlType: hazard.additionalControlType || "",
+              expanded: true
+            });
+          }
         }
       }
 
@@ -1633,27 +1695,21 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           activities: proc.activities.map(act => ({
             ...act,
             hazards: act.hazards.map(h => {
-              // Format existing risk controls with alphabetical prefixes
+              // Format existing risk controls with && delimiter
               let formattedExistingControls = "";
               if (h.riskControls && h.riskControls.length > 0) {
                 formattedExistingControls = h.riskControls
-                  .map((rc, idx) => {
+                  .map((rc) => {
                     const text = rc.existingControls?.trim();
                     if (!text) return null; // Ignore empty controls
-                    const prefix = String.fromCharCode(97 + idx) + ") ";
                     const typeObj = riskcontrolTypesList.find(type => type.value === rc.riskControlType);
-                    const typeText = typeObj ? typeObj.display : "";
-                    const alreadyPrefixed = /^[a-z]\)\s/.test(text);
-                    return alreadyPrefixed
-                      ? text
-                      : `${prefix}${typeText ? typeText + " - " : ""}${text}`;
+                    const typeText = typeObj ? typeObj.display : rc.riskControlType || "";
+                    return typeText ? `${typeText} - ${text}` : text;
                   })
                   .filter(Boolean) // Remove nulls
-                  .join("\n");
+                  .join("&&");
               } else if (h.existingControls && h.existingControls.trim()) {
-                const text = h.existingControls.trim();
-                const alreadyPrefixed = /^[a-z]\)\s/.test(text);
-                formattedExistingControls = alreadyPrefixed ? text : `a) ${text}`;
+                formattedExistingControls = h.existingControls.trim();
               } else {
                 formattedExistingControls = ""; // Don't save empty
               }
@@ -1662,23 +1718,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               let formattedAdditionalControls = "";
               if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
                 formattedAdditionalControls = h.additionalRiskControls
-                  .map((ac, idx) => {
+                  .map((ac) => {
                     const text = ac.controlText?.trim();
                     if (!text) return null; // Ignore empty controls
-                    const prefix = String.fromCharCode(97 + idx) + ") ";
                     const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
-                    const typeText = typeObj ? typeObj.display : "";
-                    const alreadyPrefixed = /^[a-z]\)\s/.test(text);
-                    return alreadyPrefixed
-                      ? text
-                      : `${prefix}${typeText ? typeText + " - " : ""}${text}`;
+                    const typeText = typeObj ? typeObj.display : ac.controlType || "";
+                    return typeText ? `${typeText} - ${text}` : text;
                   })
                   .filter(Boolean)
-                  .join("\n");
+                  .join("&&");
               } else if (h.additionalControls && h.additionalControls.trim()) {
-                const text = h.additionalControls.trim();
-                const alreadyPrefixed = /^[a-z]\)\s/.test(text);
-                formattedAdditionalControls = alreadyPrefixed ? text : `a) ${text}`;
+                formattedAdditionalControls = h.additionalControls.trim();
               } else {
                 formattedAdditionalControls = ""; // Don't save empty
               }
