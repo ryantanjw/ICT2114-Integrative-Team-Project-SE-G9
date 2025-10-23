@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import toast, { Toaster } from "react-hot-toast";
 import HeaderAdmin from "../../components/HeaderAdmin.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import FormCardC from "../../components/FormCardC.jsx";
@@ -17,6 +18,7 @@ export default function AdminDB() {
   const [isLoadingDBPage, setIsLoadingDBPage] = useState(true);
   const [adminData, setAdminData] = useState(null);
   const [hazards, setHazards] = useState([]);
+  const [approvedHazards, setApprovedHazards] = useState([]);
   const [status, setStatus] = useState("Pending");
   // Toggle data source at code level: "API" or "Placeholder"
   const DATA_SOURCE = "API"; // change to "Placeholder" to use nested demo
@@ -327,10 +329,38 @@ export default function AdminDB() {
       }
     };
 
+    // Helper to normalize approved hazard API payload
+    const normalizeApproved = (items) => {
+      if (!Array.isArray(items)) return [];
+      return items.map((it) => ({
+        ...it,
+        // approved API returns plain strings/lists; convert to the shapes our builder expects
+        hazard: typeof it.hazard === "string" ? it.hazard : String(it.hazard ?? ""),
+        existing_risk_control: Array.isArray(it.existing_risk_control)
+          ? it.existing_risk_control.join(" && ")
+          : (it.existing_risk_control ?? ""),
+        injury: Array.isArray(it.injury) ? it.injury.join(" && ") : (it.injury ?? ""),
+        work_activity: typeof it.work_activity === "string" ? it.work_activity : String(it.work_activity ?? ""),
+        hazard_type: typeof it.hazard_type === "string" ? it.hazard_type : String(it.hazard_type ?? ""),
+      }));
+    };
+
+    const fetchApprovedHazards = async () => {
+      try {
+        const res = await axios.get("/api/admin/get_approved_hazard");
+        const list = res.data?.hazards || [];
+        setApprovedHazards(normalizeApproved(list));
+        console.log("[API] /api/admin/get_approved_hazard → count:", list.length);
+      } catch (err) {
+        console.error("Error fetching approved hazards", err);
+      }
+    };
+
     const init = async () => {
       const ok = await checkSession();
       if (ok && DATA_SOURCE === "API") {
         await fetchHazards();
+        await fetchApprovedHazards();
       }
       setIsLoadingDBPage(false); // Stop fullscreen loading
     };
@@ -342,15 +372,11 @@ export default function AdminDB() {
 
   // --- Helpers & derived lists for API mode ---
   const parsePair = (val) => (Array.isArray(val) ? { text: val[0], state: val[1] } : { text: String(val ?? ""), state: "" });
-  const apiPending = hazards.filter((it) => {
-    const h = parsePair(it.hazard).state; const rc = parsePair(it.existing_risk_control).state;
-    return h === "new" || rc === "new";
-  });
-  const apiExisting = hazards.filter((it) => {
-    const h = parsePair(it.hazard).state; const rc = parsePair(it.existing_risk_control).state;
-    return h === "old" && rc === "old";
-  });
-  const apiList = status === "Pending" ? apiPending : apiExisting;
+  // Pending tab shows ALL unapproved hazards (both "Distinctive" and "Similar")
+  const apiPendingAll = hazards;
+  // Existing tab shows APPROVED hazards from dedicated endpoint
+  const apiExistingApproved = approvedHazards;
+  const apiList = status === "Pending" ? apiPendingAll : apiExistingApproved;
 
 
   // Build tree matching the placeholder shape from flat API items
@@ -385,10 +411,14 @@ export default function AdminDB() {
       let h = hc.hazards.find((x) => x.name === hz);
       if (!h) {
         h = { id: `h_${proc}_${act}_${cat}_${idx}`, name: hz, injuries: [], isNew: hazPair.state === "new" };
+        // propagate hazard_id from backend
+        h.hazard_id = it.hazard_id;
         hc.hazards.push(h);
       } else {
         // if hazard already exists, preserve any previous flag or set to true if any item marks it as new
         h.isNew = Boolean(h.isNew || (hazPair.state === "new"));
+        // update hazard_id if not already set
+        if (h.hazard_id == null && it.hazard_id != null) h.hazard_id = it.hazard_id;
       }
 
       h.injuries.push({
@@ -397,6 +427,7 @@ export default function AdminDB() {
         existingControls: existingRC,
         additionalControls: additionalRC,
         rcIsNew: rcPair.state === "new",
+        hazard_id: it.hazard_id,
       });
     });
     return { processes: Array.from(procs.values()) };
@@ -455,6 +486,7 @@ export default function AdminDB() {
 
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden px-5 2xl:px-40 pb-10">
+      <Toaster position="top-right" />
       {/* Header */}
       <HeaderAdmin activePage={location.pathname} />
 
@@ -516,16 +548,21 @@ export default function AdminDB() {
         <TableInfo
           title="Hazard List"
           items={hazardsList.map((h) => (
-            DATA_SOURCE === "API" && h.isNew ? (
-              <div className="flex items-center justify-between">
-                <span className="mr-2 px-2 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">
-                  NEW
-                </span>
-                <span>{h.name}</span>
-              </div>
-            ) : (
-              h.name
-            )
+            DATA_SOURCE === "API"
+              ? (
+                <div className="flex items-center justify-between">
+                  <span className={
+                    "mr-2 px-2 py-0.5 text font-medium rounded-full border " +
+                    (h.isNew
+                      ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                      : "bg-gray-100 text-gray-700 border-gray-300")
+                  }>
+                    {h.isNew ? "Distinctive" : "Similar"}
+                  </span>
+                  <span className="truncate">{h.name}</span>
+                </div>
+              )
+              : h.name
           ))}
           limit={5}
           activeIndices={activeH.map((x, i) => (x ? i : -1)).filter((i) => i >= 0)}
@@ -543,16 +580,21 @@ export default function AdminDB() {
         <TableInfo
           title="Injuries"
           items={injuries.map((i) => (
-            DATA_SOURCE === "API" && i.rcIsNew ? (
-              <div className="flex items-center justify-between">
-                <span className="mr-2 px-2 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">
-                  NEW
-                </span>
-                <span>{i.name}</span>
-              </div>
-            ) : (
-              i.name
-            )
+            DATA_SOURCE === "API"
+              ? (
+                <div className="flex items-center justify-between">
+                  <span className={
+                    "mr-2 px-2 py-0.5 text font-medium rounded-full border " +
+                    (i.rcIsNew
+                      ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                      : "bg-gray-100 text-gray-700 border-gray-300")
+                  }>
+                    {i.rcIsNew ? "Distinctive" : "Similar"}
+                  </span>
+                  <span className="truncate">{i.name}</span>
+                </div>
+              )
+              : i.name
           ))}
           limit={3}
           activeIndices={[]}
@@ -578,10 +620,105 @@ export default function AdminDB() {
           fill
         />
       </div>
-      <div className="mt-6 flex justify-end gap-4">
-        <CTAButton icon={FaSave} text="Save Entry" onClick={() => console.log("Save clicked")} />
-        <CTAButton icon={MdDelete} text="Delete Entry" onClick={() => console.log("Delete clicked")} />
-      </div>
+      {/* --- Hazard approval/rejection controls --- */}
+      {(() => {
+        // More robust computation of selectedHazardId
+        const selectedHazardId =
+          hazardsList?.[hIdx]?.hazard_id ??
+          injuries?.[iIdx]?.hazard_id ??
+          null;
+
+        // Approve handler with event, toast.promise, optimistic update, and headers
+        async function handleApprove(e) {
+          e?.preventDefault && e.preventDefault();
+          e?.stopPropagation && e.stopPropagation();
+          if (!selectedHazardId) {
+            toast.error("No hazard selected to approve");
+            return;
+          }
+          await toast.promise(
+            axios.post(
+              "/api/admin/approve_hazard",
+              { hazard_id: selectedHazardId },
+              {
+                headers: { "Content-Type": "application/json" },
+                withCredentials: true,
+              }
+            ),
+            {
+              loading: "Approving hazard...",
+              success: "Hazard approved successfully!",
+              error: "Failed to approve hazard",
+            }
+          ).then((res) => {
+            // Optimistically remove the approved hazard from state
+            setHazards((prev) => {
+              const filtered = prev.filter((hz) => hz.hazard_id !== selectedHazardId);
+              // Recompute indices safely (reset if out of bounds)
+              if (filtered.length === 0) {
+                setPIdx(0); setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
+              } else {
+                setPIdx((idx) => Math.min(idx, Math.max(0, filtered.length - 1)));
+                setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
+              }
+              return filtered;
+            });
+          });
+        }
+
+        // Reject handler with event, toast.promise, optimistic update, and headers
+        async function handleReject(e) {
+          e?.preventDefault && e.preventDefault();
+          e?.stopPropagation && e.stopPropagation();
+          if (!selectedHazardId) {
+            toast.error("No hazard selected to reject");
+            return;
+          }
+          await toast.promise(
+            axios.post(
+              "/api/admin/reject_hazard",
+              { hazard_id: selectedHazardId },
+              {
+                headers: { "Content-Type": "application/json" },
+                withCredentials: true,
+              }
+            ),
+            {
+              loading: "Rejecting hazard...",
+              success: "Hazard rejected successfully!",
+              error: "Failed to reject hazard",
+            }
+          ).then((res) => {
+            // Optimistically remove the rejected hazard from state
+            setHazards((prev) => {
+              const filtered = prev.filter((hz) => hz.hazard_id !== selectedHazardId);
+              // Recompute indices safely (reset if out of bounds)
+              if (filtered.length === 0) {
+                setPIdx(0); setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
+              } else {
+                setPIdx((idx) => Math.min(idx, Math.max(0, filtered.length - 1)));
+                setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
+              }
+              return filtered;
+            });
+          });
+        }
+
+        return (
+          <div className="mt-6 flex justify-end gap-4">
+            <CTAButton
+              icon={FaSave}
+              text="Save Entry"
+              onClick={(e) => handleApprove(e)}
+            />
+            <CTAButton
+              icon={MdDelete}
+              text="Delete Entry"
+              onClick={(e) => handleReject(e)}
+            />
+          </div>
+        );
+      })()}
 
 
 
