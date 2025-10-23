@@ -282,11 +282,6 @@ export default function AdminDB() {
 
   let selectedInjury = injuries[iIdx] || null;
 
-  useEffect(() => {
-    setExistingControls(selectedInjury?.existingControls || "");
-    setAdditionalControls(selectedInjury?.additionalControls || "");
-  }, [selectedInjury]);
-
   // API: Normalize approved hazards for consistent display
   const normalizeApproved = (items) => {
     if (!Array.isArray(items)) return [];
@@ -294,7 +289,7 @@ export default function AdminDB() {
       ...it,
       hazard: typeof it.hazard === "string" ? it.hazard : String(it.hazard ?? ""),
       existing_risk_control: Array.isArray(it.existing_risk_control)
-        ? it.existing_risk_control.join(" && ")
+        ? it.existing_risk_control.join("\n\n")
         : (it.existing_risk_control ?? ""),
       injury: Array.isArray(it.injury) ? it.injury.join(" && ") : (it.injury ?? ""),
       work_activity: typeof it.work_activity === "string" ? it.work_activity : String(it.work_activity ?? ""),
@@ -413,7 +408,27 @@ export default function AdminDB() {
       const act = actPairLocal.text || "Unspecified Activity";
       const cat = it.hazard_type || (it.hazard_type_id != null ? String(it.hazard_type_id) : "Other");
       const hazPair = parsePair(it.hazard);
-      const rcPair = parsePair(it.existing_risk_control);
+      // Build a list of existing risk controls; support alternating [text, state] arrays and '&&' delimiters
+      let existingRCList = [];
+      let rcHasNew = false;
+      if (Array.isArray(it.existing_risk_control)) {
+        for (let k = 0; k < it.existing_risk_control.length; k += 2) {
+          const part = it.existing_risk_control[k];
+          const state = it.existing_risk_control[k + 1];
+          if (state === "new") rcHasNew = true;
+          if (!part) continue;
+          String(part)
+            .split("&&")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .forEach((s) => existingRCList.push(s));
+        }
+      } else if (typeof it.existing_risk_control === "string") {
+        existingRCList = String(it.existing_risk_control)
+          .split("&&")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
       const hz = hazPair.text || "(Unnamed Hazard)";
       // Build a list of injury strings; split on '&&' to create multiple entries
       let injuryList = [];
@@ -435,7 +450,7 @@ export default function AdminDB() {
           .filter(Boolean);
       }
       if (injuryList.length === 0) injuryList = ["—"]; // fallback when no text
-      const existingRC = rcPair.text || "";
+      const existingRC = existingRCList.length ? existingRCList.join("\n\n") : "";
       const additionalRC = it.additional_risk_control || "";
 
       if (!procs.has(proc)) procs.set(proc, { id: `p_${proc}`, name: proc, activities: [] });
@@ -472,7 +487,7 @@ export default function AdminDB() {
           name: injName,
           existingControls: existingRC,
           additionalControls: additionalRC,
-          rcIsNew: rcPair.state === "new",
+          rcIsNew: rcHasNew,
           hazard_id: it.hazard_id,
         });
       });
@@ -497,6 +512,13 @@ export default function AdminDB() {
 
     selectedInjury = injuries[iIdx] || null;
   }
+
+  // Re-sync form fields whenever the highlighted injury changes (after API overrides)
+  const selectedInjuryKey = selectedInjury?.id || "none";
+  useEffect(() => {
+    setExistingControls(selectedInjury?.existingControls || "");
+    setAdditionalControls(selectedInjury?.additionalControls || "");
+  }, [selectedInjuryKey]);
 
   // --- Approve/Reject handlers for API hazards ---
   // Selected hazard id recomputed each render
@@ -720,6 +742,7 @@ export default function AdminDB() {
 
       <div className="mt-6 mb-6 grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
         <TextField
+          key={`erc-${selectedInjury?.id || 'none'}`}
           header="Existing Risk Controls"
           value={existingControls}
           onChange={setExistingControls}
@@ -727,6 +750,7 @@ export default function AdminDB() {
         />
 
         <TextField
+          key={`arc-${selectedInjury?.id || 'none'}`}
           header="Additional Risk Controls"
           value={additionalControls}
           onChange={setAdditionalControls}
