@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import HeaderAdmin from "../../components/HeaderAdmin.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -11,19 +11,57 @@ import { MdDelete } from "react-icons/md";
 import { FaSave } from "react-icons/fa";
 import axios from "axios";
 
+
+// --- Lightweight client cache (localStorage) ---
+const HAZARD_CACHE_KEYS = {
+  pending: "admin_pending_hazards_v1",
+  approved: "admin_approved_hazards_v1",
+};
+const HAZARD_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function loadCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const { ts, data } = parsed;
+    if (!ts || Date.now() - ts > HAZARD_CACHE_TTL_MS) return null; // stale
+    if (!Array.isArray(data)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function saveCache(key, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function clearCache(key) {
+  try { localStorage.removeItem(key); } catch {}
+}
+
+
 export default function AdminDB() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDBPage, setIsLoadingDBPage] = useState(true);
+  const [hydratedFromCache, setHydratedFromCache] = useState(false);
   const [adminData, setAdminData] = useState(null);
-  const [hazards, setHazards] = useState([]);
-  const [approvedHazards, setApprovedHazards] = useState([]);
   const [status, setStatus] = useState("Pending");
   // Toggle data source at code level: "API" or "Placeholder"
   const DATA_SOURCE = "API"; // change to "Placeholder" to use nested demo
 
     // --- Dummy nested data ---
+  // --- API hazard state ---
+  const [hazards, setHazards] = useState([]);           // pending/unapproved
+  const [approvedHazards, setApprovedHazards] = useState([]); // approved
   const data = useMemo(
   () => ({
     processes: [
@@ -249,6 +287,21 @@ export default function AdminDB() {
     setAdditionalControls(selectedInjury?.additionalControls || "");
   }, [selectedInjury]);
 
+  // API: Normalize approved hazards for consistent display
+  const normalizeApproved = (items) => {
+    if (!Array.isArray(items)) return [];
+    return items.map((it) => ({
+      ...it,
+      hazard: typeof it.hazard === "string" ? it.hazard : String(it.hazard ?? ""),
+      existing_risk_control: Array.isArray(it.existing_risk_control)
+        ? it.existing_risk_control.join(" && ")
+        : (it.existing_risk_control ?? ""),
+      injury: Array.isArray(it.injury) ? it.injury.join(" && ") : (it.injury ?? ""),
+      work_activity: typeof it.work_activity === "string" ? it.work_activity : String(it.work_activity ?? ""),
+      hazard_type: typeof it.hazard_type === "string" ? it.hazard_type : String(it.hazard_type ?? ""),
+    }));
+  };
+
   // Session handling + methods (moved from AdminDBPage_Old.jsx)
   useEffect(() => {
     const checkSession = async () => {
@@ -265,6 +318,8 @@ export default function AdminDB() {
         // If not logged in, redirect to login page
         if (!response.data.logged_in) {
           console.log("No active session found, redirecting to login");
+          clearCache(HAZARD_CACHE_KEYS.pending);
+          clearCache(HAZARD_CACHE_KEYS.approved);
           navigate("/auth/login");
           return false;
         }
@@ -272,6 +327,8 @@ export default function AdminDB() {
         // If user is not an admin, redirect to user dashboard
         if (response.data.user_role !== 0) {
           console.log("Non-admin user detected, redirecting to user dashboard");
+          clearCache(HAZARD_CACHE_KEYS.pending);
+          clearCache(HAZARD_CACHE_KEYS.approved);
           navigate("/home");
           return false;
         }
@@ -282,6 +339,8 @@ export default function AdminDB() {
       } catch (error) {
         console.error("Error checking session:", error);
         // If there's an error, assume not logged in and redirect
+        clearCache(HAZARD_CACHE_KEYS.pending);
+        clearCache(HAZARD_CACHE_KEYS.approved);
         navigate("/auth/login");
         return false;
       } finally {
@@ -289,80 +348,45 @@ export default function AdminDB() {
       }
     };
 
-    const fetchHazards = async () => {
-      try {
-        const res = await axios.get("/api/admin/get_new_hazard");
-        const list = res.data?.hazards || [];
-
-        if (Array.isArray(list) && list.length > 0) {
-          setHazards(list);
-
-          console.log("[API] /api/admin/get_new_hazard → count:", list.length);
-          console.log("[API] sample item structure:", list[0]);
-
-          const getPair = (val) => Array.isArray(val) ? { text: val[0], state: val[1] } : { text: val, state: "" };
-
-          // Detailed line-by-line printout
-          list.forEach((item, i) => {
-            const hz = getPair(item.hazard);
-            const rc = getPair(item.existing_risk_control);
-            console.log(
-              `[#${i}] HAZARD: "${hz.text}" [${hz.state}]  |  RISK_CONTROL: "${rc.text}" [${rc.state}]`,
-            );
-          });
-
-          // Summary counts by status ("new" vs "old")
-          const isNew = (x) => Array.isArray(x) && x[1] === "new";
-          const isOld = (x) => Array.isArray(x) && x[1] === "old";
-
-          const pendingItems = list.filter((it) => isNew(it.hazard) || isNew(it.existing_risk_control));
-          const existingItems = list.filter((it) => isOld(it.hazard) && isOld(it.existing_risk_control));
-
-          console.log(`[SUMMARY] pending(new) items: ${pendingItems.length}`);
-          console.log(`[SUMMARY] existing(old) items: ${existingItems.length}`);
-        } else {
-          setHazards([]);
-          console.log("[API] /api/admin/get_new_hazard → empty list");
-        }
-      } catch (err) {
-        console.error("Error fetching hazards", err);
-      }
-    };
-
-    // Helper to normalize approved hazard API payload
-    const normalizeApproved = (items) => {
-      if (!Array.isArray(items)) return [];
-      return items.map((it) => ({
-        ...it,
-        // approved API returns plain strings/lists; convert to the shapes our builder expects
-        hazard: typeof it.hazard === "string" ? it.hazard : String(it.hazard ?? ""),
-        existing_risk_control: Array.isArray(it.existing_risk_control)
-          ? it.existing_risk_control.join(" && ")
-          : (it.existing_risk_control ?? ""),
-        injury: Array.isArray(it.injury) ? it.injury.join(" && ") : (it.injury ?? ""),
-        work_activity: typeof it.work_activity === "string" ? it.work_activity : String(it.work_activity ?? ""),
-        hazard_type: typeof it.hazard_type === "string" ? it.hazard_type : String(it.hazard_type ?? ""),
-      }));
-    };
-
-    const fetchApprovedHazards = async () => {
-      try {
-        const res = await axios.get("/api/admin/get_approved_hazard");
-        const list = res.data?.hazards || [];
-        setApprovedHazards(normalizeApproved(list));
-        console.log("[API] /api/admin/get_approved_hazard → count:", list.length);
-      } catch (err) {
-        console.error("Error fetching approved hazards", err);
-      }
-    };
-
     const init = async () => {
       const ok = await checkSession();
+
+      // 1) Try cache hydration first for instant UI
+      let hadCache = false;
       if (ok && DATA_SOURCE === "API") {
-        await fetchHazards();
-        await fetchApprovedHazards();
+        const cachedPending = loadCache(HAZARD_CACHE_KEYS.pending);
+        const cachedApproved = loadCache(HAZARD_CACHE_KEYS.approved);
+        if (cachedPending) { setHazards(cachedPending); hadCache = true; }
+        if (cachedApproved) { setApprovedHazards(cachedApproved); hadCache = true; }
+        if (hadCache) {
+          setHydratedFromCache(true);
+          setIsLoadingDBPage(false); // hide overlay immediately when we have cache
+        }
       }
-      setIsLoadingDBPage(false); // Stop fullscreen loading
+
+      // 2) Kick off network refresh in the background (don’t block UI)
+      if (ok && DATA_SOURCE === "API") {
+        (async () => {
+          try {
+            const [pending, approved] = await Promise.all([
+              axios.get("/api/admin/get_new_hazard", { withCredentials: true }).then(r => r.data?.hazards || []),
+              axios.get("/api/admin/get_approved_hazard", { withCredentials: true }).then(r => normalizeApproved(r.data?.hazards || [])),
+            ]);
+            setHazards(pending);
+            setApprovedHazards(approved);
+            saveCache(HAZARD_CACHE_KEYS.pending, pending);
+            saveCache(HAZARD_CACHE_KEYS.approved, approved);
+          } catch (err) {
+            console.error("Error fetching hazards:", err);
+            if (!hadCache) toast.error("Failed to load hazards");
+          } finally {
+            if (!hadCache) setIsLoadingDBPage(false); // only toggle here if we didn’t already hide it via cache
+          }
+        })();
+      } else {
+        // Not OK or not API mode
+        setIsLoadingDBPage(false);
+      }
     };
 
     init();
@@ -372,6 +396,7 @@ export default function AdminDB() {
 
   // --- Helpers & derived lists for API mode ---
   const parsePair = (val) => (Array.isArray(val) ? { text: val[0], state: val[1] } : { text: String(val ?? ""), state: "" });
+
   // Pending tab shows ALL unapproved hazards (both "Distinctive" and "Similar")
   const apiPendingAll = hazards;
   // Existing tab shows APPROVED hazards from dedicated endpoint
@@ -384,12 +409,23 @@ export default function AdminDB() {
     const procs = new Map();
     items.forEach((it, idx) => {
       const proc = it.process || "Unspecified Process";
-      const act = it.work_activity || "Unspecified Activity";
+      const actPairLocal = parsePair(it.work_activity);
+      const act = actPairLocal.text || "Unspecified Activity";
       const cat = it.hazard_type || (it.hazard_type_id != null ? String(it.hazard_type_id) : "Other");
       const hazPair = parsePair(it.hazard);
       const rcPair = parsePair(it.existing_risk_control);
       const hz = hazPair.text || "(Unnamed Hazard)";
-      const inj = it.injury || "—";
+      let injText = "—";
+      if (Array.isArray(it.injury)) {
+        const parts = [];
+        for (let k = 0; k < it.injury.length; k += 2) {
+          const part = it.injury[k];
+          if (part && String(part).trim()) parts.push(part);
+        }
+        injText = parts.length ? parts.join(" && ") : "No injury description";
+      } else {
+        injText = it.injury || "—";
+      }
       const existingRC = rcPair.text || "";
       const additionalRC = it.additional_risk_control || "";
 
@@ -423,7 +459,7 @@ export default function AdminDB() {
 
       h.injuries.push({
         id: `i_${it.hazard_activity_id}_${it.hazard_id}_${h.injuries.length}`,
-        name: inj,
+        name: injText,
         existingControls: existingRC,
         additionalControls: additionalRC,
         rcIsNew: rcPair.state === "new",
@@ -451,11 +487,77 @@ export default function AdminDB() {
     selectedInjury = injuries[iIdx] || null;
   }
 
+  // --- Approve/Reject handlers for API hazards ---
+  // Selected hazard id recomputed each render
+  const selectedHazardId = hazardsList?.[hIdx]?.hazard_id ?? injuries?.[iIdx]?.hazard_id ?? null;
+
+  async function handleApprove(e) {
+    e?.preventDefault && e.preventDefault();
+    e?.stopPropagation && e.stopPropagation();
+    if (!selectedHazardId) { toast.error("No hazard selected to approve"); return; }
+    await toast.promise(
+      axios.post("/api/admin/approve_hazard", { hazard_id: selectedHazardId }, { headers: { "Content-Type": "application/json" }, withCredentials: true })
+        .then(async () => {
+          // Optimistically remove from pending
+          setHazards((prev) => prev.filter((h) => h.hazard_id !== selectedHazardId));
+          // Keep cache in sync for Pending
+          saveCache(HAZARD_CACHE_KEYS.pending, (loadCache(HAZARD_CACHE_KEYS.pending) || []).filter((h) => h.hazard_id !== selectedHazardId));
+          // Refresh approved list so it appears in Existing immediately (Option A)
+          try {
+            const approved = await axios.get("/api/admin/get_approved_hazard", { withCredentials: true });
+            setApprovedHazards(normalizeApproved(approved.data?.hazards || []));
+            saveCache(HAZARD_CACHE_KEYS.approved, normalizeApproved(approved.data?.hazards || []));
+          } catch (err) {
+            console.error("Error refreshing approved hazards after approval", err);
+          }
+        })
+        ,
+      { loading: "Approving hazard...", success: "Hazard approved successfully!", error: "Failed to approve hazard" }
+    );
+    setIIdx(0); setHIdx(0); setHCIdx(0);
+  }
+
+  async function handleReject(e) {
+    e?.preventDefault && e.preventDefault();
+    e?.stopPropagation && e.stopPropagation();
+    if (!selectedHazardId) { toast.error("No hazard selected to reject"); return; }
+    await toast.promise(
+      axios.post("/api/admin/reject_hazard", { hazard_id: selectedHazardId }, { headers: { "Content-Type": "application/json" }, withCredentials: true })
+        .then(() => {
+          // Optimistically remove from pending
+          setHazards((prev) => prev.filter((h) => h.hazard_id !== selectedHazardId));
+          // Keep cache in sync for Pending after rejection
+          saveCache(HAZARD_CACHE_KEYS.pending, (loadCache(HAZARD_CACHE_KEYS.pending) || []).filter((h) => h.hazard_id !== selectedHazardId));
+        })
+        ,
+      { loading: "Rejecting hazard...", success: "Hazard rejected successfully!", error: "Failed to reject hazard" }
+    );
+    setIIdx(0); setHIdx(0); setHCIdx(0);
+  }
+
   // --- Date formatter helper for API cards ---
   const fmtDateTime = (iso) => {
     if (!iso) return "";
     try { return new Date(iso).toLocaleString(); } catch { return String(iso); }
   };
+
+  // Optional: Refresh caches on window focus without blocking UI
+  useEffect(() => {
+    function onFocus() {
+      if (DATA_SOURCE !== "API") return;
+      Promise.all([
+        axios.get("/api/admin/get_new_hazard", { withCredentials: true }).catch(() => ({ data: { hazards: null } })),
+        axios.get("/api/admin/get_approved_hazard", { withCredentials: true }).catch(() => ({ data: { hazards: null } })),
+      ]).then(([p, a]) => {
+        const pList = Array.isArray(p?.data?.hazards) ? p.data.hazards : null;
+        const aList = Array.isArray(a?.data?.hazards) ? normalizeApproved(a.data.hazards) : null;
+        if (pList) { setHazards(pList); saveCache(HAZARD_CACHE_KEYS.pending, pList); }
+        if (aList) { setApprovedHazards(aList); saveCache(HAZARD_CACHE_KEYS.approved, aList); }
+      });
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   if (isLoadingDBPage) {
     return (
@@ -621,108 +723,15 @@ export default function AdminDB() {
         />
       </div>
       {/* --- Hazard approval/rejection controls --- */}
-      {(() => {
-        // More robust computation of selectedHazardId
-        const selectedHazardId =
-          hazardsList?.[hIdx]?.hazard_id ??
-          injuries?.[iIdx]?.hazard_id ??
-          null;
-
-        // Approve handler with event, toast.promise, optimistic update, and headers
-        async function handleApprove(e) {
-          e?.preventDefault && e.preventDefault();
-          e?.stopPropagation && e.stopPropagation();
-          if (!selectedHazardId) {
-            toast.error("No hazard selected to approve");
-            return;
-          }
-          await toast.promise(
-            axios.post(
-              "/api/admin/approve_hazard",
-              { hazard_id: selectedHazardId },
-              {
-                headers: { "Content-Type": "application/json" },
-                withCredentials: true,
-              }
-            ),
-            {
-              loading: "Approving hazard...",
-              success: "Hazard approved successfully!",
-              error: "Failed to approve hazard",
-            }
-          ).then((res) => {
-            // Optimistically remove the approved hazard from state
-            setHazards((prev) => {
-              const filtered = prev.filter((hz) => hz.hazard_id !== selectedHazardId);
-              // Recompute indices safely (reset if out of bounds)
-              if (filtered.length === 0) {
-                setPIdx(0); setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
-              } else {
-                setPIdx((idx) => Math.min(idx, Math.max(0, filtered.length - 1)));
-                setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
-              }
-              return filtered;
-            });
-          });
-        }
-
-        // Reject handler with event, toast.promise, optimistic update, and headers
-        async function handleReject(e) {
-          e?.preventDefault && e.preventDefault();
-          e?.stopPropagation && e.stopPropagation();
-          if (!selectedHazardId) {
-            toast.error("No hazard selected to reject");
-            return;
-          }
-          await toast.promise(
-            axios.post(
-              "/api/admin/reject_hazard",
-              { hazard_id: selectedHazardId },
-              {
-                headers: { "Content-Type": "application/json" },
-                withCredentials: true,
-              }
-            ),
-            {
-              loading: "Rejecting hazard...",
-              success: "Hazard rejected successfully!",
-              error: "Failed to reject hazard",
-            }
-          ).then((res) => {
-            // Optimistically remove the rejected hazard from state
-            setHazards((prev) => {
-              const filtered = prev.filter((hz) => hz.hazard_id !== selectedHazardId);
-              // Recompute indices safely (reset if out of bounds)
-              if (filtered.length === 0) {
-                setPIdx(0); setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
-              } else {
-                setPIdx((idx) => Math.min(idx, Math.max(0, filtered.length - 1)));
-                setAIdx(0); setHCIdx(0); setHIdx(0); setIIdx(0);
-              }
-              return filtered;
-            });
-          });
-        }
-
-        return (
-          <div className="mt-6 flex justify-end gap-4">
-            <CTAButton
-              icon={FaSave}
-              text="Save Entry"
-              onClick={(e) => handleApprove(e)}
-            />
-            <CTAButton
-              icon={MdDelete}
-              text="Delete Entry"
-              onClick={(e) => handleReject(e)}
-            />
-          </div>
-        );
-      })()}
+      <div className="mt-6 flex justify-end gap-4">
+        {status === "Pending" && (
+          <CTAButton icon={FaSave} text="Save Entry" onClick={(e) => handleApprove(e)} />
+        )}
+        <CTAButton icon={MdDelete} text="Reject Entry" onClick={(e) => handleReject(e)} />
+      </div>
 
 
 
     </div>
   );
 }
-  
