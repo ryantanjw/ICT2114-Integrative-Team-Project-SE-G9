@@ -271,7 +271,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Parse existing risk controls (format: "risk control category1 - risk control1&&risk control category2 - risk control2")
       const parsedRiskControls = [];
       if (hazard.existingControls) {
-        // First try to parse the new && delimited format
+        // First try to parse the new && delimited format (for multiple controls)
         if (hazard.existingControls.includes('&&')) {
           console.log('Parsing && delimited existing controls:', hazard.existingControls);
           
@@ -283,9 +283,16 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               const match = trimmedPair.match(/^(.*?)\s*-\s*(.*)/);
               if (match) {
                 const [, category, controlText] = match;
+                const categoryTrimmed = category.trim();
+                
+                // Try to find matching risk control type (check both value and display)
+                const typeObj = riskcontrolTypesList.find(item => 
+                  item.value === categoryTrimmed || item.display === categoryTrimmed
+                );
+                
                 parsedRiskControls.push({
                   id: uuidv4(),
-                  riskControlType: category.trim(),
+                  riskControlType: typeObj ? typeObj.value : categoryTrimmed, // Use value if found, otherwise use raw text
                   existingControls: controlText.trim(),
                   expanded: true
                 });
@@ -300,6 +307,34 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               }
             }
           });
+        } else if (hazard.existingControls.match(/^[^a-z\)]*[A-Z].*?\s*-\s*.+/)) {
+          // Check if it's a single control in new format (Category - Text) without &&
+          console.log('Parsing single control in new format:', hazard.existingControls);
+          const match = hazard.existingControls.match(/^(.*?)\s*-\s*(.*)/);
+          if (match) {
+            const [, category, controlText] = match;
+            const categoryTrimmed = category.trim();
+            
+            // Try to find matching risk control type (check both value and display)
+            const typeObj = riskcontrolTypesList.find(item => 
+              item.value === categoryTrimmed || item.display === categoryTrimmed
+            );
+            
+            parsedRiskControls.push({
+              id: uuidv4(),
+              riskControlType: typeObj ? typeObj.value : categoryTrimmed, // Use value if found, otherwise use raw text
+              existingControls: controlText.trim(),
+              expanded: true
+            });
+          } else {
+            // Fallback to raw text
+            parsedRiskControls.push({
+              id: uuidv4(),
+              riskControlType: "",
+              existingControls: hazard.existingControls,
+              expanded: true
+            });
+          }
         } else {
           // Try to parse the old alphabetical format for backward compatibility
           const controlLines = hazard.existingControls.split(/\n/);
@@ -369,9 +404,16 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               const match = trimmedPair.match(/^(.*?)\s*-\s*(.*)/);
               if (match) {
                 const [, category, controlText] = match;
+                const categoryTrimmed = category.trim();
+                
+                // Try to find matching risk control type (check both value and display)
+                const typeObj = riskcontrolTypesList.find(item => 
+                  item.value === categoryTrimmed || item.display === categoryTrimmed
+                );
+                
                 parsedAdditionalRiskControls.push({
                   id: uuidv4(),
-                  controlType: category.trim(),
+                  controlType: typeObj ? typeObj.value : categoryTrimmed, // Use value if found, otherwise use raw text
                   controlText: controlText.trim(),
                   expanded: true
                 });
@@ -386,6 +428,34 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               }
             }
           });
+        } else if (hazard.additionalControls.match(/^[^a-z\)]*[A-Z].*?\s*-\s*.+/)) {
+          // Check if it's a single control in new format (Category - Text) without &&
+          console.log('Parsing single additional control in new format:', hazard.additionalControls);
+          const match = hazard.additionalControls.match(/^(.*?)\s*-\s*(.*)/);
+          if (match) {
+            const [, category, controlText] = match;
+            const categoryTrimmed = category.trim();
+            
+            // Try to find matching risk control type (check both value and display)
+            const typeObj = riskcontrolTypesList.find(item => 
+              item.value === categoryTrimmed || item.display === categoryTrimmed
+            );
+            
+            parsedAdditionalRiskControls.push({
+              id: uuidv4(),
+              controlType: typeObj ? typeObj.value : categoryTrimmed, // Use value if found, otherwise use raw text
+              controlText: controlText.trim(),
+              expanded: true
+            });
+          } else {
+            // Fallback to raw text
+            parsedAdditionalRiskControls.push({
+              id: uuidv4(),
+              controlType: "",
+              controlText: hazard.additionalControls,
+              expanded: true
+            });
+          }
         } else {
           // Try to parse the old alphabetical format for backward compatibility
           const controlLines = hazard.additionalControls.split(/\n/);
