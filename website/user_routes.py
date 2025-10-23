@@ -817,10 +817,9 @@ def get_form2_data(form_id):
                     "newSeverity": getattr(risk, "newSeverity", None) if risk else None,
                     "newLikelihood": getattr(risk, "newLikelihood", None) if risk else None,
                     "newRpn": getattr(risk, "newRPN", None) if risk else None,
-
                     "hazard_implementation_person": hazard.hazard_implementation_person if risk else "",
-                    "hazard_due_date": hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else None
-
+                    "hazard_due_date": hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else None,
+                    "ai": hazard.ai  # Include the AI source field
                 }
                 
                 act_data["hazards"].append(hazard_data)
@@ -1029,6 +1028,15 @@ def form2_save():
                     # Handle injuries - store as &&-separated string
                     injuries = haz_data.get('injuries', [])
                     hazard.injury = '&&'.join(injuries) if injuries else ''
+                    
+                    # Handle ai field - track the source of the hazard data
+                    ai_source = haz_data.get('ai')
+                    if ai_source == 'AI':
+                        hazard.ai = 'AI'
+                    elif ai_source == 'Database':
+                        hazard.ai = 'Database'
+                    else:
+                        hazard.ai = None  # For manually created or unspecified hazards
                     
                     db.session.flush()  # Ensure hazard ID is available
                     

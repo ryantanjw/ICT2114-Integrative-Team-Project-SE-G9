@@ -250,7 +250,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           riskControlType: "",
           expanded: true
         }],
-        ai: "",
+        ai: null, // Default for manually created hazards
       }];
     }
 
@@ -519,7 +519,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         riskControls: parsedRiskControls,
         // Use the parsed additional risk controls
         additionalRiskControls: parsedAdditionalRiskControls,
-        ai: hazard.ai || "" // FIXED: Use 'ai' field
+        ai: hazard.ai || null // Preserve existing ai field or default to null
       };
     });
   };
@@ -1218,7 +1218,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                         controlText: "",
                         controlType: "",
                         expanded: true
-                      }]
+                      }],
+                      ai: null // Manually created hazard
                     },
                   ],
                 }
@@ -1749,7 +1750,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
                 dueDate: h.dueDate || "",
                 implementationPerson: h.implementationPerson || "",
-                additionalControlType: h.additionalControlType || ""
+                additionalControlType: h.additionalControlType || "",
+                ai: h.ai || null // Include the ai field to track data source
               };
             })
           }))
@@ -1845,7 +1847,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     newRpn = 0,
     implementationPerson = "",
     additionalControlType = "",
-    ai = "" // for summary purpose
+    ai = null // Default to null for manually created hazards
   } = {}) => {
     // // Extract any existing risk control type from existingControls
     // const typeRegex = /^\[(.*?)\]\s*/;
@@ -2032,7 +2034,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 severity: h.severity,
                 likelihood: h.likelihood,
                 rpn: h.rpn,
-                ai: h.from || "" // fallback to empty string if not provided
+                ai: "AI" // Data comes from AI generation
               })
             );
 
@@ -2174,7 +2176,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       severity: h.severity,
                       likelihood: h.likelihood,
                       rpn: h.rpn,
-                      from: h.from || "" // fallback to empty string if not provided
+                      ai: "Database" // Data comes from database
                     })
                   );
 
