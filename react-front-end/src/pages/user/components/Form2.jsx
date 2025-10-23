@@ -2742,7 +2742,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           >
                                             <option value={0}>Select</option>
                                             {[1, 2, 3, 4, 5].map((v) => (
-                                              <option key={v} value={v}>
+                                              <option 
+                                                key={v} 
+                                                value={v}
+                                                disabled={field.name.toLowerCase() === 'likelihood' && v === 1}
+                                              >
                                                 {v}
                                               </option>
                                             ))}
@@ -3145,7 +3149,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                               >
                                                 <option value={0}>Select</option>
                                                 {[1, 2, 3, 4, 5].map((v) => (
-                                                  <option key={v} value={v}>
+                                                  <option 
+                                                    key={v} 
+                                                    value={v}
+                                                    disabled={field.name === "Likelihood" && v === 1}
+                                                  >
                                                     {v}
                                                   </option>
                                                 ))}
