@@ -548,7 +548,7 @@ export default function AdminDB() {
         <TableInfo
           title="Hazard List"
           items={hazardsList.map((h) => (
-            DATA_SOURCE === "API"
+            DATA_SOURCE === "API" && status === "Pending"
               ? (
                 <div className="flex items-center justify-between">
                   <span className={
@@ -580,7 +580,7 @@ export default function AdminDB() {
         <TableInfo
           title="Injuries"
           items={injuries.map((i) => (
-            DATA_SOURCE === "API"
+            DATA_SOURCE === "API" && status === "Pending"
               ? (
                 <div className="flex items-center justify-between">
                   <span className={
