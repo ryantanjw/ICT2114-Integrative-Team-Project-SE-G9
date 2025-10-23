@@ -415,17 +415,26 @@ export default function AdminDB() {
       const hazPair = parsePair(it.hazard);
       const rcPair = parsePair(it.existing_risk_control);
       const hz = hazPair.text || "(Unnamed Hazard)";
-      let injText = "—";
+      // Build a list of injury strings; split on '&&' to create multiple entries
+      let injuryList = [];
       if (Array.isArray(it.injury)) {
-        const parts = [];
+        // Backend sometimes sends alternating [text, state, text, state, ...]
         for (let k = 0; k < it.injury.length; k += 2) {
           const part = it.injury[k];
-          if (part && String(part).trim()) parts.push(part);
+          if (!part) continue;
+          String(part)
+            .split("&&")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .forEach((s) => injuryList.push(s));
         }
-        injText = parts.length ? parts.join(" && ") : "No injury description";
-      } else {
-        injText = it.injury || "—";
+      } else if (typeof it.injury === "string") {
+        injuryList = String(it.injury)
+          .split("&&")
+          .map((s) => s.trim())
+          .filter(Boolean);
       }
+      if (injuryList.length === 0) injuryList = ["—"]; // fallback when no text
       const existingRC = rcPair.text || "";
       const additionalRC = it.additional_risk_control || "";
 
@@ -457,13 +466,15 @@ export default function AdminDB() {
         if (h.hazard_id == null && it.hazard_id != null) h.hazard_id = it.hazard_id;
       }
 
-      h.injuries.push({
-        id: `i_${it.hazard_activity_id}_${it.hazard_id}_${h.injuries.length}`,
-        name: injText,
-        existingControls: existingRC,
-        additionalControls: additionalRC,
-        rcIsNew: rcPair.state === "new",
-        hazard_id: it.hazard_id,
+      injuryList.forEach((injName, injIdx) => {
+        h.injuries.push({
+          id: `i_${it.hazard_activity_id}_${it.hazard_id}_${injIdx}`,
+          name: injName,
+          existingControls: existingRC,
+          additionalControls: additionalRC,
+          rcIsNew: rcPair.state === "new",
+          hazard_id: it.hazard_id,
+        });
       });
     });
     return { processes: Array.from(procs.values()) };
