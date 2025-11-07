@@ -1042,7 +1042,13 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               {proc.activities.map((act) => (
                 <div key={act.id} className="space-y-2 border-t border-gray-200 pt-4">
                   <div className="flex justify-between items-center">
-                    <h5 className="font-medium">Work Activity</h5>
+                
+                    <div className="flex items-center gap-2">
+                      <h5 className="font-medium">Work Activity</h5>
+                      <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                        AI | User
+                      </span>
+                    </div>
                     <div className="space-x-2 flex">
                       <button
                         type="button"
@@ -1112,7 +1118,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       {showSummaryDialog && (
         <SummaryDialog
           title="Generation Summary"
-          message="The following explanations were provided for each process:"
+          message="The following activities were generated for each process:"
           processes={summaryList}
           onClose={() => setShowSummaryDialog(false)}
         />

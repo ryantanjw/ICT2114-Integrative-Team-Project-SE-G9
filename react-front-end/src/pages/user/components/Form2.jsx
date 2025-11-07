@@ -2374,7 +2374,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               {`Process ${proc.processNumber} - ${proc.header}`}
             </span>
             <CTAButton
-              text="Generate"
+              text="Generate Hazards"
               icon={HiSparkles}
               /* ctrl f tag AI Generate button */
               onClick={async () => {
@@ -2396,9 +2396,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                   >
                     {act.expanded ? <FiChevronUp /> : <FiChevronDown />}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
-                        NEW
+                      <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                        AI | NEW
                       </span>
+
                       <span className="font-semibold text-xl">
                         Work Activity {idx + 1} {act.description && `- ${act.description}`}
                       </span>
@@ -2464,7 +2465,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                             Hazard {hi + 1}
                           </span>
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
-                            NEW
+                           AI | USER
                           </span>
                          </div>
                           <div className="space-x-2 flex">
