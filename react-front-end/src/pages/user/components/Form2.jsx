@@ -2397,7 +2397,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     {act.expanded ? <FiChevronUp /> : <FiChevronDown />}
                     <div className="flex items-center gap-2">
                       <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
-                        AI | NEW
+                        AI | User
                       </span>
 
                       <span className="font-semibold text-xl">
@@ -2464,8 +2464,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                            <span className="font-semibold text-xl">
                             Hazard {hi + 1}
                           </span>
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
-                           AI | USER
+                          <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                           AI | User
                           </span>
                          </div>
                           <div className="space-x-2 flex">
