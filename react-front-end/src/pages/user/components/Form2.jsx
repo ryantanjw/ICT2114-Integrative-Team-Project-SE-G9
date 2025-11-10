@@ -2706,16 +2706,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                   updateHazard(proc.id, act.id, h.id, "newInjury", e.target.value)
                                 }
                                 onKeyPress={e => handleInjuryKeyPress(e, proc.id, act.id, h.id)}
+                                onBlur={() => handleConfirmNewInjury(proc.id, act.id, h.id)}
                                 placeholder="Enter New Injury"
                                 className="flex-1 border border-gray-300 rounded px-3 py-2"
                               />
-                              <button
+                              {/* <button
                                 type="button"
                                 onClick={() => handleConfirmNewInjury(proc.id, act.id, h.id)}
                                 className="bg-[#7F3F00] text-white rounded-full w-8 h-8 flex items-center justify-center"
                               >
                                 <MdCheck />
-                              </button>
+                              </button> */}
                             </div>
                           )}
                         </div>
