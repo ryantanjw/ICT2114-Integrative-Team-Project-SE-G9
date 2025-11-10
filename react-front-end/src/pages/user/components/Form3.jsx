@@ -448,6 +448,87 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
   };
 
+  // Temporary save handler without validation
+  const handleTempSave = async () => {
+    console.log("handleTempSave was clicked");
+    try {
+      setIsLoading(true);
+
+      // Prepare form data without validation
+      const formData = {
+        title,
+        location,
+        division: division,
+        form_reference_number: referenceNumber,
+        last_review_date: lastReviewDate,
+        next_review_date: nextReviewDate,
+        raLeader,
+        raTeam: raTeam.filter(member => member.trim() !== ""),
+        approvedBy,
+        signature,
+        designation
+      };
+
+      console.log("Temporary save formData:", formData);
+
+      // Only include form_id if it exists
+      if (formId) {
+        formData.form_id = formId;
+      }
+
+      // Call /form3_temp endpoint
+      const response = await fetch('/api/user/form3_temp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Form temporarily saved successfully:", result);
+
+        // Update formId if it was created
+        if ((result.action === 'temp_created' || result.action === 'temp_updated') && result.form_id) {
+          setFormId(result.form_id);
+        }
+
+        // Update parent component if needed
+        if (updateFormData) {
+          updateFormData({
+            ...formData,
+            form_id: result.form_id
+          });
+        }
+
+        toast.success("Form temporarily saved without validation", {
+          duration: 3000,
+          id: "form-temp-save-success"
+        });
+
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error("Error temporarily saving form:", errorData);
+        toast.error(errorData.error || "Failed to temporarily save form", {
+          duration: 4000,
+          id: "form-temp-save-error"
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error("Error temporarily saving form:", error);
+      toast.error("An error occurred while temporarily saving the form. Please try again.", {
+        duration: 4000,
+        id: "form-temp-network-error"
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   // Update the ref to properly expose save and validation methods
   useEffect(() => {
@@ -547,6 +628,9 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             return null;
           }
         },
+        tempSaveForm: async () => {
+          return handleTempSave();
+        },
         validate: () => {
           // Validate form fields
           const validationErrors = validateForm();
@@ -579,7 +663,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   }, [
     ref, formId, title, division, location, referenceNumber,
     lastReviewDate, nextReviewDate, raLeader, raTeam,
-    approvedBy, signature, designation, validateForm, handleSave
+    approvedBy, signature, designation, validateForm, handleSave, handleTempSave
   ]);
 
   return (

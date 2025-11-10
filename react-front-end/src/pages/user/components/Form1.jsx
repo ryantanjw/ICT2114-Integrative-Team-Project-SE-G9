@@ -409,6 +409,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
     saveForm: handleSave,
+    tempSaveForm: handleTempSave,
     validateForm: () => {
       // Validate required fields
       if (!title.trim()) return { valid: false, message: 'Title is required' };
@@ -918,6 +919,162 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
       }
     }
   };
+
+  // Temporary save function without validation
+  const handleTempSave = async () => {
+    if (isLoading) return false;
+
+    setIsLoading(true);
+    const currentFormId = formIdRef.current;
+
+    console.log("Form1 temporary save data:", { formId: currentFormId, title, division, processes });
+
+    try {
+      // Step 1: Save form data (no validation)
+      const requestBody = {
+        title,
+        division,
+        userId: sessionData?.user_id,
+        form_id: currentFormId
+      };
+
+      console.log('Form1 temporary save for form ID:', currentFormId);
+
+      const response = await fetch('/api/user/form1_temp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Temporary save failed: ${response.statusText}`);
+      }
+
+      const formResult = await response.json();
+      console.log('Form1 temporary save success:', formResult);
+
+      const formId = formResult.form_id;
+
+      // Step 2: Save processes using /process_temp (no validation)
+      if (processes && processes.length > 0) {
+        console.log('Saving processes (temp) for form ID:', formId);
+
+        const savedProcesses = [];
+
+        for (let i = 0; i < processes.length; i++) {
+          const process = processes[i];
+
+          const processRequestBody = {
+            process_form_id: formId,
+            process_number: process.processNumber || (i + 1),
+            process_title: process.header || '',
+            process_location: process.location || '',
+            ...(process.process_id && { process_id: process.process_id })
+          };
+
+          console.log(`Saving process (temp) ${i + 1}:`, processRequestBody);
+
+          try {
+            const processResponse = await fetch('/api/user/process_temp', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(processRequestBody)
+            });
+
+            if (!processResponse.ok) {
+              const errorData = await processResponse.json();
+              console.error(`Process temp save failed for process ${i + 1}:`, errorData);
+              savedProcesses.push(process); // Keep original process data
+              continue; // Continue with next process even if one fails
+            }
+
+            const processResult = await processResponse.json();
+            console.log(`Process (temp) ${i + 1} saved:`, processResult);
+
+            const processId = processResult.process_id;
+
+            // Step 3: Save activities using /activity_temp (no validation)
+            const savedActivities = [];
+            
+            if (process.activities && process.activities.length > 0) {
+              console.log('Saving activities (temp) for process ID:', processId);
+
+              for (let j = 0; j < process.activities.length; j++) {
+                const activity = process.activities[j];
+                const activityRequestBody = {
+                  activity_process_id: processId,
+                  activity_number: j + 1,
+                  work_activity: activity.description || '',
+                  activity_remarks: activity.remarks || '',
+                  ...(activity.activity_id && { activity_id: activity.activity_id })
+                };
+
+                console.log(`Saving activity (temp) ${j + 1} for process ${i + 1}:`, activityRequestBody);
+
+                const activityResponse = await fetch('/api/user/activity_temp', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(activityRequestBody)
+                });
+
+                if (!activityResponse.ok) {
+                  const errorData = await activityResponse.json();
+                  console.error(`Activity temp save failed for activity ${j + 1}:`, errorData);
+                  savedActivities.push(activity); // Keep original activity data
+                  continue; // Continue with next activity even if one fails
+                }
+
+                const activityResult = await activityResponse.json();
+                console.log(`Activity (temp) ${j + 1} for process ${i + 1} saved:`, activityResult);
+                
+                // Update activity with saved ID
+                savedActivities.push({ 
+                  ...activity, 
+                  activity_id: activityResult.activity_id 
+                });
+              }
+            }
+            
+            // Update process with saved ID and activities
+            savedProcesses.push({ 
+              ...process, 
+              process_id: processId,
+              activities: savedActivities
+            });
+
+          } catch (processError) {
+            console.error(`Error saving process (temp) ${i + 1}:`, processError);
+            savedProcesses.push(process); // Keep original process data
+            // Continue with other processes even if one fails
+          }
+        }
+        
+        // Update the processes state with the saved IDs
+        if (savedProcesses.length > 0) {
+          console.log('Updating processes state with saved IDs:', savedProcesses);
+          setProcesses(savedProcesses);
+        }
+      }
+
+      showSuccessMessage('Form temporarily saved without validation');
+      setIsLoading(false);
+      return true;
+
+    } catch (error) {
+      console.error('Error during temporary save:', error);
+      setIsLoading(false);
+      showErrorMessage(`Temporary save failed: ${error.message}`);
+      return false;
+    }
+  };
+
   const updateProcessesWithSavedIds = (savedProcesses) => {
     const updatedProcesses = processes.map((proc, index) => {
       const savedProcess = savedProcesses[index];

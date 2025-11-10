@@ -1,5 +1,5 @@
 import { IoArrowBack, IoArrowForward } from "react-icons/io5";
-import { MdSave } from "react-icons/md";
+import { MdSave, MdSaveAs } from "react-icons/md";
 import StickyBottomNav from "../../components/StickyBottomNav.jsx";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Header from "../../components/Header.jsx";
@@ -523,6 +523,36 @@ export default function UserNewForm() {
   const handleSaveClick = async () => {
     setIsSaveDialogOpen(true);
   };
+
+  // Temporary save handler for current tab (no validation)
+  const handleTempSaveClick = async () => {
+    console.log("Temporary Save clicked for tab:", currentTab);
+
+    try {
+      let saveSuccess = false;
+
+      if (currentTab === 0 && form3Ref.current) {
+        console.log("Calling tempSaveForm on form3Ref");
+        saveSuccess = await form3Ref.current.tempSaveForm();
+      } else if (currentTab === 1 && form1Ref.current) {
+        console.log("Calling tempSaveForm on form1Ref");
+        saveSuccess = await form1Ref.current.tempSaveForm();
+      } else if (currentTab === 2 && form2Ref.current) {
+        console.log("Calling tempSaveForm on form2Ref");
+        saveSuccess = await form2Ref.current.tempSaveForm();
+      }
+
+      if (saveSuccess) {
+        console.log("Temporary save completed successfully");
+      } else {
+        console.log("Temporary save failed");
+      }
+    } catch (error) {
+      console.error("Error during temporary save:", error);
+      toast.error("An error occurred during temporary save");
+    }
+  };
+
   //   console.log("Calling form3Ref.current.saveForm()");
   //   if (currentTab === 0 && form3Ref.current) {
   //     await form3Ref.current.saveForm();
@@ -816,7 +846,12 @@ export default function UserNewForm() {
           }
         ]}
         buttonsRight={
-          currentTab !== 3 ? [  
+          currentTab !== 3 ? [
+            {
+              text: "Temp Save",
+              onClick: handleTempSaveClick,
+              icon: MdSaveAs
+            },
             {
               text: "Save",
               onClick: handleSaveClick,

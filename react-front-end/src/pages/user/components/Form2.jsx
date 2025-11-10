@@ -1171,6 +1171,16 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Call the save handler (which will trigger parent update after successful save)
       return handleSave();
     },
+    tempSaveForm: async () => {
+      // Cancel any pending updates
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+
+      // Call the temporary save handler
+      return handleTempSave();
+    },
     validateForm: () => {
       return validateForm();
     },
@@ -1883,6 +1893,116 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       return false; // Indicate failure
     }
   };
+
+  // Temporary save handler without validation
+  const handleTempSave = async () => {
+    if (isLoading) return false;
+
+    setIsLoading(true);
+    const currentFormId = formIdRef.current;
+
+    console.log("Form2 temporary save data:", { formId: currentFormId, title, division, processes: raProcesses });
+
+    try {
+      const requestBody = {
+        title,
+        division,
+        processes: raProcesses.map(proc => ({
+          ...proc,
+          activities: proc.activities.map(act => ({
+            ...act,
+            hazards: act.hazards.map(h => {
+              // Format existing risk controls
+              let formattedExistingControls = "";
+              if (h.riskControls && h.riskControls.length > 0) {
+                formattedExistingControls = h.riskControls
+                  .map((rc) => {
+                    const text = rc.existingControls?.trim();
+                    if (!text) return null;
+                    const typeObj = riskcontrolTypesList.find(type => type.value === rc.riskControlType);
+                    const typeText = typeObj ? typeObj.display : rc.riskControlType || "";
+                    return typeText ? `${typeText} - ${text}` : text;
+                  })
+                  .filter(Boolean)
+                  .join("&&");
+              } else if (h.existingControls && h.existingControls.trim()) {
+                formattedExistingControls = h.existingControls.trim();
+              }
+
+              // Format additional risk controls
+              let formattedAdditionalControls = "";
+              if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
+                formattedAdditionalControls = h.additionalRiskControls
+                  .map((ac) => {
+                    const text = ac.controlText?.trim();
+                    if (!text) return null;
+                    const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
+                    const typeText = typeObj ? typeObj.display : ac.controlType || "";
+                    return typeText ? `${typeText} - ${text}` : text;
+                  })
+                  .filter(Boolean)
+                  .join("&&");
+              } else if (h.additionalControls && h.additionalControls.trim()) {
+                formattedAdditionalControls = h.additionalControls.trim();
+              }
+
+              return {
+                id: h.id,
+                hazard_id: h.hazard_id,
+                description: h.description,
+                type: h.type,
+                injuries: h.injuries,
+                existingControls: formattedExistingControls,
+                additionalControls: formattedAdditionalControls,
+                severity: h.severity ?? 0,
+                likelihood: h.likelihood ?? 0,
+                rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
+                newSeverity: h.severity ?? 0,
+                newLikelihood: h.newLikelihood ?? 0,
+                newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
+                dueDate: h.dueDate || "",
+                implementationPerson: h.implementationPerson || "",
+                additionalControlType: h.additionalControlType || "",
+                ai: h.ai || null
+              };
+            })
+          }))
+        })),
+        userId: sessionData?.user_id,
+        form_id: currentFormId
+      };
+
+      console.log('Form2 temporary save - Sending request body:', requestBody);
+
+      const response = await fetch('/api/user/form2_temp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Form2 temporary save success:', result);
+        toast.success("Form temporarily saved without validation");
+        setIsLoading(false);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.log('Error:', errorData);
+        toast.error("Failed to temporarily save form. Please try again.");
+        setIsLoading(false);
+        return false;
+      }
+    } catch (error) {
+      console.log('Network Error:', error);
+      toast.error("Network error during temporary save");
+      setIsLoading(false);
+      return false;
+    }
+  };
+
   // Determine dropdown background based on value
   const getDropdownColor = (key, value) => {
     // For unselected values (0), use gray
