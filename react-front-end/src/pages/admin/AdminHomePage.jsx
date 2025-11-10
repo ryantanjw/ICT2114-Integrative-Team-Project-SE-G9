@@ -9,6 +9,7 @@ import axios from "axios";
 import RegisterForm from "./components/RegisterForm.jsx";
 import CTAButton from "../../components/CTAButton.jsx";
 import { FaPlus } from "react-icons/fa";
+import { MdNoteAdd } from "react-icons/md";
 import FormCardA2 from "../../components/FormCardA2.jsx";
 import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
@@ -288,15 +289,21 @@ export default function AdminHome() {
           Available Actions (Admin)
         </h3>
 
-      <AlertModal
-        isOpen={showHazardAlert}
-        onClose={() => setShowHazardAlert(false)}
-        onConfirm={() => {
-          setShowHazardAlert(false);
-          navigate("/admin/db");
-        }}
-      />
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 mt-6">
+        <AlertModal
+          isOpen={showHazardAlert}
+          onClose={() => setShowHazardAlert(false)}
+          onConfirm={() => {
+            setShowHazardAlert(false);
+            navigate("/admin/db");
+          }}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-6 mt-6">
+          <ActionCard
+            header="Create New Form"
+            subtext="Submit risk assessment for potential hazards"
+            onStart={() => navigate("/user/new")}
+            icon={<MdNoteAdd className="text-3xl" />}
+          />
           <ActionCard
             header="Account Enrolment"
             subtext="Grant new personnel access to risk assessments"
