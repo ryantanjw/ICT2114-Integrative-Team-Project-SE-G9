@@ -1679,6 +1679,18 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             
             if (hazard.newLikelihood === 0) missingFields.push('New Likelihood (After Controls)');
             if (!hazard.dueDate) missingFields.push('Due Date');
+            
+            // Check if due date is in the past
+            if (hazard.dueDate) {
+              const selectedDate = new Date(hazard.dueDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+              
+              if (selectedDate < today) {
+                missingFields.push('Due Date cannot be in the past');
+              }
+            }
+            
             if (!hazard.implementationPerson.trim()) missingFields.push('Implementation Person');
 
             // Ensure that new RPN is less than 15 after additional controls
@@ -1882,13 +1894,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         setIsLoading(false);
         return true; // Indicate success
       } else {
-        console.log('Error:', response.statusText);
-        toast.error("Failed to save form. Please try again.");
+        // Get error message from response
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || response.statusText || "Failed to save form";
+        console.log('Error:', errorMessage);
+        toast.error(errorMessage);
         setIsLoading(false);
         return false; // Indicate failure
       }
     } catch (error) {
       console.log('Network Error:', error);
+      toast.error(`Network error: ${error.message || "Failed to save form. Please try again."}`);
       setIsLoading(false);
       return false; // Indicate failure
     }
@@ -1989,15 +2005,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         setIsLoading(false);
         return true;
       } else {
-        const errorData = await response.json();
-        console.log('Error:', errorData);
-        toast.error("Failed to temporarily save form. Please try again.");
+        // Get error message from response
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || response.statusText || "Failed to temporarily save form";
+        console.log('Error:', errorMessage);
+        toast.error(errorMessage);
         setIsLoading(false);
         return false;
       }
     } catch (error) {
       console.log('Network Error:', error);
-      toast.error("Network error during temporary save");
+      toast.error(`Network error: ${error.message || "Failed to temporarily save form. Please try again."}`);
       setIsLoading(false);
       return false;
     }

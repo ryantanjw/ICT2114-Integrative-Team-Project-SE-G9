@@ -1102,9 +1102,15 @@ def form2_temp_save():
                     due_date = haz_data.get('dueDate')
                     if due_date:
                         try:
-                            hazard.hazard_due_date = datetime.fromisoformat(due_date)
+                            due_date_obj = datetime.fromisoformat(due_date)
+                            # Validate that due date is not in the past (even for temp save)
+                            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                            if due_date_obj < today:
+                                return jsonify({"error": "Due date cannot be in the past"}), 400
+                            hazard.hazard_due_date = due_date_obj
                         except ValueError:
                             print(f"Invalid due date format: {due_date}")
+                            return jsonify({"error": f"Invalid due date format: {due_date}"}), 400
                     
                     db.session.flush()
                     updated_hazard_ids.append(hazard.hazard_id)
@@ -1588,9 +1594,15 @@ def form2_save():
                     due_date = haz_data.get('dueDate')
                     if due_date:
                         try:
-                            hazard.hazard_due_date = datetime.fromisoformat(due_date)
+                            due_date_obj = datetime.fromisoformat(due_date)
+                            # Validate that due date is not in the past
+                            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                            if due_date_obj < today:
+                                return jsonify({"error": "Due date cannot be in the past"}), 400
+                            hazard.hazard_due_date = due_date_obj
                         except ValueError:
                             print(f"Invalid due date format: {due_date}")
+                            return jsonify({"error": f"Invalid due date format: {due_date}"}), 400
                     
                     db.session.flush()
                 
