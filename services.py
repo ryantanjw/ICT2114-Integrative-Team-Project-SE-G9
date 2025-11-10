@@ -93,9 +93,9 @@ class DocxTemplateGenerator:
         """Format comma-separated injuries as a) b) c) list"""
         if not injury_text:
             return ''
-        
-        # Split by comma and clean up each injury
-        injuries = [injury.strip() for injury in injury_text.split(',') if injury.strip()]
+
+        # Split by && and clean up each injury
+        injuries = [injury.strip() for injury in injury_text.split('&&') if injury.strip()]
         
         # If only one injury, return as is
         if len(injuries) <= 1:
@@ -108,6 +108,48 @@ class DocxTemplateGenerator:
             formatted_injuries.append(f"{letter}) {injury}")
         
         return '\n'.join(formatted_injuries)
+    
+    def _format_existing_controls(self, controls_text: str) -> str:
+        """Format comma-separated existing controls as a) b) c) list"""
+        if not controls_text:
+            return ''
+
+        # Split by && and clean up each control
+        controls = [control.strip() for control in controls_text.split('&&') if control.strip()]
+        
+        # If only one control, return as is
+        if len(controls) <= 1:
+            return controls_text
+        
+        # Format as a) b) c) list
+        formatted_controls = []
+        for i, control in enumerate(controls):
+            letter = chr(ord('a') + i)  # Convert 0->a, 1->b, 2->c, etc.
+            formatted_controls.append(f"{letter}) {control}")
+        
+        return '\n'.join(formatted_controls)
+
+    def _format_additional_controls(self, controls_text: str) -> str:
+        """Format comma-separated additional controls as a) b) c) list"""
+        if not controls_text:
+            return ''
+
+        # Split by && and clean up each control
+        controls = [control.strip() for control in controls_text.split('&&') if control.strip()]
+        
+        # If only one control, return as is
+        if len(controls) <= 1:
+            return controls_text
+        
+        # Format as a) b) c) list
+        formatted_controls = []
+        for i, control in enumerate(controls):
+            letter = chr(ord('a') + i)  # Convert 0->a, 1->b, 2->c, etc.
+            formatted_controls.append(f"{letter}) {control}")
+        
+        return '\n'.join(formatted_controls)
+
+
 
     def _transform_form_data(self, form_data: dict, assessment_id: str) -> dict:
         """Transform form data into the expected assessment data structure"""
@@ -188,11 +230,11 @@ class DocxTemplateGenerator:
                         'activity': activity.get('work_activity', ''),
                         'hazard': hazard.get('hazard', ''),
                         'possible_injury': self._format_possible_injuries(hazard.get('injury', '')),
-                        'existing_controls': hazard.get('existing_controls', ''),
+                        'existing_controls': self._format_existing_controls(hazard.get('existing_controls', '')),
                         's1': str(hazard.get('severity', '')),
                         'l1': str(hazard.get('likelihood', '')),
                         'rpn1': str(hazard.get('rpn', '')),
-                        'additional_controls': hazard.get('additional_controls', ''),
+                        'additional_controls': self._format_additional_controls(hazard.get('additional_controls', '')),
                         's2': str(hazard.get('newSeverity') or hazard.get('newseverity', '')),
                         'l2': str(hazard.get('newLikelihood') or hazard.get('newlikelihood', '')),
                         'rpn2': str(hazard.get('newRPN') or hazard.get('newrpn', '')),
