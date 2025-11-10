@@ -21,15 +21,47 @@ export default function ResetUserPasswordForm({ isOpen, user, onClose, onPasswor
     }, [isOpen]);
 
     const generateRandomPassword = () => {
-        // Generate a random password with letters, numbers, and special characters
-        const length = 12;
-        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_-+=";
+        // Generate a random password that meets all requirements:
+        // - At least 10 characters
+        // - At least 1 symbol
+        // - At least 2 uppercase letters
+        // - At least 3 lowercase letters
+        // - At least 4 numbers
+        
+        const symbols = "!@#$%^&*()_-+=";
+        const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const lowercase = "abcdefghijklmnopqrstuvwxyz";
+        const numbers = "0123456789";
+        
+        // Ensure minimum requirements are met
         let newPassword = "";
         
-        for (let i = 0; i < length; i++) {
-            const randomIndex = Math.floor(Math.random() * charset.length);
-            newPassword += charset[randomIndex];
+        // Add 1 symbol
+        newPassword += symbols[Math.floor(Math.random() * symbols.length)];
+        
+        // Add 2 uppercase letters
+        for (let i = 0; i < 2; i++) {
+            newPassword += uppercase[Math.floor(Math.random() * uppercase.length)];
         }
+        
+        // Add 3 lowercase letters
+        for (let i = 0; i < 3; i++) {
+            newPassword += lowercase[Math.floor(Math.random() * lowercase.length)];
+        }
+        
+        // Add 4 numbers
+        for (let i = 0; i < 4; i++) {
+            newPassword += numbers[Math.floor(Math.random() * numbers.length)];
+        }
+        
+        // Add 2 more random characters to reach at least 12 characters total
+        const allChars = symbols + uppercase + lowercase + numbers;
+        for (let i = 0; i < 2; i++) {
+            newPassword += allChars[Math.floor(Math.random() * allChars.length)];
+        }
+        
+        // Shuffle the password to make it more random
+        newPassword = newPassword.split('').sort(() => Math.random() - 0.5).join('');
         
         setPassword(newPassword);
     };
