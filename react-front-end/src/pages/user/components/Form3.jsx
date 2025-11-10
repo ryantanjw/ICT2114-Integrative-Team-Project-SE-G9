@@ -601,10 +601,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             onChange={(e) => setDivision(e.target.value)}
             type="select"
             options={[
-              { value: "", label: "Select Division" },
+              { value: "", label: divisionsLoading ? "Loading..." : "Select Division" },
               ...divisions
             ]}
             disabled={divisionsLoading}
+            keepWhiteWhenDisabled={true}
           />
         </div>
         <InputGroup

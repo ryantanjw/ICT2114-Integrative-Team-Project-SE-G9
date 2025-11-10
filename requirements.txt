@@ -10,7 +10,7 @@ itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.2
 msgspec==0.19.0
-mysql-connector==2.2.9
+mysql-connector-python==8.0.33
 numpy==1.26.4
 openai==1.93.0
 python-dotenv==1.1.0

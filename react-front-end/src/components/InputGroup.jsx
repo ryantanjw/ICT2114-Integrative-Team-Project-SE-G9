@@ -12,6 +12,7 @@ export default function InputGroup({
   className = "",
   options = [],
   error = "",
+  keepWhiteWhenDisabled = false,  // new prop to keep background white when disabled
   ...rest
 }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -44,7 +45,11 @@ export default function InputGroup({
           id={id}
           value={value}
           onChange={onChange}
-          className="block w-full px-4 py-2 text-gray-700 bg-[#F7F7F7] border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
+          className={`block w-full px-4 py-2 border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40 ${
+            rest.disabled && !keepWhiteWhenDisabled
+              ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
+              : 'bg-white text-gray-700'
+          }`}
           {...rest}
         >
           {options.map(option => (
@@ -61,7 +66,11 @@ export default function InputGroup({
             placeholder={placeholder}
             value={value}
             onChange={onChange}
-            className="block w-full pr-10 px-4 py-2 text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
+            className={`block w-full pr-10 px-4 py-2 placeholder-gray-400 border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40 ${
+              rest.disabled 
+                ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
+                : 'bg-white text-gray-700'
+            }`}
             {...rest}
           />
           <span
@@ -80,7 +89,11 @@ export default function InputGroup({
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          className="block w-full px-4 py-2 text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40"
+          className={`block w-full px-4 py-2 placeholder-gray-400 border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 focus:outline-none focus:ring focus:ring-opacity-40 ${
+            rest.disabled 
+              ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
+              : 'bg-white text-gray-700'
+          }`}
           {...rest}
         />
       )}

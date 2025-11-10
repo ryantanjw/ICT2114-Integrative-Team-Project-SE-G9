@@ -1378,19 +1378,19 @@ def form3_save():
                 ra_team.RA_leader = current_user.user_id
         
         # Now that we have a valid RA team with a leader, handle team members
-            if ra_team_members:
-                # Remove existing team members
-                RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
-                
-                # Add new team members (save as names)
-                for member_name in ra_team_members:
-                    if member_name.strip():
-                        team_member = RA_team_member(
-                            RA_team_id=ra_team.RA_team_id,
-                            RA_team_member=None,  # Not linking to user_id
-                            RA_team_member_name=member_name.strip()
-                        )
-                        db.session.add(team_member)
+        if ra_team_members:
+            # Remove existing team members
+            RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
+            
+            # Add new team members (save as names)
+            for member_name in ra_team_members:
+                if member_name.strip():
+                    team_member = RA_team_member(
+                        RA_team_id=ra_team.RA_team_id,
+                        RA_team_member=None,  # Not linking to user_id
+                        RA_team_member_name=member_name.strip()
+                    )
+                    db.session.add(team_member)
         
         # Handle approval information
         if 'approvedBy' in data and data.get('approvedBy'):
