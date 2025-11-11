@@ -84,6 +84,8 @@ class Hazard(db.Model):
     approval = db.Column(db.Integer, nullable=True)  # 0 for no approval, 1 for approval required
     hazard_implementation_person = db.Column(db.String(255), nullable=False)
     hazard_due_date = db.Column(db.DateTime, nullable=True)
+    # ai column added to mirror DB change; using String for permissive storage
+    ai = db.Column(db.String(100), nullable=True)
     
 class HazardType(db.Model):
     __tablename__ = 'hazard_type'

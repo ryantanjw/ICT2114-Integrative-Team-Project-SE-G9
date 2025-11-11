@@ -13,9 +13,13 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 kb_path = os.path.join(base_dir, "kb.txt")
 kb_hazard_path = os.path.join(base_dir, "kbhazard.txt")
 kb_titleprocess_path = os.path.join(base_dir, "kbtitleprocess.txt")
+kb_control_path = os.path.join(base_dir, "kbcontrol.txt")
+kb_injury_path = os.path.join(base_dir, "kbinjury.txt")
 embedding_cache_path = os.path.join(base_dir, "kb_embeddings.npy")
 embedding_hazard_cache_path = os.path.join(base_dir, "kbhazard_embeddings.npy")
 embedding_titleprocess_cache_path = os.path.join(base_dir, "kbtitleprocess_embeddings.npy")
+embedding_control_cache_path = os.path.join(base_dir, "kbcontrol_embeddings.npy")
+embedding_injury_cache_path = os.path.join(base_dir, "kbinjury_embeddings.npy")
 
 # load existing data from file
 def load_knowledge_base_from_file(filepath):
@@ -77,6 +81,7 @@ def generate_answer(user_input, context):
             Severity Score:
             Likelihood Score:
             RPN:
+            
 
             Take note for hazard types just give the type of hazard, no need explanation or examples.
             Take note for the severity score and likelihood score, its between 1 to 5, where 1 is the lowest and 5 is the highest.
@@ -84,6 +89,7 @@ def generate_answer(user_input, context):
             Take note for the risk control type, it can be one type.
 
             Important: Take note for the hazard type, please only provide one from the following: Physical, Chemical, Biological, Mechanical and Electrical.
+            Important: Take note for the risk control type, please only provide one from the following: Elimination, Substitution, Engineering Controls, Administrative Controls, Personal Protective Equipment (PPE).
 
             For example:
             Hazard Type: Physical
@@ -117,6 +123,7 @@ def parse_multiple_risk_assessments(response_text):
 
         hazard_description = re.search(r"Hazard Description:\s*(.*)", block)
         injuries = re.search(r"Possible Injuries:\s*(.*)", block)
+        risk_control_type = re.search(r"Risk Control Type:\s*(.*)", block)
         risk_control = re.search(r"Risk Controls:\s*(.*)", block)
         severity = re.search(r"Severity Score:\s*(\d+)", block)
         likelihood = re.search(r"Likelihood Score:\s*(\d+)", block)
@@ -126,11 +133,12 @@ def parse_multiple_risk_assessments(response_text):
             "type": [t.strip() for t in hazard_type.split(",")],
             "description": hazard_description.group(1).strip() if hazard_description else None,
             "injuries": [injuries.group(1).strip()] if injuries else [],
-            "risk_type": risk_control.group(1).strip() if risk_control else None,
+            "risk_type": risk_control_type.group(1).strip() if risk_control_type else None,
             "existingControls": risk_control.group(1).strip() if risk_control else None,
             "severity": int(severity.group(1)) if severity else None,
             "likelihood": int(likelihood.group(1)) if likelihood else None,
             "rpn": int(rpn.group(1)) if rpn else None,
+            "from": "AI" # for the summary purpose
         })
 
     return parsed
@@ -167,7 +175,8 @@ def ai_function(activity):
             "existingControls": row.control,
             "severity": row.severity,
             "likelihood": row.likelihood,
-            "rpn": row.rpn
+            "rpn": row.rpn,
+            "from": "Database" # for the summary purpose
             }
             for row in hazard_rows
         ]
@@ -226,6 +235,26 @@ def reembed_kbtitleprocess():
 
     return True
 
+def reembed_kbcontrol():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_control_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_control_cache_path, kb_embeddings)
+
+    return True
+
+def reembed_kbinjury():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_injury_path)
+
+    print("Reembedding knowledge base...")
+    kb_embeddings = get_embeddings_batched(knowledge_base)
+    save_embeddings(embedding_injury_cache_path, kb_embeddings)
+
+    return True
+
 
 
 def load_hazard_kb_and_embeddings():
@@ -242,11 +271,55 @@ def load_hazard_kb_and_embeddings():
 
     return knowledge_base, kb_embeddings
 
+def load_control_kb_and_embeddings():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_control_path)
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_control_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_control_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_control_cache_path, kb_embeddings)
+
+    return knowledge_base, kb_embeddings
+
+def load_activity_kb_and_embeddings():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_path)
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_cache_path, kb_embeddings)
+
+    return knowledge_base, kb_embeddings
+
+def load_injury_kb_and_embeddings():
+    # Load KB
+    knowledge_base = load_knowledge_base_from_file(kb_injury_path)
+    # Precompute or load cached embeddings
+    if os.path.exists(embedding_injury_cache_path):
+        print("Loading cached embeddings...")
+        kb_embeddings = load_embeddings(embedding_injury_cache_path)
+    else:
+        print("Generating and caching embeddings using batch processing...")
+        kb_embeddings = get_embeddings_batched(knowledge_base)
+        save_embeddings(embedding_injury_cache_path, kb_embeddings)
+
+    return knowledge_base, kb_embeddings
+
+# db page gold mine
 def get_hazard_match(activity, knowledge_base, kb_embeddings):
     top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
     context_text, similarity = top_matches[0]
     print (f"activity: {activity}, similarity: {similarity}")
-    return similarity <= 0.35
+    # return similarity <= 0.35
+    return similarity <= 0.85
 
 def generate_ai_work_activities(title, processName, db_result):
     user_prompt = (

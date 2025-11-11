@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { IoIosWarning } from "react-icons/io";
 import { toast } from "react-hot-toast";
 import { HiSparkles } from "react-icons/hi";
+import { saveFormData, loadFormData, clearFormData } from "../../../utils/cookieUtils.js";
 import { FaLocationDot } from "react-icons/fa6";
 
 const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
@@ -29,9 +30,23 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const [formId, setFormId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [tempDataLoaded, setTempDataLoaded] = useState(false); // Track if temp data has been checked
   const [currentUserName, setCurrentUserName] = useState("");
   const [currentUserDesignation, setCurrentUserDesignation] = useState("");
   const [lastSaveTime, setLastSaveTime] = useState(0); // Track when we last saved
+
+  // Early trigger to load temp data when formId becomes available from props
+  useEffect(() => {
+    console.log('🍪 Form2: Early trigger useEffect - formData?.form_id:', formData?.form_id, 'current formId:', formId);
+    if (formData?.form_id && formData.form_id !== formId) {
+      console.log('🍪 Form2: FormId changed from props:', formData.form_id);
+      setFormId(formData.form_id);
+      updateFormId(formData.form_id);
+      
+      // Reset temp data loaded to trigger re-check
+      setTempDataLoaded(false);
+    }
+  }, [formData?.form_id, formId]);
 
   // For warning dialog on hazard removal
   const [warningOpen, setWarningOpen] = useState(false);
@@ -122,10 +137,88 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Helper function to update both state and ref
   const updateFormId = (id) => {
-    console.log('Updating formId to:', id);
+    console.log('🍪 Form2: Updating formId to:', id);
     setFormId(id);
     formIdRef.current = id; // This is immediately available
   };
+
+  // Auto-save form data to cookies whenever form state changes
+  const saveFormDataToTempStorage = useCallback(() => {
+    if (formId && dataLoaded && tempDataLoaded && raProcesses.length > 0) {
+      const currentFormData = {
+        title,
+        division,
+        processes: raProcesses
+      };
+      
+      console.log('🍪 Form2: Auto-saving Form2 data to cookies for formId:', formId, 'data:', {
+        title: currentFormData.title,
+        division: currentFormData.division,
+        processCount: currentFormData.processes.length,
+        hasHazards: currentFormData.processes.some(p => p.hazards && p.hazards.length > 0)
+      });
+      
+      saveFormData('form2', formId, currentFormData);
+      console.log('🍪 Form2: Form2 data auto-saved to cookies successfully');
+    } else {
+      console.log('🍪 Form2: Skipping auto-save - formId:', formId, 'dataLoaded:', dataLoaded, 'tempDataLoaded:', tempDataLoaded, 'raProcesses.length:', raProcesses.length);
+    }
+  }, [formId, title, division, raProcesses, dataLoaded, tempDataLoaded]);
+
+  // Load temporary form data from cookies
+  const loadTempFormData = useCallback(() => {
+    if (formId && !tempDataLoaded) {
+      console.log('🍪 Form2: Checking for temporary Form2 data in cookies for formId:', formId);
+      const tempData = loadFormData('form2', formId);
+      
+      if (tempData) {
+        console.log('🍪 Form2: Found temporary Form2 data, will be handled in main data loading');
+        // Don't restore here - let the main data loading handle it to avoid conflicts
+        
+        toast.success('Previous form data found - will be restored during data loading', {
+          duration: 3000,
+          icon: '🔄'
+        });
+      } else {
+        console.log('🍪 Form2: No temporary data found for formId:', formId);
+      }
+      
+      setTempDataLoaded(true);
+    } else {
+      console.log('🍪 Form2: Skipping temp data load - formId:', formId, 'tempDataLoaded:', tempDataLoaded);
+    }
+  }, [formId, tempDataLoaded]);
+
+  // Auto-save effect - save form data to cookies when state changes
+  useEffect(() => {
+    if (formId && dataLoaded && tempDataLoaded && raProcesses.length > 0) {
+      console.log('🍪 Form2: Auto-save effect triggered for formId:', formId, 'with dataLoaded:', dataLoaded, 'tempDataLoaded:', tempDataLoaded, 'raProcesses.length:', raProcesses.length);
+      // Small delay to prevent excessive saves during rapid state changes
+      const timeoutId = setTimeout(() => {
+        console.log('🍪 Form2: Executing auto-save after delay');
+        saveFormDataToTempStorage();
+      }, 500); // Reduced delay for faster saves
+
+      return () => {
+        console.log('🍪 Form2: Auto-save timeout cleared');
+        clearTimeout(timeoutId);
+      };
+    } else {
+      console.log('🍪 Form2: Auto-save effect skipped - formId:', formId, 'dataLoaded:', dataLoaded, 'tempDataLoaded:', tempDataLoaded, 'raProcesses.length:', raProcesses.length);
+    }
+  }, [formId, title, division, raProcesses, dataLoaded, tempDataLoaded]); // Also depend on tempDataLoaded
+
+  // Load temp data as soon as formId is available
+  useEffect(() => {
+    if (formId && !tempDataLoaded) {
+      // Small delay to let component stabilize
+      const timeoutId = setTimeout(() => {
+        loadTempFormData();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formId, loadTempFormData, tempDataLoaded]);
 
   // Updated initializeHazards function that parses formatted risk controls
   const initializeHazards = (hazards) => {
@@ -156,7 +249,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           existingControls: "",
           riskControlType: "",
           expanded: true
-        }]
+        }],
+        ai: null, // Default for manually created hazards
       }];
     }
 
@@ -174,26 +268,31 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         }
       }
 
-      // Parse existing risk controls (format: "a) risk control category - existing risk control")
+      // Parse existing risk controls (format: "risk control category1 - risk control1&&risk control category2 - risk control2")
       const parsedRiskControls = [];
       if (hazard.existingControls) {
-        // Only split on newlines to avoid cutting off valid data
-        const controlLines = hazard.existingControls.split(/\n/);
-
-        // If we have properly formatted controls
-        if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
-          console.log('Parsing formatted existing controls:', controlLines);
-
-          controlLines.forEach(line => {
-            const trimmedLine = line.trim();
-            if (trimmedLine) {
-              // Match the pattern: a) Category - Text
-              const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+        // First try to parse the new && delimited format (for multiple controls)
+        if (hazard.existingControls.includes('&&')) {
+          console.log('Parsing && delimited existing controls:', hazard.existingControls);
+          
+          const controlPairs = hazard.existingControls.split('&&');
+          controlPairs.forEach(pair => {
+            const trimmedPair = pair.trim();
+            if (trimmedPair) {
+              // Match the pattern: Category - Text
+              const match = trimmedPair.match(/^(.*?)\s*-\s*(.*)/);
               if (match) {
                 const [, category, controlText] = match;
+                const categoryTrimmed = category.trim();
+                
+                // Try to find matching risk control type (check both value and display)
+                const typeObj = riskcontrolTypesList.find(item => 
+                  item.value === categoryTrimmed || item.display === categoryTrimmed
+                );
+                
                 parsedRiskControls.push({
                   id: uuidv4(),
-                  riskControlType: category,
+                  riskControlType: typeObj ? typeObj.value : categoryTrimmed, // Use value if found, otherwise use raw text
                   existingControls: controlText.trim(),
                   expanded: true
                 });
@@ -202,20 +301,81 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 parsedRiskControls.push({
                   id: uuidv4(),
                   riskControlType: "",
-                  existingControls: trimmedLine.replace(/^[a-z]\)\s*/, ''),
+                  existingControls: trimmedPair,
                   expanded: true
                 });
               }
             }
           });
+        } else if (hazard.existingControls.match(/^[^a-z\)]*[A-Z].*?\s*-\s*.+/)) {
+          // Check if it's a single control in new format (Category - Text) without &&
+          console.log('Parsing single control in new format:', hazard.existingControls);
+          const match = hazard.existingControls.match(/^(.*?)\s*-\s*(.*)/);
+          if (match) {
+            const [, category, controlText] = match;
+            const categoryTrimmed = category.trim();
+            
+            // Try to find matching risk control type (check both value and display)
+            const typeObj = riskcontrolTypesList.find(item => 
+              item.value === categoryTrimmed || item.display === categoryTrimmed
+            );
+            
+            parsedRiskControls.push({
+              id: uuidv4(),
+              riskControlType: typeObj ? typeObj.value : categoryTrimmed, // Use value if found, otherwise use raw text
+              existingControls: controlText.trim(),
+              expanded: true
+            });
+          } else {
+            // Fallback to raw text
+            parsedRiskControls.push({
+              id: uuidv4(),
+              riskControlType: "",
+              existingControls: hazard.existingControls,
+              expanded: true
+            });
+          }
         } else {
-          // If no proper formatting, use the old format
-          parsedRiskControls.push({
-            id: uuidv4(),
-            existingControls: hazard.existingControls,
-            riskControlType: hazard.riskControlType || "",
-            expanded: true
-          });
+          // Try to parse the old alphabetical format for backward compatibility
+          const controlLines = hazard.existingControls.split(/\n/);
+
+          // If we have properly formatted controls with alphabetical prefixes
+          if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
+            console.log('Parsing formatted existing controls (legacy):', controlLines);
+
+            controlLines.forEach(line => {
+              const trimmedLine = line.trim();
+              if (trimmedLine) {
+                // Match the pattern: a) Category - Text
+                const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+                if (match) {
+                  const [, category, controlText] = match;
+                  parsedRiskControls.push({
+                    id: uuidv4(),
+                    riskControlType: category,
+                    existingControls: controlText.trim(),
+                    expanded: true
+                  });
+                } else {
+                  // If not matching expected format, just add as-is
+                  parsedRiskControls.push({
+                    id: uuidv4(),
+                    riskControlType: "",
+                    existingControls: trimmedLine.replace(/^[a-z]\)\s*/, ''),
+                    expanded: true
+                  });
+                }
+              }
+            });
+          } else {
+            // If no proper formatting, use as single control
+            parsedRiskControls.push({
+              id: uuidv4(),
+              existingControls: hazard.existingControls,
+              riskControlType: hazard.riskControlType || "",
+              expanded: true
+            });
+          }
         }
       }
 
@@ -229,26 +389,31 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         });
       }
 
-      // Parse additional risk controls (format: "a) risk control category - additional risk control")
+      // Parse additional risk controls (format: "risk control category1 - risk control1&&risk control category2 - risk control2")
       const parsedAdditionalRiskControls = [];
       if (hazard.additionalControls) {
-        // Only split on newlines to avoid cutting off valid data
-        const controlLines = hazard.additionalControls.split(/\n/);
-
-        // If we have properly formatted controls
-        if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
-          console.log('Parsing formatted additional controls:', controlLines);
-
-          controlLines.forEach(line => {
-            const trimmedLine = line.trim();
-            if (trimmedLine) {
-              // Match the pattern: a) Category - Text
-              const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+        // First try to parse the new && delimited format
+        if (hazard.additionalControls.includes('&&')) {
+          console.log('Parsing && delimited additional controls:', hazard.additionalControls);
+          
+          const controlPairs = hazard.additionalControls.split('&&');
+          controlPairs.forEach(pair => {
+            const trimmedPair = pair.trim();
+            if (trimmedPair) {
+              // Match the pattern: Category - Text
+              const match = trimmedPair.match(/^(.*?)\s*-\s*(.*)/);
               if (match) {
                 const [, category, controlText] = match;
+                const categoryTrimmed = category.trim();
+                
+                // Try to find matching risk control type (check both value and display)
+                const typeObj = riskcontrolTypesList.find(item => 
+                  item.value === categoryTrimmed || item.display === categoryTrimmed
+                );
+                
                 parsedAdditionalRiskControls.push({
                   id: uuidv4(),
-                  controlType: category,
+                  controlType: typeObj ? typeObj.value : categoryTrimmed, // Use value if found, otherwise use raw text
                   controlText: controlText.trim(),
                   expanded: true
                 });
@@ -257,20 +422,81 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 parsedAdditionalRiskControls.push({
                   id: uuidv4(),
                   controlType: "",
-                  controlText: trimmedLine.replace(/^[a-z]\)\s*/, ''), // Remove the prefix if present
+                  controlText: trimmedPair,
                   expanded: true
                 });
               }
             }
           });
+        } else if (hazard.additionalControls.match(/^[^a-z\)]*[A-Z].*?\s*-\s*.+/)) {
+          // Check if it's a single control in new format (Category - Text) without &&
+          console.log('Parsing single additional control in new format:', hazard.additionalControls);
+          const match = hazard.additionalControls.match(/^(.*?)\s*-\s*(.*)/);
+          if (match) {
+            const [, category, controlText] = match;
+            const categoryTrimmed = category.trim();
+            
+            // Try to find matching risk control type (check both value and display)
+            const typeObj = riskcontrolTypesList.find(item => 
+              item.value === categoryTrimmed || item.display === categoryTrimmed
+            );
+            
+            parsedAdditionalRiskControls.push({
+              id: uuidv4(),
+              controlType: typeObj ? typeObj.value : categoryTrimmed, // Use value if found, otherwise use raw text
+              controlText: controlText.trim(),
+              expanded: true
+            });
+          } else {
+            // Fallback to raw text
+            parsedAdditionalRiskControls.push({
+              id: uuidv4(),
+              controlType: "",
+              controlText: hazard.additionalControls,
+              expanded: true
+            });
+          }
         } else {
-          // If no proper formatting, use the old format
-          parsedAdditionalRiskControls.push({
-            id: uuidv4(),
-            controlText: hazard.additionalControls,
-            controlType: hazard.additionalControlType || "",
-            expanded: true
-          });
+          // Try to parse the old alphabetical format for backward compatibility
+          const controlLines = hazard.additionalControls.split(/\n/);
+
+          // If we have properly formatted controls with alphabetical prefixes
+          if (controlLines.length > 0 && /^[a-z]\)/.test(controlLines[0].trim())) {
+            console.log('Parsing formatted additional controls (legacy):', controlLines);
+
+            controlLines.forEach(line => {
+              const trimmedLine = line.trim();
+              if (trimmedLine) {
+                // Match the pattern: a) Category - Text
+                const match = trimmedLine.match(/^[a-z]\)\s*(.*?)\s*-\s*(.*)/);
+                if (match) {
+                  const [, category, controlText] = match;
+                  parsedAdditionalRiskControls.push({
+                    id: uuidv4(),
+                    controlType: category,
+                    controlText: controlText.trim(),
+                    expanded: true
+                  });
+                } else {
+                  // If not matching expected format, just add as-is
+                  parsedAdditionalRiskControls.push({
+                    id: uuidv4(),
+                    controlType: "",
+                    controlText: trimmedLine.replace(/^[a-z]\)\s*/, ''), // Remove the prefix if present
+                    expanded: true
+                  });
+                }
+              }
+            });
+          } else {
+            // If no proper formatting, use as single control
+            parsedAdditionalRiskControls.push({
+              id: uuidv4(),
+              controlText: hazard.additionalControls,
+              controlType: hazard.additionalControlType || "",
+              expanded: true
+            });
+          }
         }
       }
 
@@ -311,22 +537,22 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         type: Array.isArray(hazard.type) ? [...hazard.type] :
           (hazard.type ? [hazard.type] : []),
 
-        // Fix: Handle injuries field properly - split by comma if string, handle arrays
+        // Fix: Handle injuries field properly - split by && if string, handle arrays
         injuries: (() => {
           if (Array.isArray(hazard.injuries)) {
-            // If it's already an array, flatten and split any comma-separated strings
+            // If it's already an array, flatten and split any &&-separated strings
             return hazard.injuries.flatMap(injury =>
-              typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
+              typeof injury === 'string' ? injury.split('&&').map(i => i.trim()).filter(i => i) : [injury]
             );
           } else if (hazard.injury) {
-            // Handle single injury field (split by comma)
+            // Handle single injury field (split by &&)
             return typeof hazard.injury === 'string'
-              ? hazard.injury.split(',').map(i => i.trim()).filter(i => i)
+              ? hazard.injury.split('&&').map(i => i.trim()).filter(i => i)
               : [hazard.injury];
           } else if (hazard.injuries) {
-            // Handle injuries as string (split by comma)
+            // Handle injuries as string (split by &&)
             return typeof hazard.injuries === 'string'
-              ? hazard.injuries.split(',').map(i => i.trim()).filter(i => i)
+              ? hazard.injuries.split('&&').map(i => i.trim()).filter(i => i)
               : [hazard.injuries];
           }
           return [];
@@ -351,10 +577,19 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         showInjuryInput: false,
         // Collapse/expand flags
         additionalControlsExpanded: true,
+        // Show additional controls if there's existing data or if RPN >= 15
+        showAdditionalControls: (() => {
+          const hasExistingAdditionalData = parsedAdditionalRiskControls.some(control => 
+            control.controlText?.trim() || control.controlType?.trim()
+          ) || (hazard.additionalControls && hazard.additionalControls.trim());
+          
+          return hasExistingAdditionalData || ((hazard.severity ?? 0) * (hazard.likelihood ?? 0) >= 15);
+        })(),
         // Use the parsed risk controls
         riskControls: parsedRiskControls,
         // Use the parsed additional risk controls
-        additionalRiskControls: parsedAdditionalRiskControls
+        additionalRiskControls: parsedAdditionalRiskControls,
+        ai: hazard.ai || null // Preserve existing ai field or default to null
       };
     });
   };
@@ -513,7 +748,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       }
 
       // Process and initialize the processes with proper hazard structure
-      if (hazardData.processes && hazardData.processes.length > 0) {
+      // But first check if we have temp data that should be preserved
+      const tempData = loadFormData('form2', id);
+      const hasTempProcesses = tempData && tempData.processes && tempData.processes.length > 0;
+      
+      if (hasTempProcesses) {
+        console.log('🍪 Form2: Found temp data during API load, preserving temp processes:', tempData.processes.length);
+        // Use temp data instead of overwriting it
+        setRaProcesses(tempData.processes);
+      } else if (hazardData.processes && hazardData.processes.length > 0) {
         console.log("calling line 191:(");
         const processesWithHazards = hazardData.processes.map(proc => ({
           ...proc,
@@ -673,11 +916,43 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     }
   }, [formData?.form_id, sessionData?.current_form_id, formData?.processes?.length]); // Also depend on processes length changes
 
-  // useEffect(() => {
-  //   if (raProcesses.length > 0) {
-  //     addHazardsToAllProcesses(title);
-  //   }
-  // }, [raProcesses]);
+  // Trigger temp data loading after form initialization
+  useEffect(() => {
+    if (formId && !tempDataLoaded) {
+      console.log('🍪 Form2: Triggering temp data load check for formId:', formId);
+      const timeoutId = setTimeout(() => {
+        loadTempFormData();
+      }, 100); // Reduced delay for faster loading
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formId, tempDataLoaded, loadTempFormData]); // Removed dataLoaded dependency
+
+  // Auto-generate hazards when form is fully loaded - ONCE per form lifetime Tag AI
+  useEffect(() => {
+    // Only run when form is fully loaded with data and we have a form ID
+    if (dataLoaded && raProcesses.length > 0 && title && formId && !hasRun.current) {
+      (async () => {
+        try {
+          // Check if hazards have already been auto-generated for this form
+          const alreadyRun = await hasRunForForm(formId);
+          
+          if (!alreadyRun) {
+            console.log("First time auto-generating hazards for this form - calling addHazardsToAllProcesses");
+            await addHazardsToAllProcesses(title);
+            // Mark this form as having had hazards auto-generated
+            await storeHasRunInSession(formId);
+            hasRun.current = true; // Also set local flag to prevent multiple runs in same session
+          } else {
+            console.log("Hazards already auto-generated for this form - skipping");
+            hasRun.current = true; // Set local flag to prevent checking again
+          }
+        } catch (error) {
+          console.error("Error checking/storing hasRun status:", error);
+        }
+      })();
+    }
+  }, [dataLoaded, raProcesses.length, title, formId]);
 
   // Autocomplete starts from here
   useEffect(() => {
@@ -792,21 +1067,25 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const hasRun = useRef(false);
 
   useEffect(() => {
-    if (raProcesses.length === 0) return;
+    // DISABLED: Automatic hazard generation on form load
+    // This was causing issues when navigating from Form1 to Form2
+    // Users should explicitly click "Generate Hazards" button if they want AI generation
+    
+    // if (raProcesses.length === 0) return;
 
-    (async () => {
-      if (hasRun.current) return; // Prevent multiple runs
-      const alreadyRun = await hasRunForForm(formId);
+    // (async () => {
+    //   if (hasRun.current) return; // Prevent multiple runs
+    //   const alreadyRun = await hasRunForForm(formId);
 
-      if (!alreadyRun) {
-        console.log("First time running addHazardsToAllProcesses for this form");
-        addHazardsToAllProcesses(title);
-        await storeHasRunInSession(formId);
-        hasRun.current = true; // Set flag to prevent future runs
-      } else {
-        console.log("ℹAlready ran for this form — skipping");
-      }
-    })();
+    //   if (!alreadyRun) {
+    //     console.log("First time running addHazardsToAllProcesses for this form");
+    //     addHazardsToAllProcesses(title);
+    //     await storeHasRunInSession(formId);
+    //     hasRun.current = true; // Set flag to prevent future runs
+    //   } else {
+    //     console.log("ℹAlready ran for this form — skipping");
+    //   }
+    // })();
   }, [raProcesses, formId]);
 
 
@@ -891,6 +1170,16 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
       // Call the save handler (which will trigger parent update after successful save)
       return handleSave();
+    },
+    tempSaveForm: async () => {
+      // Cancel any pending updates
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+
+      // Call the temporary save handler
+      return handleTempSave();
     },
     validateForm: () => {
       return validateForm();
@@ -994,6 +1283,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       implementationPerson: "",
                       // Collapse/expand flags
                       additionalControlsExpanded: true,
+                      // Initialize showAdditionalControls as false for new hazards
+                      showAdditionalControls: false,
                       // Add empty risk controls
                       riskControls: [{
                         id: uuidv4(),
@@ -1007,7 +1298,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                         controlText: "",
                         controlType: "",
                         expanded: true
-                      }]
+                      }],
+                      ai: null // Manually created hazard
                     },
                   ],
                 }
@@ -1352,6 +1644,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           ) {
             missingFields.push('Existing Risk Controls');
           }
+
+          // Check for Risk Control Category (mandatory field)
+          if (
+            !(
+              Array.isArray(hazard.riskControls) &&
+              hazard.riskControls.some(rc => rc.riskControlType && rc.riskControlType.trim())
+            ) &&
+            !(hazard.riskControlType && hazard.riskControlType.trim())
+          ) {
+            missingFields.push('Risk Control Category');
+          }
           if (hazard.severity === 0) missingFields.push('Severity');
           if (hazard.likelihood === 0) missingFields.push('Likelihood');
 
@@ -1362,12 +1665,60 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           // Additional required fields when RPN >= 15
           if (rpn >= 15) {
             if (!hazard.additionalControls.trim()) missingFields.push('Additional Risk Controls');
+            
+            // Check for Additional Risk Control Category (mandatory when RPN >= 15)
+            if (
+              !(
+                Array.isArray(hazard.additionalRiskControls) &&
+                hazard.additionalRiskControls.some(arc => arc.controlType && arc.controlType.trim())
+              ) &&
+              !(hazard.additionalControlType && hazard.additionalControlType.trim())
+            ) {
+              missingFields.push('Additional Risk Control Category');
+            }
+            
             if (hazard.newLikelihood === 0) missingFields.push('New Likelihood (After Controls)');
             if (!hazard.dueDate) missingFields.push('Due Date');
+            
+            // Check if due date is in the past
+            if (hazard.dueDate) {
+              const selectedDate = new Date(hazard.dueDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+              
+              if (selectedDate < today) {
+                missingFields.push('Due Date cannot be in the past');
+              }
+            }
+            
             if (!hazard.implementationPerson.trim()) missingFields.push('Implementation Person');
 
             // Ensure that new RPN is less than 15 after additional controls
             if (newRpn >= 15) missingFields.push('Stronger controls needed (RPN must be <15)');
+          } else if (hazard.showAdditionalControls) {
+            // Optional additional controls validation - only if user opted to add them
+            // Check if user started filling additional controls but left them incomplete
+            const hasAdditionalControlsData = hazard.additionalRiskControls?.some(control => 
+              control.controlText?.trim() || control.controlType?.trim()
+            ) || hazard.additionalControls?.trim();
+            
+            if (hasAdditionalControlsData) {
+              // If they started adding additional controls, validate they're complete
+              if (!hazard.additionalControls?.trim()) missingFields.push('Additional Risk Controls (incomplete)');
+              
+              // Check for Additional Risk Control Category when optional controls are filled
+              if (
+                !(
+                  Array.isArray(hazard.additionalRiskControls) &&
+                  hazard.additionalRiskControls.some(arc => arc.controlType && arc.controlType.trim())
+                ) &&
+                !(hazard.additionalControlType && hazard.additionalControlType.trim())
+              ) {
+                missingFields.push('Additional Risk Control Category (incomplete)');
+              }
+              
+              if (hazard.newLikelihood === 0) missingFields.push('New Likelihood (After Controls)');
+            }
           }
 
           // If any fields are missing, add to invalid hazards list
@@ -1437,27 +1788,21 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           activities: proc.activities.map(act => ({
             ...act,
             hazards: act.hazards.map(h => {
-              // Format existing risk controls with alphabetical prefixes
+              // Format existing risk controls with && delimiter
               let formattedExistingControls = "";
               if (h.riskControls && h.riskControls.length > 0) {
                 formattedExistingControls = h.riskControls
-                  .map((rc, idx) => {
+                  .map((rc) => {
                     const text = rc.existingControls?.trim();
                     if (!text) return null; // Ignore empty controls
-                    const prefix = String.fromCharCode(97 + idx) + ") ";
                     const typeObj = riskcontrolTypesList.find(type => type.value === rc.riskControlType);
-                    const typeText = typeObj ? typeObj.display : "";
-                    const alreadyPrefixed = /^[a-z]\)\s/.test(text);
-                    return alreadyPrefixed
-                      ? text
-                      : `${prefix}${typeText ? typeText + " - " : ""}${text}`;
+                    const typeText = typeObj ? typeObj.display : rc.riskControlType || "";
+                    return typeText ? `${typeText} - ${text}` : text;
                   })
                   .filter(Boolean) // Remove nulls
-                  .join("\n");
+                  .join("&&");
               } else if (h.existingControls && h.existingControls.trim()) {
-                const text = h.existingControls.trim();
-                const alreadyPrefixed = /^[a-z]\)\s/.test(text);
-                formattedExistingControls = alreadyPrefixed ? text : `a) ${text}`;
+                formattedExistingControls = h.existingControls.trim();
               } else {
                 formattedExistingControls = ""; // Don't save empty
               }
@@ -1466,23 +1811,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               let formattedAdditionalControls = "";
               if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
                 formattedAdditionalControls = h.additionalRiskControls
-                  .map((ac, idx) => {
+                  .map((ac) => {
                     const text = ac.controlText?.trim();
                     if (!text) return null; // Ignore empty controls
-                    const prefix = String.fromCharCode(97 + idx) + ") ";
                     const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
-                    const typeText = typeObj ? typeObj.display : "";
-                    const alreadyPrefixed = /^[a-z]\)\s/.test(text);
-                    return alreadyPrefixed
-                      ? text
-                      : `${prefix}${typeText ? typeText + " - " : ""}${text}`;
+                    const typeText = typeObj ? typeObj.display : ac.controlType || "";
+                    return typeText ? `${typeText} - ${text}` : text;
                   })
                   .filter(Boolean)
-                  .join("\n");
+                  .join("&&");
               } else if (h.additionalControls && h.additionalControls.trim()) {
-                const text = h.additionalControls.trim();
-                const alreadyPrefixed = /^[a-z]\)\s/.test(text);
-                formattedAdditionalControls = alreadyPrefixed ? text : `a) ${text}`;
+                formattedAdditionalControls = h.additionalControls.trim();
               } else {
                 formattedAdditionalControls = ""; // Don't save empty
               }
@@ -1503,7 +1842,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
                 dueDate: h.dueDate || "",
                 implementationPerson: h.implementationPerson || "",
-                additionalControlType: h.additionalControlType || ""
+                additionalControlType: h.additionalControlType || "",
+                ai: h.ai || null // Include the ai field to track data source
               };
             })
           }))
@@ -1543,22 +1883,144 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         // Record the save time to prevent reinitialization from stale data
         setLastSaveTime(Date.now());
 
+        // Clear temporary cookie data since form has been officially saved
+        if (currentFormId) {
+          clearFormData('form2', currentFormId);
+          console.log('Temporary Form2 data cleared from cookies after successful save');
+        }
+
         toast.success("Form Saved");
 
         setIsLoading(false);
         return true; // Indicate success
       } else {
-        console.log('Error:', response.statusText);
-        toast.error("Failed to save form. Please try again.");
+        // Get error message from response
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || response.statusText || "Failed to save form";
+        console.log('Error:', errorMessage);
+        toast.error(errorMessage);
         setIsLoading(false);
         return false; // Indicate failure
       }
     } catch (error) {
       console.log('Network Error:', error);
+      toast.error(`Network error: ${error.message || "Failed to save form. Please try again."}`);
       setIsLoading(false);
       return false; // Indicate failure
     }
   };
+
+  // Temporary save handler without validation
+  const handleTempSave = async () => {
+    if (isLoading) return false;
+
+    setIsLoading(true);
+    const currentFormId = formIdRef.current;
+
+    console.log("Form2 temporary save data:", { formId: currentFormId, title, division, processes: raProcesses });
+
+    try {
+      const requestBody = {
+        title,
+        division,
+        processes: raProcesses.map(proc => ({
+          ...proc,
+          activities: proc.activities.map(act => ({
+            ...act,
+            hazards: act.hazards.map(h => {
+              // Format existing risk controls
+              let formattedExistingControls = "";
+              if (h.riskControls && h.riskControls.length > 0) {
+                formattedExistingControls = h.riskControls
+                  .map((rc) => {
+                    const text = rc.existingControls?.trim();
+                    if (!text) return null;
+                    const typeObj = riskcontrolTypesList.find(type => type.value === rc.riskControlType);
+                    const typeText = typeObj ? typeObj.display : rc.riskControlType || "";
+                    return typeText ? `${typeText} - ${text}` : text;
+                  })
+                  .filter(Boolean)
+                  .join("&&");
+              } else if (h.existingControls && h.existingControls.trim()) {
+                formattedExistingControls = h.existingControls.trim();
+              }
+
+              // Format additional risk controls
+              let formattedAdditionalControls = "";
+              if (h.additionalRiskControls && h.additionalRiskControls.length > 0) {
+                formattedAdditionalControls = h.additionalRiskControls
+                  .map((ac) => {
+                    const text = ac.controlText?.trim();
+                    if (!text) return null;
+                    const typeObj = riskcontrolTypesList.find(type => type.value === ac.controlType);
+                    const typeText = typeObj ? typeObj.display : ac.controlType || "";
+                    return typeText ? `${typeText} - ${text}` : text;
+                  })
+                  .filter(Boolean)
+                  .join("&&");
+              } else if (h.additionalControls && h.additionalControls.trim()) {
+                formattedAdditionalControls = h.additionalControls.trim();
+              }
+
+              return {
+                id: h.id,
+                hazard_id: h.hazard_id,
+                description: h.description,
+                type: h.type,
+                injuries: h.injuries,
+                existingControls: formattedExistingControls,
+                additionalControls: formattedAdditionalControls,
+                severity: h.severity ?? 0,
+                likelihood: h.likelihood ?? 0,
+                rpn: (h.severity ?? 0) * (h.likelihood ?? 0),
+                newSeverity: h.severity ?? 0,
+                newLikelihood: h.newLikelihood ?? 0,
+                newRpn: (h.severity ?? 0) * (h.newLikelihood ?? 0),
+                dueDate: h.dueDate || "",
+                implementationPerson: h.implementationPerson || "",
+                additionalControlType: h.additionalControlType || "",
+                ai: h.ai || null
+              };
+            })
+          }))
+        })),
+        userId: sessionData?.user_id,
+        form_id: currentFormId
+      };
+
+      console.log('Form2 temporary save - Sending request body:', requestBody);
+
+      const response = await fetch('/api/user/form2_temp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Form2 temporary save success:', result);
+        toast.success("Form temporarily saved without validation");
+        setIsLoading(false);
+        return true;
+      } else {
+        // Get error message from response
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || response.statusText || "Failed to temporarily save form";
+        console.log('Error:', errorMessage);
+        toast.error(errorMessage);
+        setIsLoading(false);
+        return false;
+      }
+    } catch (error) {
+      console.log('Network Error:', error);
+      toast.error(`Network error: ${error.message || "Failed to temporarily save form. Please try again."}`);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
   // Determine dropdown background based on value
   const getDropdownColor = (key, value) => {
     // For unselected values (0), use gray
@@ -1592,7 +2054,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     newLikelihood = 0,
     newRpn = 0,
     implementationPerson = "",
-    additionalControlType = ""
+    additionalControlType = "",
+    ai = null // Default to null for manually created hazards
   } = {}) => {
     // // Extract any existing risk control type from existingControls
     // const typeRegex = /^\[(.*?)\]\s*/;
@@ -1607,6 +2070,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     // }
     // newly added for rag function 
     let finalRiskControlType = riskControlType; // if provided, use it
+    console.log(`createNewHazard received riskControlType: "${riskControlType}"`);
+    
     if (!finalRiskControlType) {
       // If there's a type in the existingControls, extract it
       const typeRegex = /^\[(.*?)\]\s*/;
@@ -1618,21 +2083,24 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         finalRiskControlType = typeObj ? typeObj.value : "";
       }
     }
+    
+    console.log(`createNewHazard using finalRiskControlType: "${finalRiskControlType}"`);
+    console.log(`createNewHazard received "from" value: "${ai}"`);
     // end of newly added for rag function
     return {
       id: uuidv4(),
       hazard_id: uuidv4(),
       description,
       type: Array.isArray(type) ? type : (type ? [type] : []),
-      // Handle injuries - split by comma if string, handle arrays
+      // Handle injuries - split by && if string, handle arrays
       injuries: (() => {
         if (Array.isArray(injuries)) {
           return injuries.flatMap(injury =>
-            typeof injury === 'string' ? injury.split(',').map(i => i.trim()).filter(i => i) : [injury]
+            typeof injury === 'string' ? injury.split('&&').map(i => i.trim()).filter(i => i) : [injury]
           );
         } else if (injuries) {
           return typeof injuries === 'string'
-            ? injuries.split(',').map(i => i.trim()).filter(i => i)
+            ? injuries.split('&&').map(i => i.trim()).filter(i => i)
             : [injuries];
         }
         return [];
@@ -1653,6 +2121,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       // Collapse/expand flags
       additionalControlsExpanded: true,
       additionalControlType: additionalControlType || "", // Use provided or empty string
+      // Initialize showAdditionalControls based on RPN or existing additional controls
+      showAdditionalControls: rpn >= 15 || (additionalControls && additionalControls.trim()),
       riskControls: [{
         id: uuidv4(),
         existingControls: existingControls || "",
@@ -1666,7 +2136,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         controlText: additionalControls || "",
         controlType: additionalControlType || "",
         expanded: true
-      }]
+      }],
+      ai: ai // Store the source of the hazard data (Database/AI)
     };
   };
   // Toggle collapse on a specific Risk Controls sub-section
@@ -1699,17 +2170,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
   // Toggle collapse on Additional Risk Controls block
   const toggleAdditionalControlsSection = (processId, activityId, hazardId) => {
-    setRaProcesses(prev => {
-      const hazard = prev
-        .find(p => p.id === processId)
-        ?.activities.find(a => a.id === activityId)
-        ?.hazards.find(h => h.id === hazardId);
-
-      // Check if we need to create an additionalControlId
-      const isExpanding = !(hazard?.additionalControlsExpanded || false);
-      const additionalControlId = hazard?.additionalControlId || uuidv4();
-
-      return prev.map(proc =>
+    setRaProcesses(prev =>
+      prev.map(proc =>
         proc.id !== processId ? proc : {
           ...proc,
           activities: proc.activities.map(act =>
@@ -1718,28 +2180,14 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               hazards: act.hazards.map(haz =>
                 haz.id !== hazardId ? haz : {
                   ...haz,
-                  additionalControlsExpanded: !haz.additionalControlsExpanded,
-                  additionalControlId: haz.additionalControlId || additionalControlId,
-                  // If expanding and there's no additionalControlId, ensure there's a risk control entry
-                  riskControls: isExpanding && !haz.additionalControlId
-                    ? [
-                      ...(haz.riskControls || []),
-                      {
-                        id: additionalControlId,
-                        existingControls: haz.additionalControls || "",
-                        riskControlType: "",
-                        expanded: true,
-                        isAdditionalControl: true
-                      }
-                    ]
-                    : haz.riskControls
+                  additionalControlsExpanded: !haz.additionalControlsExpanded
                 }
               )
             }
           )
         }
-      );
-    });
+      )
+    );
     scheduleBatchedUpdate();
   };
 
@@ -1771,7 +2219,20 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
             console.log("Generated hazards:", hazardsArray);
 
-            const newHazards = hazardsArray.map(h =>
+            // Get existing hazard descriptions for this activity (case-insensitive)
+            const existingHazardDescriptions = act.hazards.map(h => 
+              h.description ? h.description.toLowerCase().trim() : ""
+            ).filter(desc => desc !== "");
+
+            // Filter out hazards that already exist in the activity
+            const uniqueHazardsArray = hazardsArray.filter(h => {
+              const newHazardDescription = h.description ? h.description.toLowerCase().trim() : "";
+              return newHazardDescription !== "" && !existingHazardDescriptions.includes(newHazardDescription);
+            });
+
+            console.log(`Filtered ${hazardsArray.length - uniqueHazardsArray.length} duplicate hazards for activity: ${activityName}`);
+
+            const newHazards = uniqueHazardsArray.map(h =>
               createNewHazard({
                 description: h.description,
                 type: h.type,
@@ -1780,20 +2241,19 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 existingControls: h.existingControls,
                 severity: h.severity,
                 likelihood: h.likelihood,
-                rpn: h.rpn
+                rpn: h.rpn,
+                ai: "AI" // Data comes from AI generation
               })
             );
 
-            // return {
-            //   ...act,
-            //   hazards: [...newHazards, ...act.hazards]
-            // };
-              return {
-                ...act,
-                hazards: [...newHazards, ...act.hazards].filter(
-                  h => h.description && h.description.trim() !== ""
-                )
-              };
+            console.log("Created hazards with 'ai' values:", newHazards.map(h => ({ description: h.description, ai: h.ai })));
+
+            return {
+              ...act,
+              hazards: [...newHazards, ...act.hazards].filter(
+                h => h.description && h.description.trim() !== ""
+              )
+            };
 
 
           } else {
@@ -1817,11 +2277,28 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         };
       })
     );
+
+    // Log summary of newly added hazards with their sources TO BE REMOVED LATER
+    const allNewHazards = updatedActivities.flatMap(act => 
+      act.hazards.filter(h => h.ai && h.ai !== "") // Only show hazards with 'ai' value (newly added)
+    );
+    
+    if (allNewHazards.length > 0) {
+      console.log(`=== NEWLY ADDED HAZARDS (${allNewHazards.length} total) ===`);
+      allNewHazards.forEach((hazard, index) => {
+        console.log(`${index + 1}. "${hazard.description}" - Source: ${hazard.ai}`);
+      });
+      console.log(`=== END OF NEWLY ADDED HAZARDS ===`);
+    } else {
+      console.log("No new hazards were added (all were duplicates or failed to generate)");
+    }
   };
+    // END OF TO BE REMOVED LATER
 
   const addHazardsToAllProcesses = async (title) => {
-    const toastId = toast.loading("Loading hazards for all processes...");
+    const toastId = toast.loading("Loading hazards for all processes from database...");
     const autofilledWorkActivities = [];
+    let totalHazardsAdded = 0; // Track actual number of hazards added
     try {
       const updatedProcesses = await Promise.all(
         raProcesses.map(async (proc) => {
@@ -1861,9 +2338,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
               if (!filteredActivityNames.includes(activityName)) {
                 // not in filtered list → keep it with no added hazards
+                // Ensure at least one hazard exists for form structure
+                const existingHazards = act.hazards && act.hazards.length > 0 ? act.hazards : initializeHazards([]);
                 return {
                   ...act,
-                  hazards: [...act.hazards]  // leave as is
+                  hazards: existingHazards
                 };
               }
 
@@ -1881,9 +2360,21 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                     : [aiData.hazard_data];
 
                   console.log(`Generated hazards for ${activityName}:`, hazardsArray);
-                  autofilledWorkActivities.push(`Hazards for ${activityName} autofilled`);
 
-                  const newHazards = hazardsArray.map(h =>
+                  // Get existing hazard descriptions for this activity (case-insensitive)
+                  const existingHazardDescriptions = act.hazards.map(h => 
+                    h.description ? h.description.toLowerCase().trim() : ""
+                  ).filter(desc => desc !== "");
+
+                  // Filter out hazards that already exist in the activity
+                  const uniqueHazardsArray = hazardsArray.filter(h => {
+                    const newHazardDescription = h.description ? h.description.toLowerCase().trim() : "";
+                    return newHazardDescription !== "" && !existingHazardDescriptions.includes(newHazardDescription);
+                  });
+
+                  console.log(`Filtered ${hazardsArray.length - uniqueHazardsArray.length} duplicate hazards for activity: ${activityName}`);
+
+                  const newHazards = uniqueHazardsArray.map(h =>
                     createNewHazard({
                       description: h.description,
                       type: h.type,
@@ -1892,16 +2383,34 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                       existingControls: h.existingControls,
                       severity: h.severity,
                       likelihood: h.likelihood,
-                      rpn: h.rpn
+                      rpn: h.rpn,
+                      ai: "Database" // Data comes from database
                     })
                   );
 
+                  // Only count and log if hazards were actually added
+                  if (newHazards.length > 0) {
+                    totalHazardsAdded += newHazards.length;
+                    autofilledWorkActivities.push(`${newHazards.length} hazard(s) for ${activityName} autofilled`);
+                  }
+
+                  // Combine new hazards with existing ones, but preserve at least one hazard
+                  const combinedHazards = [...newHazards, ...act.hazards];
+                  const filledHazards = combinedHazards.filter(
+                    h => h.description && h.description.trim() !== ""
+                  );
+                  
+                  // Always ensure at least one hazard exists (even if empty) to maintain form structure
+                  let finalHazards = filledHazards.length > 0 ? filledHazards : act.hazards;
+                  
+                  // Final safety check: if still no hazards, initialize with default
+                  if (!finalHazards || finalHazards.length === 0) {
+                    finalHazards = initializeHazards([]);
+                  }
+
                   return {
                     ...act,
-                    // hazards: [...newHazards, ...act.hazards]  // prepend
-                    hazards: [...newHazards, ...act.hazards].filter(
-                        h => h.description && h.description.trim() !== ""
-                      )
+                    hazards: finalHazards
                   };
 
                 } else {
@@ -1910,7 +2419,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                 }
               } catch (err) {
                 console.error(`Error getting hazards for activity: ${activityName}`, err);
-                throw err;
+                // On error, return the activity with its existing hazards (ensuring at least one exists)
+                const existingHazards = act.hazards && act.hazards.length > 0 ? act.hazards : initializeHazards([]);
+                return {
+                  ...act,
+                  hazards: existingHazards
+                };
               }
             })
           );
@@ -1924,11 +2438,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
 
       setRaProcesses(updatedProcesses);
       console.log("Autofilled values:", autofilledWorkActivities);
-      const totalHazards = autofilledWorkActivities.length;
-      if (totalHazards === 0) {
+      console.log(`Total hazards added: ${totalHazardsAdded}`);
+      
+      if (totalHazardsAdded === 0) {
         toast.error("No hazards were generated. Please check your inputs.", { id: toastId });
       } else {
-        toast.success("All hazards loaded successfully.", { id: toastId });
+        toast.success(`${totalHazardsAdded} hazard(s) loaded successfully.`, { id: toastId });
       }
     } catch (err) {
       toast.error("Failed to load hazards for all processes.", { id: toastId });
@@ -2007,7 +2522,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               </div>
             </div>
             <CTAButton
-              text="Generate"
+              text="Generate Hazards"
               icon={HiSparkles}
               /* ctrl f tag AI Generate button */
               onClick={async () => {
@@ -2029,9 +2544,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                   >
                     {act.expanded ? <FiChevronUp /> : <FiChevronDown />}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
-                        NEW
+                      <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                        AI | DB | User
                       </span>
+
                       <span className="font-semibold text-xl">
                         Work Activity {idx + 1} {act.description && `- ${act.description}`}
                       </span>
@@ -2096,8 +2612,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                            <span className="font-semibold text-xl">
                             Hazard {hi + 1}
                           </span>
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
-                            NEW
+                          <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                           AI | DB | User
                           </span>
                          </div>
                           <div className="space-x-2 flex">
@@ -2200,16 +2716,17 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                   updateHazard(proc.id, act.id, h.id, "newInjury", e.target.value)
                                 }
                                 onKeyPress={e => handleInjuryKeyPress(e, proc.id, act.id, h.id)}
+                                onBlur={() => handleConfirmNewInjury(proc.id, act.id, h.id)}
                                 placeholder="Enter New Injury"
                                 className="flex-1 border border-gray-300 rounded px-3 py-2"
                               />
-                              <button
+                              {/* <button
                                 type="button"
                                 onClick={() => handleConfirmNewInjury(proc.id, act.id, h.id)}
                                 className="bg-[#7F3F00] text-white rounded-full w-8 h-8 flex items-center justify-center"
                               >
                                 <MdCheck />
-                              </button>
+                              </button> */}
                             </div>
                           )}
                         </div>
@@ -2234,7 +2751,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                               {(h.riskControls?.[0] || {}).expanded && (
                                 <div className="p-3">
                                   {/* Risk control blocks */}
-                                  {(h.riskControls || [{ id: uuidv4(), existingControls: h.existingControls || "", riskControlType: h.riskControlType || "", expanded: true }]).map((rc, rcIndex) => (
+                                  {(h.riskControls && h.riskControls.length > 0 
+                                    ? h.riskControls 
+                                    : [{ id: uuidv4(), existingControls: h.existingControls || "", riskControlType: "", expanded: true }]
+                                  ).map((rc, rcIndex) => (
                                     <div key={rc.id} className="mb-4 pb-4 border-b border-gray-200">
                                       {/* Label + Buttons */}
                                       <div className="flex items-center justify-between mb-1">
@@ -2442,7 +2962,11 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                           >
                                             <option value={0}>Select</option>
                                             {[1, 2, 3, 4, 5].map((v) => (
-                                              <option key={v} value={v}>
+                                              <option 
+                                                key={v} 
+                                                value={v}
+                                                disabled={field.name.toLowerCase() === 'likelihood' && v === 1}
+                                              >
                                                 {v}
                                               </option>
                                             ))}
@@ -2456,34 +2980,147 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                             </div>
                             {/* <- Existing Risk Control Section END --> */}
 
-                            {(h.severity || 0) * (h.likelihood || 0) >= 15 && (
+                            {/* Show Additional Risk Controls button or required message */}
+                            {(h.severity || 0) * (h.likelihood || 0) >= 15 ? (
+                              <div className="bg-blue-600 text-white p-2 my-2 rounded text-base">
+                                Risk Controls only reduce likelihood; Severity is constant
+                              </div>
+                            ) : (() => {
+                              // Check if there are existing additional risk controls with actual data
+                              const hasAdditionalControlsData = h.additionalRiskControls?.some(control => 
+                                control.controlText?.trim() || control.controlType?.trim()
+                              ) || h.additionalControls?.trim();
+                              
+                              // Show button only if no additional controls exist and not currently showing
+                              if (!hasAdditionalControlsData && !h.showAdditionalControls) {
+                                return (
+                                  <div className="mt-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        // Toggle show additional controls for this hazard
+                                        setRaProcesses(prev =>
+                                          prev.map(p =>
+                                            p.id === proc.id ? {
+                                              ...p,
+                                              activities: p.activities.map(a =>
+                                                a.id === act.id ? {
+                                                  ...a,
+                                                  hazards: a.hazards.map(hz =>
+                                                    hz.id === h.id ? {
+                                                      ...hz,
+                                                      showAdditionalControls: true,
+                                                      additionalControlsExpanded: true
+                                                    } : hz
+                                                  )
+                                                } : a
+                                              )
+                                            } : p
+                                          )
+                                        );
+                                        scheduleBatchedUpdate();
+                                      }}
+                                      className="px-4 py-2 bg-yellow-100 text-black border border-yellow-300 rounded hover:bg-yellow-200 transition-colors"
+                                    >
+                                      + Add Additional Risk Controls
+                                    </button>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+
+                            {/* Show Additional Risk Controls section when required (RPN >= 15), when user opted in, or when existing data exists */}
+                            {(() => {
+                              const hasAdditionalControlsData = h.additionalRiskControls?.some(control => 
+                                control.controlText?.trim() || control.controlType?.trim()
+                              ) || h.additionalControls?.trim();
+                              
+                              return ((h.severity || 0) * (h.likelihood || 0) >= 15 || h.showAdditionalControls || hasAdditionalControlsData);
+                            })() && (
                               <>
-                                <div className="bg-blue-600 text-white p-2 my-5 rounded text-base">
-                                  Risk Controls only reduce likelihood; Severity is constant
-                                </div>
 
                                 {/* Additional Risk Controls Section */}
                                 <div className="mb-2 border border-gray-200 rounded-lg">
-                                  <div
-                                    className="bg-yellow-100 px-4 py-2 rounded-t cursor-pointer"
-                                    onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
-                                  >
-                                    <span className="text-lg font-medium text-zinc-900">
-                                      Additional Risk Controls*
-                                    </span>
-                                    <span className="float-right">
-                                      {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
-                                    </span>
+                                  <div className="bg-yellow-100 px-4 py-2 rounded-t flex items-center justify-between">
+                                    <div
+                                      className="cursor-pointer flex-1"
+                                      onClick={() => toggleAdditionalControlsSection(proc.id, act.id, h.id)}
+                                    >
+                                      <span className="text-lg font-medium text-zinc-900">
+                                        Additional Risk Controls{(h.severity || 0) * (h.likelihood || 0) >= 15 ? '*' : ''}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      {/* Hide button - only show when it's optional (RPN < 15) */}
+                                      {(h.severity || 0) * (h.likelihood || 0) < 15 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            // Hide additional controls for this hazard
+                                            setRaProcesses(prev =>
+                                              prev.map(p =>
+                                                p.id === proc.id ? {
+                                                  ...p,
+                                                  activities: p.activities.map(a =>
+                                                    a.id === act.id ? {
+                                                      ...a,
+                                                      hazards: a.hazards.map(hz =>
+                                                        hz.id === h.id ? {
+                                                          ...hz,
+                                                          showAdditionalControls: false,
+                                                          additionalControlsExpanded: false,
+                                                          // Clear all additional controls data completely
+                                                          additionalControls: "",
+                                                          additionalControlType: "",
+                                                          newLikelihood: 0,
+                                                          newSeverity: hz.severity || 0, // Reset to original severity
+                                                          newRpn: 0,
+                                                          dueDate: "",
+                                                          implementationPerson: "",
+                                                          // Reset additional risk controls to empty state
+                                                          additionalRiskControls: [{
+                                                            id: uuidv4(),
+                                                            controlText: "",
+                                                            controlType: "",
+                                                            expanded: true
+                                                          }]
+                                                        } : hz
+                                                      )
+                                                    } : a
+                                                  )
+                                                } : p
+                                              )
+                                            );
+                                            scheduleBatchedUpdate();
+                                          }}
+                                          className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs"
+                                          title="Remove Additional Risk Controls"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                      <span className="cursor-pointer" onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        toggleAdditionalControlsSection(proc.id, act.id, h.id);
+                                      }}>
+                                        {h.additionalControlsExpanded ? <FiChevronUp /> : <FiChevronDown />}
+                                      </span>
+                                    </div>
                                   </div>
                                   {h.additionalControlsExpanded && (
                                     <div className="p-3">
                                       {/* Render each additional risk control */}
-                                      {(h.additionalRiskControls || [{
-                                        id: uuidv4(),
-                                        controlText: h.additionalControls || "",
-                                        controlType: h.additionalControlType || "",
-                                        expanded: true
-                                      }]).map((additionalControl, acIndex) => (
+                                      {(h.additionalRiskControls && h.additionalRiskControls.length > 0 
+                                        ? h.additionalRiskControls 
+                                        : [{
+                                          id: `default-${h.id}`,
+                                          controlText: h.additionalControls || "",
+                                          controlType: h.additionalControlType || "",
+                                          expanded: true
+                                        }]
+                                      ).map((additionalControl, acIndex) => (
                                         <div key={additionalControl.id} className="mb-4 pb-4 border-b border-gray-200">
                                           {/* Label + Buttons */}
                                           <div className="flex items-center justify-between mb-1">
@@ -2493,7 +3130,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                             <div className="flex space-x-2">
                                               <button
                                                 type="button"
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
                                                   setAdditionalRiskControlWarningInfo({ processId: proc.id, activityId: act.id, hazardId: h.id, acIndex });
                                                   setAdditionalRiskControlWarningOpen(true);
                                                 }}
@@ -2504,7 +3143,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                               </button>
                                               <button
                                                 type="button"
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
                                                   // Add a new additional risk control to the current hazard
                                                   setRaProcesses(prev =>
                                                     prev.map(p =>
@@ -2559,7 +3200,9 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                 <button
                                                   type="button"
                                                   key={typeObj.value}
-                                                  onClick={() => {
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
                                                     // Update specific additional risk control
                                                     setRaProcesses(prev =>
                                                       prev.map(p =>
@@ -2572,7 +3215,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                                 hz.id === h.id ? {
                                                                   ...hz,
                                                                   // Update the additionalRiskControls array
-                                                                  additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
+                                                                  additionalRiskControls: (hz.additionalRiskControls && hz.additionalRiskControls.length > 0 
+                                                                    ? hz.additionalRiskControls 
+                                                                    : [{
+                                                                        id: `default-${hz.id}`,
+                                                                        controlText: hz.additionalControls || "",
+                                                                        controlType: hz.additionalControlType || "",
+                                                                        expanded: true
+                                                                      }]
+                                                                  ).map((ctrl, index) =>
                                                                     index === acIndex ? {
                                                                       ...ctrl,
                                                                       controlType: ctrl.controlType === typeObj.value ? "" : typeObj.value
@@ -2621,7 +3272,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                             hz.id === h.id ? {
                                                               ...hz,
                                                               // Update the additionalRiskControls array
-                                                              additionalRiskControls: (hz.additionalRiskControls || []).map((ctrl, index) =>
+                                                              additionalRiskControls: (hz.additionalRiskControls && hz.additionalRiskControls.length > 0 
+                                                                ? hz.additionalRiskControls 
+                                                                : [{
+                                                                    id: `default-${hz.id}`,
+                                                                    controlText: hz.additionalControls || "",
+                                                                    controlType: hz.additionalControlType || "",
+                                                                    expanded: true
+                                                                  }]
+                                                              ).map((ctrl, index) =>
                                                                 index === acIndex ? {
                                                                   ...ctrl,
                                                                   controlText: e.target.value
@@ -2706,11 +3365,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
                                                 className={`${getDropdownColor(
                                                   field.name.toLowerCase(),
                                                   field.name === "Severity" ? (h.severity ?? 0) : (h.newLikelihood ?? 0)
-                                                )} text-white rounded px-2 py-1 ${field.name === "Likelihood" && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500 animate-pulse" : ""}`}
+                                                )} text-black rounded px-2 py-1 ${field.name === "Likelihood" && (h.severity || 0) * (h.newLikelihood || 0) >= 15 ? "border-2 border-red-500 animate-pulse" : ""}`}
                                               >
                                                 <option value={0}>Select</option>
                                                 {[1, 2, 3, 4, 5].map((v) => (
-                                                  <option key={v} value={v}>
+                                                  <option 
+                                                    key={v} 
+                                                    value={v}
+                                                    disabled={field.name === "Likelihood" && v === 1}
+                                                  >
                                                     {v}
                                                   </option>
                                                 ))}

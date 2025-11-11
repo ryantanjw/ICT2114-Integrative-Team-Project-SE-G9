@@ -6,9 +6,8 @@ import InputGroup from "../../../components/InputGroup.jsx";
 import CTAButton from "../../../components/CTAButton.jsx";
 import { MdDelete, MdExpandMore, MdExpandLess, MdAdd } from "react-icons/md";
 import { toast } from "react-hot-toast";
-
-import ProcessFab from "./ProcessFab.jsx";
 import { LuMinus } from "react-icons/lu";
+import { saveFormData, loadFormData, clearFormData } from "../../../utils/cookieUtils.js";
 
 
 // Convert to forwardRef to expose methods to parent
@@ -49,7 +48,21 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   const [divisionsLoading, setDivisionsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false); // Track if data has been loaded
+  const [tempDataLoaded, setTempDataLoaded] = useState(false); // Track if temp data has been checked
   const formIdRef = useRef(formData?.form_id || null);
+  
+  // Early trigger to load temp data when formId becomes available from props
+  useEffect(() => {
+    console.log('Form1: Early trigger useEffect - formData?.form_id:', formData?.form_id, 'current formId:', formId);
+    if (formData?.form_id && formData.form_id !== formId) {
+      console.log('Form1: FormId changed from props:', formData.form_id);
+      setFormId(formData.form_id);
+      updateFormId(formData.form_id);
+      
+      // Reset temp data loaded to trigger re-check
+      setTempDataLoaded(false);
+    }
+  }, [formData?.form_id, formId]);
   const lastFetchTime = useRef(0);
   const [deletedProcessIds, setDeletedProcessIds] = useState([]); //Use this state to track deleted processes
   const [deletedActivityIds, setDeletedActivityIds] = useState([]); //Use this state to track deleted activities
@@ -123,6 +136,77 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
     setFormId(id);
     formIdRef.current = id; // This is immediately available
   };
+
+  // Auto-save form data to cookies whenever form state changes
+  const saveFormDataToTempStorage = useCallback(() => {
+    if (formId) {
+      const currentFormData = {
+        title,
+        division,
+        processes
+      };
+      
+      saveFormData('form1', formId, currentFormData);
+      console.log('Form1 data auto-saved to cookies');
+    }
+  }, [formId, title, division, processes]);
+
+  // Load temporary form data from cookies
+  const loadTempFormData = useCallback(() => {
+    if (formId && !tempDataLoaded) {
+      console.log('Checking for temporary Form1 data in cookies...');
+      const tempData = loadFormData('form1', formId);
+      
+      if (tempData) {
+        console.log('Found temporary Form1 data, restoring:', tempData);
+        
+        // Check if temp data has meaningful content
+        const hasValidTempData = tempData.title || tempData.division || 
+          (tempData.processes && tempData.processes.length > 0 && 
+           tempData.processes.some(p => p.header || (p.activities && p.activities.some(a => a.description))));
+        
+        if (hasValidTempData) {
+          console.log('Restoring Form1 temp data...');
+          if (tempData.title !== undefined) setTitle(tempData.title);
+          if (tempData.division !== undefined) setDivision(tempData.division);
+          if (tempData.processes && Array.isArray(tempData.processes) && tempData.processes.length > 0) {
+            setProcesses(tempData.processes);
+          }
+          
+          toast.success('Previous form data restored from temporary storage', {
+            duration: 3000,
+            icon: '🔄'
+          });
+        }
+      }
+      
+      setTempDataLoaded(true);
+    }
+  }, [formId, tempDataLoaded]);
+
+  // Auto-save effect - save form data to cookies when state changes
+  useEffect(() => {
+    if (tempDataLoaded && formId) {
+      // Small delay to prevent excessive saves during rapid state changes
+      const timeoutId = setTimeout(() => {
+        saveFormDataToTempStorage();
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formId, title, division, processes, tempDataLoaded]); // Depend on actual data
+
+  // Load temp data as soon as formId is available
+  useEffect(() => {
+    if (formId && !tempDataLoaded) {
+      // Small delay to let component stabilize
+      const timeoutId = setTimeout(() => {
+        loadTempFormData();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formId, loadTempFormData, tempDataLoaded]);
 
   // Debounced store form ID in session to prevent excessive calls
   const storeFormIdInSession = useCallback(async (form_id) => {
@@ -236,8 +320,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               activities: proc.activities.map(act => ({
                 ...act,
                 id: act.id || act.activity_id,
-                activity_id: act.activity_id || act.id,
-                source: act.source || (act.activity_id ? "DB matched" : undefined),
+                activity_id: act.activity_id || act.id
               }))
             }));
 
@@ -287,8 +370,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
               activities: proc.activities.map(act => ({
                 ...act,
                 id: act.id || act.activity_id,
-                activity_id: act.activity_id || act.id,
-                source: act.source || (act.activity_id ? "DB matched" : undefined),
+                activity_id: act.activity_id || act.id
               }))
             }));
             setProcesses(processesWithIds);
@@ -327,9 +409,17 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
     saveForm: handleSave,
+    tempSaveForm: handleTempSave,
     validateForm: () => {
       // Validate required fields
       if (!title.trim()) return { valid: false, message: 'Title is required' };
+
+      // Check if at least one process has a location
+      const hasLocation = processes.some(p => p.location?.trim());
+      if (!hasLocation) return {
+        valid: false,
+        message: 'At least one process must have a location specified'
+      };
 
       // Check if any process has no title
       const invalidProcess = processes.find(p => !p.header?.trim());
@@ -363,53 +453,115 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
   }));
 
   // Tag AI generate work activities
-const generateActivitiesForProcess = async (proc, index) => {
-  toast.loading(`Generating activities for Process ${proc.processNumber}...`, { id: `generate-activities-${proc.id}` });
+  const generateWorkActivities = async () => {
+    toast.loading("Generating work activities...", { id: "generate-activities" });
 
-  try {
-    const processName = proc.header || `(Process ${proc.processNumber})`;
-    const response = await fetch('/api/user/get_activities', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, processName }),
-    });
+    const aiOrNotList = [];
 
-    if (!response.ok) {
-      toast.error(`Failed to generate activities for Process ${proc.processNumber}`, { id: `generate-activities-${proc.id}` });
-      return;
-    }
+    try {
+      const updatedProcesses = await Promise.all(
+        processes.map(async (proc, i) => {
+          const processName = proc.header || `(Process ${i + 1})`;
+          try {
+            const response = await fetch('/api/user/get_activities', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ title, processName }),
+            });
 
-    const data = await response.json();
-    const activityNames = Array.isArray(data.activities) ? data.activities : [];
-    const newActivities = activityNames.map((name, idx) => ({
-      id: Date.now() + idx,
-      description: name,
-      remarks: "",
-      source: "AI generated"
-    }));
-
-    setProcesses(prev =>
-      prev.map((p, i) =>
-        i === index
-          ? {
-              ...p,
-              activities:
-                activityNames.length > 0
-                  ? [...newActivities, ...p.activities].filter(
-                      act => act.description && act.description.trim() !== ""
-                    )
-                  : p.activities,
+            if (!response.ok) {
+              console.error(`Failed to fetch activities for ${processName}`);
+              return proc;
             }
-          : p
-      )
-    );
 
-    toast.success(`Activities generated for Process ${proc.processNumber}!`, { id: `generate-activities-${proc.id}` });
-  } catch (error) {
-    console.error("Error generating activities for process:", error);
-    toast.error("Failed to generate activities. Please try again.", { id: `generate-activities-${proc.id}` });
-  }
-};
+            const data = await response.json();
+            const activityNames = Array.isArray(data.activities) ? data.activities : [];
+            
+            // Get existing activity descriptions for this process (case-insensitive)
+            const existingActivityDescriptions = proc.activities.map(act => 
+              act.description ? act.description.toLowerCase().trim() : ""
+            ).filter(desc => desc !== "");
+
+            // Filter out activities that already exist in the process
+            const uniqueActivityNames = activityNames.filter(name => {
+              const newActivityDescription = name ? name.toLowerCase().trim() : "";
+              return newActivityDescription !== "" && !existingActivityDescriptions.includes(newActivityDescription);
+            });
+
+            console.log(`Filtered ${activityNames.length - uniqueActivityNames.length} duplicate activities for process: ${processName}`);
+
+            // For each unique activity, push an entry with processName, activityName, aiOrNot
+            uniqueActivityNames.forEach(name => {
+              aiOrNotList.push({
+                processName,
+                activityName: name,
+                aiOrNot: data.text
+              });
+            });
+
+            const newActivities = uniqueActivityNames.map((name, idx) => ({
+              id: Date.now() + idx,
+              description: name,
+              remarks: "",
+            }));
+
+            return {
+              ...proc,
+              activities: [...newActivities, ...proc.activities].filter(
+                act => act.description && act.description.trim() !== ""
+              ),
+            };
+
+          } catch (err) {
+            console.error(`Error fetching activities for ${processName}:`, err);
+            return proc;
+          }
+        })
+      );
+
+      // Attach aiOrNot string to each process (legacy, not used in summaryList now)
+      const updatedWithAI = updatedProcesses.map((proc, idx) => ({
+        ...proc,
+        aiOrNot: aiOrNotList[idx]?.aiOrNot || "No AI summary available."
+      }));
+
+      // Group summary by process, and display each activity with its AI explanation
+      const summaryByProcess = processes.map((proc) => {
+        const matching = aiOrNotList.filter(item => item.processName === proc.header || item.processName === `(Process ${proc.processNumber})`);
+        return {
+          name: `Process ${proc.processNumber} - ${proc.header || "Untitled"}`,
+          aiOrNot: matching.length > 0
+            ? matching.map(m => `Activity: ${m.activityName} — ${m.aiOrNot}`).join("\n")
+            : "No AI summary available."
+        };
+      });
+
+      // Log summary of newly added activities
+      const totalNewActivities = aiOrNotList.length;
+      if (totalNewActivities > 0) {
+        console.log(`=== NEWLY ADDED ACTIVITIES (${totalNewActivities} total) ===`);
+        aiOrNotList.forEach((item, index) => {
+          console.log(`${index + 1}. "${item.activityName}" in ${item.processName} - Source: ${item.aiOrNot}`);
+        });
+        console.log(`=== END OF NEWLY ADDED ACTIVITIES ===`);
+      } else {
+        console.log("No new activities were added (all were duplicates or failed to generate)");
+      }
+
+      setProcesses(updatedWithAI);
+      setSummaryList(summaryByProcess);
+      setShowSummaryDialog(true);
+      toast.success(
+        "Work activities generated successfully!",
+        { id: "generate-activities" }
+      );
+    } catch (error) {
+      console.error("Global error in generateWorkActivities:", error);
+      toast.error("Failed to generate work activities. Please try again.", { id: "generate-activities" });
+    }
+  };
 
 
 
@@ -737,6 +889,12 @@ const generateActivitiesForProcess = async (proc, index) => {
 
       // Clear any locally stored pending data since we've successfully saved
       localStorage.removeItem('form1_pending_data');
+      
+      // Clear temporary cookie data since form has been officially saved
+      if (formId) {
+        clearFormData('form1', formId);
+        console.log('Temporary Form1 data cleared from cookies after successful save');
+      }
 
       setIsLoading(false);
       console.log('All data saved successfully');
@@ -761,6 +919,162 @@ const generateActivitiesForProcess = async (proc, index) => {
       }
     }
   };
+
+  // Temporary save function without validation
+  const handleTempSave = async () => {
+    if (isLoading) return false;
+
+    setIsLoading(true);
+    const currentFormId = formIdRef.current;
+
+    console.log("Form1 temporary save data:", { formId: currentFormId, title, division, processes });
+
+    try {
+      // Step 1: Save form data (no validation)
+      const requestBody = {
+        title,
+        division,
+        userId: sessionData?.user_id,
+        form_id: currentFormId
+      };
+
+      console.log('Form1 temporary save for form ID:', currentFormId);
+
+      const response = await fetch('/api/user/form1_temp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Temporary save failed: ${response.statusText}`);
+      }
+
+      const formResult = await response.json();
+      console.log('Form1 temporary save success:', formResult);
+
+      const formId = formResult.form_id;
+
+      // Step 2: Save processes using /process_temp (no validation)
+      if (processes && processes.length > 0) {
+        console.log('Saving processes (temp) for form ID:', formId);
+
+        const savedProcesses = [];
+
+        for (let i = 0; i < processes.length; i++) {
+          const process = processes[i];
+
+          const processRequestBody = {
+            process_form_id: formId,
+            process_number: process.processNumber || (i + 1),
+            process_title: process.header || '',
+            process_location: process.location || '',
+            ...(process.process_id && { process_id: process.process_id })
+          };
+
+          console.log(`Saving process (temp) ${i + 1}:`, processRequestBody);
+
+          try {
+            const processResponse = await fetch('/api/user/process_temp', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(processRequestBody)
+            });
+
+            if (!processResponse.ok) {
+              const errorData = await processResponse.json();
+              console.error(`Process temp save failed for process ${i + 1}:`, errorData);
+              savedProcesses.push(process); // Keep original process data
+              continue; // Continue with next process even if one fails
+            }
+
+            const processResult = await processResponse.json();
+            console.log(`Process (temp) ${i + 1} saved:`, processResult);
+
+            const processId = processResult.process_id;
+
+            // Step 3: Save activities using /activity_temp (no validation)
+            const savedActivities = [];
+            
+            if (process.activities && process.activities.length > 0) {
+              console.log('Saving activities (temp) for process ID:', processId);
+
+              for (let j = 0; j < process.activities.length; j++) {
+                const activity = process.activities[j];
+                const activityRequestBody = {
+                  activity_process_id: processId,
+                  activity_number: j + 1,
+                  work_activity: activity.description || '',
+                  activity_remarks: activity.remarks || '',
+                  ...(activity.activity_id && { activity_id: activity.activity_id })
+                };
+
+                console.log(`Saving activity (temp) ${j + 1} for process ${i + 1}:`, activityRequestBody);
+
+                const activityResponse = await fetch('/api/user/activity_temp', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(activityRequestBody)
+                });
+
+                if (!activityResponse.ok) {
+                  const errorData = await activityResponse.json();
+                  console.error(`Activity temp save failed for activity ${j + 1}:`, errorData);
+                  savedActivities.push(activity); // Keep original activity data
+                  continue; // Continue with next activity even if one fails
+                }
+
+                const activityResult = await activityResponse.json();
+                console.log(`Activity (temp) ${j + 1} for process ${i + 1} saved:`, activityResult);
+                
+                // Update activity with saved ID
+                savedActivities.push({ 
+                  ...activity, 
+                  activity_id: activityResult.activity_id 
+                });
+              }
+            }
+            
+            // Update process with saved ID and activities
+            savedProcesses.push({ 
+              ...process, 
+              process_id: processId,
+              activities: savedActivities
+            });
+
+          } catch (processError) {
+            console.error(`Error saving process (temp) ${i + 1}:`, processError);
+            savedProcesses.push(process); // Keep original process data
+            // Continue with other processes even if one fails
+          }
+        }
+        
+        // Update the processes state with the saved IDs
+        if (savedProcesses.length > 0) {
+          console.log('Updating processes state with saved IDs:', savedProcesses);
+          setProcesses(savedProcesses);
+        }
+      }
+
+      showSuccessMessage('Form temporarily saved without validation');
+      setIsLoading(false);
+      return true;
+
+    } catch (error) {
+      console.error('Error during temporary save:', error);
+      setIsLoading(false);
+      showErrorMessage(`Temporary save failed: ${error.message}`);
+      return false;
+    }
+  };
+
   const updateProcessesWithSavedIds = (savedProcesses) => {
     const updatedProcesses = processes.map((proc, index) => {
       const savedProcess = savedProcesses[index];
@@ -779,17 +1093,6 @@ const generateActivitiesForProcess = async (proc, index) => {
 
     setProcesses(updatedProcesses);
   };
-
-  const canGenerateActivities = processes.every(proc => proc.header && proc.header.trim() !== "");
-
-  const generateActivitiesForAll = async () => {
-  for (let i = 0; i < processes.length; i++) {
-    const proc = processes[i];
-    if (proc.header && proc.header.trim()) {
-      await generateActivitiesForProcess(proc, i);
-    }
-  }
-};
 
   return (
     <div className="space-y-6">
@@ -820,10 +1123,9 @@ const generateActivitiesForProcess = async (proc, index) => {
         <div className="col-span-full xl:col-span-4 w-full">
           <CTAButton
             icon={MdAdd}
-            text="Generate Work Activities For All"
-            onClick={generateActivitiesForAll}
+            text="Generate Work Activities"
+            onClick={generateWorkActivities}
             className="w-full mb-4"
-            disabled={!canGenerateActivities}
           />
         </div>
         <div className="col-span-full xl:col-span-12 w-full">
@@ -847,28 +1149,19 @@ const generateActivitiesForProcess = async (proc, index) => {
           >
             <span className="font-semibold text-lg flex-1 flex items-center gap-2">
               {collapsedProcessIds.includes(proc.id) ? <MdExpandMore /> : <MdExpandLess />}
-              {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title"}`}
+              {`Process ${proc.processNumber} - ${proc.header || "Enter Process Title Here"}`}
             </span>
-            <div className="flex items-center gap-2">
-              <CTAButton
-                icon={MdAdd}
-                text="Generate Work Activities"
-                onClick={() => generateActivitiesForProcess(proc, index)}
-                className="mb-0"
-                disabled={!proc.header || !proc.header.trim()}
-              />
-              <CTAButton
-                icon={LuMinus}
-                text="Remove"
-                onClick={(e) => {
-                  console.log("Process Remove clicked for ID:", proc.id);
-                  e.stopPropagation();
-                  setProcessToRemoveId(proc.id);
-                  setProcessWarningOpen(true);
-                }}
-                className="text-black"
-              />  
-            </div>
+            <CTAButton
+              icon={LuMinus}
+              text="Remove"
+              onClick={(e) => {
+                console.log("Process Remove clicked for ID:", proc.id);
+                e.stopPropagation();
+                setProcessToRemoveId(proc.id);
+                setProcessWarningOpen(true);
+              }}
+              className="text-black"
+            />
           </div>
           {/* Content wrapper - only show if not collapsed */}
           {!collapsedProcessIds.includes(proc.id) && (
@@ -879,7 +1172,7 @@ const generateActivitiesForProcess = async (proc, index) => {
                   label="Process Title"
                   id={`title-${proc.id}`}
                   value={proc.header}
-                  placeholder="Enter Process Title"
+                  placeholder="Enter Process Title Here"
                   onChange={(e) =>
                     setProcesses(processes.map(p =>
                       p.id === proc.id ? { ...p, header: e.target.value } : p
@@ -906,21 +1199,12 @@ const generateActivitiesForProcess = async (proc, index) => {
               {proc.activities.map((act) => (
                 <div key={act.id} className="space-y-2 border-t border-gray-200 pt-4">
                   <div className="flex justify-between items-center">
+                
                     <div className="flex items-center gap-2">
                       <h5 className="font-medium">Work Activity</h5>
-                      {act.source && (
-                        <span
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            act.source === "DB matched"
-                              ? "bg-green-100 text-green-800"
-                              : act.source === "AI generated"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {act.source === "DB matched" ? "DB" : act.source === "AI generated" ? "AI" : act.source}
-                        </span>
-                      )}
+                      <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                        AI | DB | User
+                      </span>
                     </div>
                     <div className="space-x-2 flex">
                       <button
@@ -991,7 +1275,7 @@ const generateActivitiesForProcess = async (proc, index) => {
       {showSummaryDialog && (
         <SummaryDialog
           title="Generation Summary"
-          message="The following explanations were provided for each process:"
+          message="The following activities were generated for each process:"
           processes={summaryList}
           onClose={() => setShowSummaryDialog(false)}
         />
@@ -1027,8 +1311,6 @@ const generateActivitiesForProcess = async (proc, index) => {
           setActivityWarningOpen(false);
         }}
       />
-      <div id="form1-bottom" className="h-4"></div>
-      <ProcessFab onAddProcess={addProcess} />
     </div>
   );
 });

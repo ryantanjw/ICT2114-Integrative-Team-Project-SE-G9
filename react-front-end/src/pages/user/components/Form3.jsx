@@ -5,6 +5,7 @@ import { MdAdd, MdDelete } from "react-icons/md";
 import { LuMinus } from "react-icons/lu";
 import WarningDialog from "./WarningDialog.jsx";
 import { IoWarning } from "react-icons/io5";
+import { toast } from "react-hot-toast";
 
 
 const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
@@ -128,10 +129,17 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       const today = new Date();
       const formattedDate = today.toISOString().split('T')[0];
       setLastReviewDate(formattedDate);
+    }
+  }, []);
 
-      // Set next review date to 3 years from now
-      const nextDate = new Date(today);
+  // Calculate next review date whenever last review date changes
+  useEffect(() => {
+    if (lastReviewDate) {
+      const lastDate = new Date(lastReviewDate);
+      // Set next review date to 3 years minus 1 day from last review date
+      const nextDate = new Date(lastDate);
       nextDate.setFullYear(nextDate.getFullYear() + 3);
+      nextDate.setDate(nextDate.getDate() - 1);
       setNextReviewDate(nextDate.toISOString().split('T')[0]);
     }
   }, [lastReviewDate]);
@@ -315,13 +323,55 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
     return uniqueMembers.size !== nonEmptyMembers.length;
   };
 
+  // Comprehensive validation function
+  const validateForm = () => {
+    const errors = [];
+
+    // Check required fields
+    if (!title.trim()) {
+      errors.push("Title is required");
+    }
+
+    if (!division || division === "") {
+      errors.push("Division must be selected");
+    }
+
+    if (!lastReviewDate) {
+      errors.push("Last Review Date is required");
+    }
+
+    if (!raLeader.trim()) {
+      errors.push("RA Leader is required");
+    }
+
+    // Check for duplicate team members
+    const nonEmptyTeamMembers = raTeam.filter(member => member.trim() !== "");
+    if (nonEmptyTeamMembers.length > 0 && hasDuplicateMembers(raTeam)) {
+      errors.push("Duplicate team members are not allowed. Please ensure each team member is unique");
+    }
+
+    // Show toast messages for each error
+    if (errors.length > 0) {
+      errors.forEach((error, index) => {
+        // Use setTimeout to stagger the toast messages slightly
+        setTimeout(() => {
+          toast.error(error, {
+            duration: 5000,
+            id: `validation-error-${index}` // Prevent duplicate toasts
+          });
+        }, index * 100);
+      });
+    }
+
+    return errors;
+  };
+
   const handleSave = async () => {
     console.log("handlesave was clicked");
     try {
-      // Only check for duplicates if there are non-empty team members
-      const nonEmptyTeamMembers = raTeam.filter(member => member.trim() !== "");
-      if (nonEmptyTeamMembers.length > 0 && hasDuplicateMembers(raTeam)) {
-        alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
+      // Validate form before saving
+      const validationErrors = validateForm();
+      if (validationErrors.length > 0) {
         return false;
       }
 
@@ -380,12 +430,99 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       } else {
         const errorData = await response.json();
         console.error("Error saving form:", errorData);
-        alert(`Error: ${errorData.error || "Failed to save form"}`);
+        toast.error(errorData.error || "Failed to save form", {
+          duration: 4000,
+          id: "form-save-error"
+        });
         return false;
       }
     } catch (error) {
       console.error("Error saving form:", error);
-      alert("An error occurred while saving the form. Please try again.");
+      toast.error("An error occurred while saving the form. Please try again.", {
+        duration: 4000,
+        id: "form-network-error"
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Temporary save handler without validation
+  const handleTempSave = async () => {
+    console.log("handleTempSave was clicked");
+    try {
+      setIsLoading(true);
+
+      // Prepare form data without validation
+      const formData = {
+        title,
+        location,
+        division: division,
+        form_reference_number: referenceNumber,
+        last_review_date: lastReviewDate,
+        next_review_date: nextReviewDate,
+        raLeader,
+        raTeam: raTeam.filter(member => member.trim() !== ""),
+        approvedBy,
+        signature,
+        designation
+      };
+
+      console.log("Temporary save formData:", formData);
+
+      // Only include form_id if it exists
+      if (formId) {
+        formData.form_id = formId;
+      }
+
+      // Call /form3_temp endpoint
+      const response = await fetch('/api/user/form3_temp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Form temporarily saved successfully:", result);
+
+        // Update formId if it was created
+        if ((result.action === 'temp_created' || result.action === 'temp_updated') && result.form_id) {
+          setFormId(result.form_id);
+        }
+
+        // Update parent component if needed
+        if (updateFormData) {
+          updateFormData({
+            ...formData,
+            form_id: result.form_id
+          });
+        }
+
+        toast.success("Form temporarily saved without validation", {
+          duration: 3000,
+          id: "form-temp-save-success"
+        });
+
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error("Error temporarily saving form:", errorData);
+        toast.error(errorData.error || "Failed to temporarily save form", {
+          duration: 4000,
+          id: "form-temp-save-error"
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error("Error temporarily saving form:", error);
+      toast.error("An error occurred while temporarily saving the form. Please try again.", {
+        duration: 4000,
+        id: "form-temp-network-error"
+      });
       return false;
     } finally {
       setIsLoading(false);
@@ -399,10 +536,9 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       ref.current = {
         saveForm: async () => {
           try {
-            // Only check for duplicates if there are non-empty team members
-            const nonEmptyTeamMembers = raTeam.filter(member => member.trim() !== "");
-            if (nonEmptyTeamMembers.length > 0 && hasDuplicateMembers(raTeam)) {
-              alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
+            // Validate form before saving
+            const validationErrors = validateForm();
+            if (validationErrors.length > 0) {
               return null;
             }
 
@@ -475,31 +611,33 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             } else {
               const errorData = await response.json();
               console.error("Error saving form:", errorData);
-              alert(`Error: ${errorData.error || "Failed to save form"}`);
+              toast.error(errorData.error || "Failed to save form", {
+                duration: 4000,
+                id: "form-save-error"
+              });
               setIsLoading(false);
               return null;
             }
           } catch (error) {
             console.error("Error saving Form 3:", error);
-            alert("An error occurred while saving the form. Please try again.");
+            toast.error("An error occurred while saving the form. Please try again.", {
+              duration: 4000,
+              id: "form-network-error"
+            });
             setIsLoading(false);
             return null;
           }
         },
+        tempSaveForm: async () => {
+          return handleTempSave();
+        },
         validate: () => {
-          // Validate required fields
-          if (!title.trim()) {
-            alert("Error: Title is required");
+          // Validate form fields
+          const validationErrors = validateForm();
+          if (validationErrors.length > 0) {
             return false;
           }
 
-          // Check for duplicate team members
-          if (hasDuplicateMembers(raTeam)) {
-            alert("Error: Duplicate team members are not allowed. Please ensure each team member is unique.");
-            return false;
-          }
-
-          // Important: Always return true here for cases with no validation errors
           return true;
         },
         getData: () => ({
@@ -525,7 +663,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   }, [
     ref, formId, title, division, location, referenceNumber,
     lastReviewDate, nextReviewDate, raLeader, raTeam,
-    approvedBy, signature, designation, hasDuplicateMembers, handleSave
+    approvedBy, signature, designation, validateForm, handleSave, handleTempSave
   ]);
 
   return (
@@ -537,6 +675,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="ref-number"
           value={referenceNumber}
           onChange={(e) => setReferenceNumber(e.target.value)}
+          disabled
         />
         <div className="flex-1">
           <InputGroup
@@ -546,10 +685,11 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
             onChange={(e) => setDivision(e.target.value)}
             type="select"
             options={[
-              { value: "", label: "Select Division" },
+              { value: "", label: divisionsLoading ? "Loading..." : "Select Division" },
               ...divisions
             ]}
             disabled={divisionsLoading}
+            keepWhiteWhenDisabled={true}
           />
         </div>
         <InputGroup
@@ -567,6 +707,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="form3-location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
+          disabled
         />
         <InputGroup
           label="Last Review Date"
@@ -581,6 +722,7 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           type="date"
           value={nextReviewDate}
           onChange={(e) => setNextReviewDate(e.target.value)}
+          disabled
         />
         <InputGroup
           label="RA Leader"
@@ -637,12 +779,14 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           id="approved-by"
           value={approvedBy}
           onChange={(e) => setApprovedBy(e.target.value)}
+          disabled
         />
         <InputGroup
           label="Designation"
           id="designation"
           value={designation}
           onChange={(e) => setDesignation(e.target.value)}
+          disabled
         />
       </div>
 

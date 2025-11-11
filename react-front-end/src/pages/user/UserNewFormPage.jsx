@@ -1,8 +1,9 @@
 import { IoArrowBack, IoArrowForward } from "react-icons/io5";
-import { MdSave } from "react-icons/md";
+import { MdSave, MdSaveAs } from "react-icons/md";
 import StickyBottomNav from "../../components/StickyBottomNav.jsx";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Header from "../../components/Header.jsx";
+import HeaderAdmin from "../../components/HeaderAdmin.jsx";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import FormTabs from "./components/FormTabs.jsx";
 import FormTabsMobile from "./components/FormTabsMobile.jsx";
@@ -94,13 +95,13 @@ export default function UserNewForm() {
 
 
   const fetchDivisionName = async (divisionId) => {
-  try {
-    const response = await axios.get(`/api/divisions/${divisionId}`);
-    return response.data.name || `Division ${divisionId}`;
-  } catch (error) {
-    console.error("Error fetching division name:", error);
-    return `Division ${divisionId}`;
-  }
+    try {
+      const response = await axios.get(`/api/divisions/${divisionId}`);
+      return response.data.name || `Division ${divisionId}`;
+    } catch (error) {
+      console.error("Error fetching division name:", error);
+      return `Division ${divisionId}`;
+    }
   };
 
   const loadExistingForm = useCallback(async (targetFormId) => {
@@ -119,7 +120,7 @@ export default function UserNewForm() {
       if (response.data) {
 
         let divisionName = response.data.division_name;
-        let divisionId = response.data.division_id; 
+        let divisionId = response.data.division_id;
 
         if (typeof response.data.division === 'number') {
           divisionName = await fetchDivisionName(response.data.division);
@@ -277,7 +278,7 @@ export default function UserNewForm() {
       if (response.data) {
 
         let divisionName = response.data.division_name;
-        let divisionId = response.data.division_id; 
+        let divisionId = response.data.division_id;
 
         if (typeof response.data.division === 'number') {
           divisionName = await fetchDivisionName(response.data.division);
@@ -429,7 +430,7 @@ export default function UserNewForm() {
       if (currentTab === 0 && form3Ref.current) {
         // Save Form 3 data (Overall Details)
         if (form3Ref.current.validate && !form3Ref.current.validate()) {
-          toast.error("Please complete the Overall Details before proceeding.");
+          // toast.error("Please complete the Overall Details before proceeding.");
           return;
         }
 
@@ -441,10 +442,10 @@ export default function UserNewForm() {
             toast.error("Failed to save Overall Details. Please try again.");
             return;
           }
-          
+
           // Update the parent's formData state with the saved data
           updateFormData(savedData);
-          
+
           // Store form ID in session if we have one
           if (savedData.form_id) {
             await storeFormIdInSession(savedData.form_id);
@@ -523,6 +524,36 @@ export default function UserNewForm() {
   const handleSaveClick = async () => {
     setIsSaveDialogOpen(true);
   };
+
+  // Temporary save handler for current tab (no validation)
+  const handleTempSaveClick = async () => {
+    console.log("Temporary Save clicked for tab:", currentTab);
+
+    try {
+      let saveSuccess = false;
+
+      if (currentTab === 0 && form3Ref.current) {
+        console.log("Calling tempSaveForm on form3Ref");
+        saveSuccess = await form3Ref.current.tempSaveForm();
+      } else if (currentTab === 1 && form1Ref.current) {
+        console.log("Calling tempSaveForm on form1Ref");
+        saveSuccess = await form1Ref.current.tempSaveForm();
+      } else if (currentTab === 2 && form2Ref.current) {
+        console.log("Calling tempSaveForm on form2Ref");
+        saveSuccess = await form2Ref.current.tempSaveForm();
+      }
+
+      if (saveSuccess) {
+        console.log("Temporary save completed successfully");
+      } else {
+        console.log("Temporary save failed");
+      }
+    } catch (error) {
+      console.error("Error during temporary save:", error);
+      toast.error("An error occurred during temporary save");
+    }
+  };
+
   //   console.log("Calling form3Ref.current.saveForm()");
   //   if (currentTab === 0 && form3Ref.current) {
   //     await form3Ref.current.saveForm();
@@ -563,12 +594,12 @@ export default function UserNewForm() {
           return;
         }
 
-        // If user is an admin, redirect to admin dashboard
-        if (response.data.user_role === 0) {
-          console.log("Admin user detected, redirecting to admin dashboard");
-          navigate("/admin");
-          return;
-        }
+        // Now users and admins can access the new form page
+        // if (response.data.user_role === 0) {
+        //   console.log("Admin user detected, redirecting to admin dashboard");
+        //   navigate("/admin");
+        //   return;
+        // }
 
         // Store user data for display
         setUserData(response.data);
@@ -711,7 +742,11 @@ export default function UserNewForm() {
 
   return (
     <div className="bg-[#F7FAFC] min-h-screen max-w-screen 2xl:px-40 px-5 pb-20">
-      <Header activePage={location.pathname} />
+      {userData?.user_role === 0 ? (
+        <HeaderAdmin activePage={location.pathname} />
+      ) : (
+        <Header activePage={location.pathname} />
+      )}
       <div className="flex flex-col justify-start pb-5">
         <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold">
           RA Form Submission
@@ -735,13 +770,13 @@ export default function UserNewForm() {
         <div className="mt-6">
           {currentTab === 0 && (
             <>
-                {console.log("Passing formData to Form3:", formData)}
-            <Form3
-              ref={form3Ref}
-              formData={formData}
-              sessionData={userData}
-              updateFormData={updateFormData}
-            />
+              {console.log("Passing formData to Form3:", formData)}
+              <Form3
+                ref={form3Ref}
+                formData={formData}
+                sessionData={userData}
+                updateFormData={updateFormData}
+              />
             </>
           )}
           {currentTab === 1 && (
@@ -755,14 +790,14 @@ export default function UserNewForm() {
           )}
           {currentTab === 2 && (
             <>
-            {console.log("form2 division:", formData.division)}
-            <Form2
-              ref={form2Ref}
-              sample={null}
-              sessionData={userData}
-              updateFormData={updateFormData}
-              formData={formData}
-            />
+              {console.log("form2 division:", formData.division)}
+              <Form2
+                ref={form2Ref}
+                sample={null}
+                sessionData={userData}
+                updateFormData={updateFormData}
+                formData={formData}
+              />
             </>
           )}
           {currentTab === 3 && (
@@ -816,13 +851,18 @@ export default function UserNewForm() {
           }
         ]}
         buttonsRight={
-          currentTab !== 3 ? [  
+          currentTab !== 3 ? [
+            {
+              text: "Temp Save",
+              onClick: handleTempSaveClick,
+              icon: MdSaveAs
+            },
             {
               text: "Save",
               onClick: handleSaveClick,
               icon: MdSave
             }
-          ] : []  
+          ] : []
         }
         position="bottom"
       />

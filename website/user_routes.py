@@ -651,6 +651,57 @@ def save_process():
         db.session.rollback()
         print(f"Error saving process: {str(e)}")
         return jsonify({'error': 'Failed to save process'}), 500
+
+@user.route('/process_temp', methods=['POST'])
+def save_process_temp():
+    """Save process without validation (for temporary save)"""
+    try:
+        data = request.get_json()
+        print(f"Process temp save data: {data}")
+
+        # Extract data from request - no validation
+        process_form_id = data.get('process_form_id')
+        process_number = data.get('process_number')
+        process_title = data.get('process_title', '')
+        process_location = data.get('process_location', '')
+        process_id = data.get('process_id')  # For updates
+
+        if process_id:
+            # Update existing process
+            process = Process.query.get(process_id)
+            if not process:
+                return jsonify({'error': 'Process not found'}), 404
+            
+            process.process_form_id = process_form_id
+            process.process_number = process_number
+            process.process_title = process_title
+            process.process_location = process_location
+            
+            action = 'updated'
+        else:
+            # Create new process
+            process = Process(
+                process_form_id=process_form_id,
+                process_number=process_number,
+                process_title=process_title,
+                process_location=process_location
+            )
+            db.session.add(process)
+            action = 'created'
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'action': action,
+            'process_id': process.process_id,
+            'message': f'Process {action} successfully (temp)'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in process_temp save: {str(e)}")
+        return jsonify({'error': 'Failed to save process (temp)'}), 500
     
 #API Route for saving activity
 @user.route('/activity', methods=['POST'])
@@ -705,6 +756,56 @@ def save_activity():
         print(f"Error saving activity: {str(e)}")
         return jsonify({'error': 'Failed to save activity'}), 500
 
+@user.route('/activity_temp', methods=['POST'])
+def save_activity_temp():
+    """Save activity without validation (for temporary save)"""
+    try:
+        data = request.get_json()
+        print(f"Activity temp save data: {data}")
+
+        activity_process_id = data.get('activity_process_id')
+        work_activity = data.get('work_activity', '')
+        activity_number = data.get('activity_number')
+        activity_id = data.get('activity_id')  # For updates
+        activity_remarks = data.get('activity_remarks', '')
+
+        if activity_id:
+            # Update existing activity
+            activity = Activity.query.get(activity_id)
+            if not activity:
+                return jsonify({'error': 'Activity not found'}), 404
+            
+            activity.activity_process_id = activity_process_id
+            activity.work_activity = work_activity
+            activity.activity_number = activity_number
+            activity.activity_remarks = activity_remarks
+            
+            action = 'updated'
+        else:
+            # Create new activity
+            activity = Activity(
+                activity_process_id=activity_process_id,
+                work_activity=work_activity,
+                activity_number=activity_number,
+                activity_remarks=activity_remarks
+            )
+            db.session.add(activity)
+            action = 'created'
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'action': action,
+            'activity_id': activity.activity_id,
+            'message': f'Activity {action} successfully (temp)'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in activity_temp save: {str(e)}")
+        return jsonify({'error': 'Failed to save activity (temp)'}), 500
+
 @user.route('/form1', methods=['POST'])
 def form1_save():
     print("\nSAVE FORM 1 CALLED")
@@ -749,6 +850,435 @@ def form1_save():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+    
+@user.route('/form1_temp', methods=['POST'])
+def form1_temp_save():
+    print("\nSAVE FORM 1 TEMP CALLED (NO VALIDATION)")
+
+    data = request.get_json()
+    print(f"Received data: {data}")
+
+    userid = data.get('userId')
+    print(f"current user id:", userid)
+    
+    try:
+        form_id = data.get('form_id')
+        title = data.get('title')
+        division = data.get('division')
+        current_time = datetime.now()
+
+        # Form1 should only update existing forms - no validation
+        form = Form.query.get(form_id)
+        if not form:
+            return jsonify({"error": "Form not found. Use Form3 to create new forms."}), 404
+        
+        print(f"Updating existing form with ID (temp): {form_id}")
+        form.title = title if title is not None else ''
+        
+        # Division is an integer field, handle empty string
+        if division == '' or division is None:
+            form.division = None
+        else:
+            try:
+                form.division = int(division)
+            except (ValueError, TypeError):
+                form.division = None
+        
+        form.last_access_date = current_time
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "form_id": form.form_id,    
+            "action": "temp_updated",
+            "last_access_date": form.last_access_date.isoformat(),
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@user.route('/form2_temp', methods=['POST'])
+def form2_temp_save():
+    print("\nSAVE FORM 2 TEMP CALLED (NO VALIDATION)")
+    
+    try:
+        data = request.get_json()
+        print(f"Received form2 temp data: {data}")
+        
+        # Get user ID
+        userid = data.get('userId')
+        if not userid:
+            return jsonify({"error": "User ID is required"}), 400
+        
+        # No validation - save whatever data is provided
+        new_hazard_types = set()
+        for proc_data in data.get('processes', []):
+            for act_data in proc_data.get('activities', []):
+                for haz_data in act_data.get('hazards', []):
+                    for hazard_type in haz_data.get('type', []):
+                        if hazard_type and hazard_type.strip():
+                            new_hazard_types.add(hazard_type.strip())
+        
+        # Check which types need to be added to the database
+        for type_name in new_hazard_types:
+            existing_type = HazardType.query.filter_by(hazard_type=type_name).first()
+            if not existing_type:
+                print(f"Creating new hazard type: {type_name}")
+                new_type = HazardType(
+                    hazard_type=type_name,
+                    hazard_approval=0,
+                    hazard_approval_by=None
+                )
+                db.session.add(new_type)
+        
+        db.session.flush()
+        
+        # Check if updating existing form
+        form_id = data.get('form_id')
+        
+        if form_id:
+            form = Form.query.get(form_id)
+            if not form:
+                return jsonify({"error": "Form not found"}), 404
+            print(f"Updating existing form with ID (temp): {form_id}")
+        else:
+            # Create new form
+            form = Form()
+            form.form_user_id = userid
+            form.form_RA_team_id = userid
+            form.last_access_date = datetime.now()
+            db.session.add(form)
+            db.session.flush()
+        
+        # Update form fields (allow empty values for temp save)
+        if data.get('title') is not None:
+            form.title = data['title']
+        
+        # Division is an integer field, handle empty string
+        if data.get('division') is not None:
+            division_value = data.get('division')
+            if division_value == '' or division_value is None:
+                form.division = None
+            else:
+                try:
+                    form.division = int(division_value)
+                except (ValueError, TypeError):
+                    form.division = None
+        
+        # Track existing resources to delete removed ones
+        existing_processes = Process.query.filter_by(process_form_id=form.form_id).all()
+        existing_process_ids = [p.process_id for p in existing_processes]
+        updated_process_ids = []
+        
+        # Process each process and its activities/hazards
+        for proc_data in data.get('processes', []):
+            proc_id = proc_data.get('id')
+            
+            if isinstance(proc_id, int):
+                process = Process.query.get(proc_id)
+                if process and process.process_form_id == form.form_id:
+                    updated_process_ids.append(process.process_id)
+                else:
+                    process = None
+            else:
+                process = None
+                
+            if not process:
+                process = Process()
+                process.process_form_id = form.form_id
+                db.session.add(process)
+            
+            process.process_number = proc_data.get('processNumber')
+            process.process_title = proc_data.get('header', '')
+            process.process_location = proc_data.get('location', '')
+            
+            db.session.flush()
+            
+            existing_activities = Activity.query.filter_by(
+                activity_process_id=process.process_id
+            ).all()
+            existing_activity_ids = [a.activity_id for a in existing_activities]
+            updated_activity_ids = []
+            
+            for act_data in proc_data.get('activities', []):
+                act_id = act_data.get('id')
+                
+                if isinstance(act_id, int):
+                    activity = Activity.query.get(act_id)
+                    if activity and activity.activity_process_id == process.process_id:
+                        updated_activity_ids.append(activity.activity_id)
+                    else:
+                        activity = None
+                else:
+                    activity = None
+                    
+                if not activity:
+                    activity = Activity()
+                    activity.activity_process_id = process.process_id
+                    db.session.add(activity)
+                
+                activity.work_activity = act_data.get('description', '')
+                activity.activity_number = act_data.get('activityNumber', 1)
+                
+                db.session.flush()
+                
+                existing_hazards = Hazard.query.filter_by(
+                    hazard_activity_id=activity.activity_id
+                ).all()
+                existing_hazard_ids = [h.hazard_id for h in existing_hazards]
+                updated_hazard_ids = []
+                
+                for haz_data in act_data.get('hazards', []):
+                    haz_id = haz_data.get('id')
+                    
+                    if isinstance(haz_id, int):
+                        hazard = Hazard.query.get(haz_id)
+                        if hazard and hazard.hazard_activity_id == activity.activity_id:
+                            updated_hazard_ids.append(hazard.hazard_id)
+                        else:
+                            hazard = None
+                    else:
+                        hazard = None
+                        
+                    if not hazard:
+                        hazard = Hazard()
+                        hazard.hazard_activity_id = activity.activity_id
+                        db.session.add(hazard)
+                    
+                    # Update hazard data
+                    hazard.hazard = haz_data.get('description', '')
+                    
+                    # Handle hazard type
+                    hazard_type = haz_data.get('type', [])
+                    if hazard_type and len(hazard_type) > 0:
+                        # Find or create the hazard type
+                        hazard_type_name = hazard_type[0]
+                        hazard_type_obj = HazardType.query.filter_by(hazard_type=hazard_type_name).first()
+                        if not hazard_type_obj:
+                            hazard_type_obj = HazardType(hazard_type=hazard_type_name)
+                            db.session.add(hazard_type_obj)
+                            db.session.flush()
+                        
+                        hazard.hazard_type_id = hazard_type_obj.hazard_type_id
+                    
+                    # Handle injuries - store as &&-separated string
+                    injuries = haz_data.get('injuries', [])
+                    hazard.injury = '&&'.join(injuries) if injuries else ''
+                    
+                    # Handle ai field - track the source of the hazard data
+                    ai_source = haz_data.get('ai')
+                    if ai_source == 'AI':
+                        hazard.ai = 'AI'
+                    elif ai_source == 'Database':
+                        hazard.ai = 'Database'
+                    else:
+                        hazard.ai = None  # For manually created or unspecified hazards
+                    
+                    db.session.flush()  # Ensure hazard ID is available
+                    
+                    # Find or create risk
+                    risk = Risk.query.filter_by(risk_hazard_id=hazard.hazard_id).first()
+                    if not risk:
+                        risk = Risk()
+                        risk.risk_hazard_id = hazard.hazard_id
+                        db.session.add(risk)
+                    
+                    # Update risk data (no validation for temp save)
+                    risk.existing_risk_control = haz_data.get('existingControls', '')
+                    risk.additional_risk_control = haz_data.get('additionalControls', '')
+                    risk.severity = haz_data.get('severity', 0)
+                    risk.likelihood = haz_data.get('likelihood', 0)
+                    risk.RPN = risk.severity * risk.likelihood if risk.severity and risk.likelihood else 0
+                    risk.risk_rating = risk.RPN  # Set risk_rating based on RPN
+                    
+                    # New fields for after controls are applied
+                    risk.newSeverity = haz_data.get('newSeverity', risk.severity)
+                    risk.newLikelihood = haz_data.get('newLikelihood', risk.likelihood)
+                    risk.newRPN = risk.newSeverity * risk.newLikelihood if risk.newSeverity and risk.newLikelihood else 0
+                    
+                    hazard.hazard_implementation_person = haz_data.get('implementationPerson', '')
+                    due_date = haz_data.get('dueDate')
+                    if due_date:
+                        try:
+                            due_date_obj = datetime.fromisoformat(due_date)
+                            # Validate that due date is not in the past (even for temp save)
+                            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                            if due_date_obj < today:
+                                return jsonify({"error": "Due date cannot be in the past"}), 400
+                            hazard.hazard_due_date = due_date_obj
+                        except ValueError:
+                            print(f"Invalid due date format: {due_date}")
+                            return jsonify({"error": f"Invalid due date format: {due_date}"}), 400
+                    
+                    db.session.flush()
+                    updated_hazard_ids.append(hazard.hazard_id)
+                
+                # Remove hazards not in updated list
+                for haz_id in existing_hazard_ids:
+                    if haz_id not in updated_hazard_ids:
+                        Hazard.query.filter_by(hazard_id=haz_id).delete()
+                
+                db.session.flush()
+            
+            # Remove activities not in updated list
+            for act_id in existing_activity_ids:
+                if act_id not in updated_activity_ids:
+                    Activity.query.filter_by(activity_id=act_id).delete()
+            
+            db.session.flush()
+        
+        # Remove processes not in updated list
+        for proc_id in existing_process_ids:
+            if proc_id not in updated_process_ids:
+                Process.query.filter_by(process_id=proc_id).delete()
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "form_id": form.form_id,
+            "action": "temp_saved",
+            "message": "Form temporarily saved without validation"
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in form2_temp_save: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@user.route('/form3_temp', methods=['POST'])
+def form3_temp_save():
+    print("\nSAVE FORM 3 TEMP CALLED (NO VALIDATION)")
+    
+    try:
+        data = request.get_json()
+        print(f"Received form3 temp data: {data}")
+        
+        # Get user ID
+        userid = session.get('user_id')
+        if not userid:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        current_user = User.query.get(userid)
+        if not current_user:
+            return jsonify({"error": "Current user not found"}), 400
+        
+        # No validation - save whatever data is provided
+        form_id = data.get('form_id')
+        current_time = datetime.now()
+        
+        if form_id:
+            form = Form.query.get(form_id)
+            if not form:
+                return jsonify({"error": "Form not found"}), 404
+            
+            print(f"Updating existing form with ID (temp): {form_id}")
+            action = 'temp_updated'
+        else:
+            print("Creating new form in Form3 (temp)")
+            form = Form(
+                form_user_id=userid
+            )
+            db.session.add(form)
+            db.session.flush()
+            action = 'temp_created'
+        
+        form.last_access_date = current_time
+        
+        # Update form fields without validation
+        if data.get('title') is not None:
+            form.title = data.get('title')
+        
+        # Division is an integer field, so handle empty string
+        if data.get('division') is not None:
+            division_value = data.get('division')
+            # Convert empty string to None for integer fields
+            if division_value == '' or division_value is None:
+                form.division = None
+            else:
+                try:
+                    form.division = int(division_value)
+                except (ValueError, TypeError):
+                    form.division = None
+        
+        if 'form_reference_number' in data:
+            form.form_reference_number = data.get('form_reference_number')
+        if 'location' in data:
+            form.location = data.get('location')
+        if 'last_review_date' in data and data.get('last_review_date'):
+            try:
+                form.last_review_date = datetime.fromisoformat(data.get('last_review_date'))
+            except ValueError:
+                pass
+        if 'next_review_date' in data and data.get('next_review_date'):
+            try:
+                form.next_review_date = datetime.fromisoformat(data.get('next_review_date'))
+            except ValueError:
+                pass
+        if 'approvedBy' in data:
+            form.approved_by = data['approvedBy']
+        if 'designation' in data:
+            form.designation = data['designation']
+        
+        # Handle RA Team
+        ra_team_members = data.get('raTeam', [])
+        print(f"RA Team members from request: {ra_team_members}")
+        
+        if not form.form_RA_team_id:
+            ra_team = RA_team(RA_leader=current_user.user_id)
+            db.session.add(ra_team)
+            db.session.flush()
+            form.form_RA_team_id = ra_team.RA_team_id
+            print(f"Created new RA team with ID: {ra_team.RA_team_id}")
+        else:
+            ra_team = RA_team.query.get(form.form_RA_team_id)
+            if not ra_team:
+                ra_team = RA_team(RA_leader=current_user.user_id)
+                db.session.add(ra_team)
+                db.session.flush()
+                form.form_RA_team_id = ra_team.RA_team_id
+                print(f"Created new RA team with ID: {ra_team.RA_team_id}")
+            else:
+                ra_team.RA_leader = current_user.user_id
+                print(f"Using existing RA team with ID: {ra_team.RA_team_id}")
+        
+        # Clear existing team members and add new ones
+        deleted_count = RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
+        print(f"Deleted {deleted_count} existing team members")
+        
+        added_members = 0
+        for member_name in ra_team_members:
+            if member_name and member_name.strip():
+                print(f"Adding team member name: {member_name}")
+                # Save member as a text name, not a user reference
+                team_member = RA_team_member(
+                    RA_team_id=ra_team.RA_team_id,
+                    RA_team_member=None,  # Not linking to user_id
+                    RA_team_member_name=member_name.strip()
+                )
+                db.session.add(team_member)
+                added_members += 1
+                print(f"Added team member name: {member_name.strip()}")
+        
+        print(f"Total team members added: {added_members}")
+        
+        db.session.commit()
+        print("Database commit successful")
+        
+        return jsonify({
+            "success": True,
+            "form_id": form.form_id,
+            "action": action,
+            "message": "Form temporarily saved without validation"
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in form3_temp_save: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
   
 @user.route('/get_form2_data/<int:form_id>', methods=['GET'])
 def get_form2_data(form_id):
@@ -808,7 +1338,7 @@ def get_form2_data(form_id):
                     "id": hazard.hazard_id,
                     "description": hazard.hazard,
                     "type": [hazard_type_name] if hazard_type_name else [],
-                    "injuries": [hazard.injury] if hazard.injury else [],
+                    "injuries": [i.strip() for i in hazard.injury.split("&&")] if hazard.injury else [],
                     "existingControls": risk.existing_risk_control if risk else "",
                     "additionalControls": risk.additional_risk_control if risk else "",
                     "severity": risk.severity if risk else 1,
@@ -817,10 +1347,9 @@ def get_form2_data(form_id):
                     "newSeverity": getattr(risk, "newSeverity", None) if risk else None,
                     "newLikelihood": getattr(risk, "newLikelihood", None) if risk else None,
                     "newRpn": getattr(risk, "newRPN", None) if risk else None,
-
                     "hazard_implementation_person": hazard.hazard_implementation_person if risk else "",
-                    "hazard_due_date": hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else None
-
+                    "hazard_due_date": hazard.hazard_due_date.isoformat() if hazard.hazard_due_date else None,
+                    "ai": hazard.ai  # Include the AI source field
                 }
                 
                 act_data["hazards"].append(hazard_data)
@@ -1026,9 +1555,18 @@ def form2_save():
                         
                         hazard.hazard_type_id = hazard_type_obj.hazard_type_id
                     
-                    # Handle injuries - store as comma-separated string
+                    # Handle injuries - store as &&-separated string
                     injuries = haz_data.get('injuries', [])
-                    hazard.injury = ','.join(injuries) if injuries else ''
+                    hazard.injury = '&&'.join(injuries) if injuries else ''
+                    
+                    # Handle ai field - track the source of the hazard data
+                    ai_source = haz_data.get('ai')
+                    if ai_source == 'AI':
+                        hazard.ai = 'AI'
+                    elif ai_source == 'Database':
+                        hazard.ai = 'Database'
+                    else:
+                        hazard.ai = None  # For manually created or unspecified hazards
                     
                     db.session.flush()  # Ensure hazard ID is available
                     
@@ -1056,9 +1594,15 @@ def form2_save():
                     due_date = haz_data.get('dueDate')
                     if due_date:
                         try:
-                            hazard.hazard_due_date = datetime.fromisoformat(due_date)
+                            due_date_obj = datetime.fromisoformat(due_date)
+                            # Validate that due date is not in the past
+                            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                            if due_date_obj < today:
+                                return jsonify({"error": "Due date cannot be in the past"}), 400
+                            hazard.hazard_due_date = due_date_obj
                         except ValueError:
                             print(f"Invalid due date format: {due_date}")
+                            return jsonify({"error": f"Invalid due date format: {due_date}"}), 400
                     
                     db.session.flush()
                 
@@ -1370,19 +1914,19 @@ def form3_save():
                 ra_team.RA_leader = current_user.user_id
         
         # Now that we have a valid RA team with a leader, handle team members
-            if ra_team_members:
-                # Remove existing team members
-                RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
-                
-                # Add new team members (save as names)
-                for member_name in ra_team_members:
-                    if member_name.strip():
-                        team_member = RA_team_member(
-                            RA_team_id=ra_team.RA_team_id,
-                            RA_team_member=None,  # Not linking to user_id
-                            RA_team_member_name=member_name.strip()
-                        )
-                        db.session.add(team_member)
+        if ra_team_members:
+            # Remove existing team members
+            RA_team_member.query.filter_by(RA_team_id=ra_team.RA_team_id).delete()
+            
+            # Add new team members (save as names)
+            for member_name in ra_team_members:
+                if member_name.strip():
+                    team_member = RA_team_member(
+                        RA_team_id=ra_team.RA_team_id,
+                        RA_team_member=None,  # Not linking to user_id
+                        RA_team_member_name=member_name.strip()
+                    )
+                    db.session.add(team_member)
         
         # Handle approval information
         if 'approvedBy' in data and data.get('approvedBy'):
@@ -1921,7 +2465,7 @@ def generate_from_db_only():
             {
             "description": row.hazard_des,
             "type": [t.strip() for t in row.hazard_type.split(",")] if row.hazard_type else [],
-            "injuries": [row.injury] if row.injury else [],
+            "injuries": [i.strip() for i in row.injury.split("&&")] if row.injury else [],
             "risk_type": row.risk_type,
             "existingControls": row.control,
             "severity": row.severity,
