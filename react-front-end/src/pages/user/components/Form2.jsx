@@ -15,7 +15,7 @@ import { IoIosWarning } from "react-icons/io";
 import { toast } from "react-hot-toast";
 import { HiSparkles } from "react-icons/hi";
 import { saveFormData, loadFormData, clearFormData } from "../../../utils/cookieUtils.js";
-
+import { FaLocationDot } from "react-icons/fa6";
 
 const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Build RA processes with nested activities and default hazards
@@ -2508,9 +2508,19 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       {raProcesses.map((proc, index) => (
         <div key={proc.id} className={`hello ${index === raProcesses.length - 1 ? "pb-10" : ""}`}>
           <div className="inset-x-0 z-50 flex items-center bg-gray-100 px-4 py-2 rounded-t border border-gray-200 rounded-lg">
-            <span className="font-semibold text-lg">
-              {`Process ${proc.processNumber} - ${proc.header}`}
-            </span>
+            <div className="flex flex-col items-start">
+              <div className="flex flex-col items-start">
+                <span className="font-semibold text-lg">
+                  {`Process ${proc.processNumber} - ${proc.header}`}
+                </span>
+                {(proc.location || proc.process_location || formData?.location) && (
+                  <div className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800 mt-1">
+                    <FaLocationDot className="inline-block" />
+                    <span>{proc.location || proc.process_location || formData?.location}</span>
+                  </div>
+                )}
+              </div>
+            </div>
             <CTAButton
               text="Generate Hazards"
               icon={HiSparkles}
