@@ -533,7 +533,7 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
         return {
           name: `Process ${proc.processNumber} - ${proc.header || "Untitled"}`,
           aiOrNot: matching.length > 0
-            ? matching.map(m => `Activity: ${m.activityName} — ${m.aiOrNot}`).join("\n")
+            ? matching.map(m => `Activity: ${m.activityName} — ${m.aiOrNot}`).join("\n\n")
             : "No AI summary available."
         };
       });

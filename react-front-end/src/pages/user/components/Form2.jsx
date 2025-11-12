@@ -16,6 +16,7 @@ import { toast } from "react-hot-toast";
 import { HiSparkles } from "react-icons/hi";
 import { saveFormData, loadFormData, clearFormData } from "../../../utils/cookieUtils.js";
 import { FaLocationDot } from "react-icons/fa6";
+import SummaryDialog from "./SummaryDialog.jsx";
 
 const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref) => {
   // Build RA processes with nested activities and default hazards
@@ -34,6 +35,10 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const [currentUserName, setCurrentUserName] = useState("");
   const [currentUserDesignation, setCurrentUserDesignation] = useState("");
   const [lastSaveTime, setLastSaveTime] = useState(0); // Track when we last saved
+
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+  const [summaryList, setSummaryList] = useState([]);
+  const [summaryTargetProcessId, setSummaryTargetProcessId] = useState(null);
 
   // Early trigger to load temp data when formId becomes available from props
   useEffect(() => {
@@ -77,6 +82,8 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
   const updateTimeoutRef = useRef(null);
   const lastUpdateTime = useRef(0);
   const initialLoadRef = useRef(true);
+  const generationPendingRef = useRef(null); // { scope: 'single'|'all', processId?: string }
+  const generationToastIdRef = useRef(null);
 
 
   // Fetch divisions from API
@@ -1063,6 +1070,69 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       return false;
     }
   };
+
+  const buildHazardSummary = (processId = null) => {
+    const targetProcs = raProcesses.filter(p => !processId || p.id === processId);
+
+    return targetProcs.map((p) => {
+      const activities = (p.activities || []).map((a, idx) => {
+        const actNum = a.activityNumber || a.activity_number || a.number || (idx + 1);
+        const hazardsArr = (a.hazards || [])
+          .filter(h => h && typeof h.description === 'string' && h.description.trim().length > 0)
+          .map(h => {
+            const src = (typeof h.ai === 'string' && h.ai.toLowerCase().includes('db'))
+              ? 'DB matched'
+              : (h.ai ? 'AI generated' : '');
+            return { text: h.description.trim(), source: src };
+          });
+
+        return {
+          label: `Activity ${actNum}: ${a.description || '(untitled)'}`,
+          hazards: hazardsArr,
+        };
+      });
+
+      // legacy string (kept for backward compatibility with dialog parsing)
+      const aiOrNot = activities.length
+        ? activities.map(act => {
+            const hazardsText = act.hazards.length
+              ? act.hazards.map(h => h.source ? `- ${h.text} — ${h.source}` : `- ${h.text}`).join('\n')
+              : '(no hazards)';
+            return `${act.label}\n${hazardsText}`;
+          }).join('\n\n')
+        : 'No activities available.';
+
+      return {
+        name: `Process ${p.processNumber || ''}${p.processNumber ? ' - ' : ''}${p.header || 'Untitled'}`.trim(),
+        activities,
+        aiOrNot,
+      };
+    });
+  };
+
+useEffect(() => {
+  // Determine if we should (re)build the summary
+  const pending = generationPendingRef.current;
+  const targetId = pending?.processId ?? summaryTargetProcessId ?? null;
+
+  // If nothing pending and dialog not open, skip
+  if (!pending && !showSummaryDialog) return;
+
+  // Always rebuild the summary when raProcesses change while dialog is open
+  const summary = buildHazardSummary(targetId || null);
+  setSummaryList(summary);
+
+  // If this was the initial trigger, open the dialog and store the target id
+  if (pending) {
+    setShowSummaryDialog(true);
+    setSummaryTargetProcessId(targetId);
+    if (generationToastIdRef.current) {
+      toast.success("Hazards generated successfully!", { id: generationToastIdRef.current });
+    }
+    generationPendingRef.current = null; // clear pending flag
+    generationToastIdRef.current = null;
+  }
+}, [raProcesses, showSummaryDialog]);
 
   const hasRun = useRef(false);
 
@@ -2526,10 +2596,19 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
               icon={HiSparkles}
               /* ctrl f tag AI Generate button */
               onClick={async () => {
+                // Start loading and mark that we should open the summary after state refreshes
                 const toastId = toast.loading("Generating with AI...");
-                await addHazardsToProcess(proc.id);
-                // await addHazardsToAllProcesses(title);
-                toast.success("Hazards generated", { id: toastId });
+                generationToastIdRef.current = toastId;
+                generationPendingRef.current = { scope: 'single', processId: proc.id };
+
+                try {
+                  await addHazardsToProcess(proc.id);
+                  // Do NOT open dialog or fire success here — wait for raProcesses to refresh
+                } catch (e) {
+                  toast.error(e?.message || "Failed to generate hazards", { id: toastId });
+                  generationPendingRef.current = null;
+                  generationToastIdRef.current = null;
+                }
               }}
               className="ml-auto bg-gray-100 text-black"
             />
@@ -3509,6 +3588,15 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         }}
         onClose={() => setRiskControlWarningOpen(false)}
       />
+      
+      {showSummaryDialog && (
+        <SummaryDialog
+          title="Generation Summary"
+          message="The following hazards were generated for each activity:"
+          processes={summaryList}
+          onClose={() => setShowSummaryDialog(false)}
+        />
+      )}
       <WarningDialog
         isOpen={additionalRiskControlWarningOpen}
         icon={<IoWarning />}
