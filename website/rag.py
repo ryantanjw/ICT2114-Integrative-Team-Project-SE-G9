@@ -321,6 +321,11 @@ def get_hazard_match(activity, knowledge_base, kb_embeddings):
     # return similarity <= 0.35
     return similarity <= 0.85
 
+def get_hazard_match_reference(activity, knowledge_base, kb_embeddings):
+    top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
+    context_text, similarity = top_matches[0]
+    return context_text
+
 def generate_ai_work_activities(title, processName, db_result):
     user_prompt = (
         f"""

@@ -247,11 +247,16 @@ def get_new_hazard():
                 print(f"Error matching hazard {getattr(hazard, 'hazard_id', None)}: {me}")
                 is_new = False
 
+
             hazard_field = [hazard.hazard or "No hazard description", "new" if is_new else "old"]
+            if not is_new:
+                    reference = get_hazard_match_reference(hazard.hazard, knowledge_base, kb_embeddings)
+                    hazard_field.append(f"{reference}") # e.g. ["hazard description", "old", "matched hazard description"]
 
             #risk matching
             # existing_risk_control may contain multiple controls concatenated with '&&'
             existing_risk_control_field = []
+            existing_risk_control_field_db_reference = [] # e.g. [control1, reference1, control2, reference2]
             try:
                 raw_controls = (risk.existing_risk_control or "") if risk else ""
                 # Split by '&&' and trim each part, ignore empty parts
@@ -267,6 +272,10 @@ def get_new_hazard():
                             is_new_part = False
                         existing_risk_control_field.append(part)
                         existing_risk_control_field.append("new" if is_new_part else "old")
+                        if not is_new_part:
+                            reference = get_hazard_match_reference(part, knowledge_base_control, kb_embeddings_control)
+                            existing_risk_control_field_db_reference.append(part)
+                            existing_risk_control_field_db_reference.append(f"{reference}")
             except Exception as me:
                 # Fallback: preserve the raw string if something unexpected happens
                 print(f"Error processing existing_risk_control for hazard {getattr(hazard, 'hazard_id', None)}: {me}")
@@ -279,9 +288,13 @@ def get_new_hazard():
                 print(f"Error matching activity {getattr(activity, 'activity_id', None)}: {me}")
                 is_new_activity = False
             existing_activity_field = [activity.work_activity or "No activity description", "new" if is_new_activity else "old"]
+            if not is_new_activity:
+                    reference = get_hazard_match_reference(activity.work_activity, knowledge_base_activity, kb_embeddings_activity)
+                    existing_activity_field.append(f"{reference}") #e.g. ["activity description", "old", "matched activity description"]
 
             # injury matching - support multiple injuries concatenated with '&&'
             existing_injury_field = []
+            existing_injury_field_db_reference = [] # e.g. [injury1, reference1, injury2, reference2]
             try:
                 raw_injuries = (hazard.injury or "") if hazard else ""
                 injury_parts = [p.strip() for p in raw_injuries.split('&&') if p and p.strip()]
@@ -295,6 +308,10 @@ def get_new_hazard():
                             is_new_inj = False
                         existing_injury_field.append(part)
                         existing_injury_field.append("new" if is_new_inj else "old")
+                        if not is_new_inj:
+                            reference = get_hazard_match_reference(part, knowledge_base_injury, kb_embeddings_injury)
+                            existing_injury_field_db_reference.append(part)
+                            existing_injury_field_db_reference.append(f"{reference}")
             except Exception as me:
                 print(f"Error processing injury for hazard {getattr(hazard, 'hazard_id', None)}: {me}")
                 existing_injury_field = [hazard.injury or "No injury description", "old"]
@@ -304,7 +321,7 @@ def get_new_hazard():
                 'hazard_activity_id': hazard.hazard_activity_id,
                 'process': process.process_title if process else "Unknown Process",
                 # 'hazard': hazard.hazard or "No hazard description",
-                'hazard': hazard_field,
+                'hazard': hazard_field, # e.g. ["hazard description", "new"/"old", "matched hazard description"]
                 # 'injury': hazard.injury or "No injury description",
                 'injury': existing_injury_field,
                 'hazard_type_id': hazard.hazard_type_id,
@@ -312,7 +329,7 @@ def get_new_hazard():
                 'remarks': hazard.remarks or "No remarks",
                 'approval': hazard.approval,
                 # 'work_activity': activity.work_activity if activity else "Unknown activity",
-                'work_activity': existing_activity_field,
+                'work_activity': existing_activity_field, #e.g. ["activity description", "old", "matched activity description"]
                 # 'hazard_type': hazard_type.hazard_type if hazard_type else "Unknown type",
                 "form_title": form.title if form else "Unknown form",
                 "form_date": form.last_access_date.isoformat() if form and form.last_access_date else None,
@@ -323,6 +340,8 @@ def get_new_hazard():
                 "severity": risk.severity if risk else 0,
                 "likelihood": risk.likelihood if risk else 0,
                 "RPN": risk.RPN if risk else 0,
+                "existing_risk_control_db_reference": existing_risk_control_field_db_reference,
+                "existing_injury_db_reference": existing_injury_field_db_reference
             })
         except Exception as e:
             print(f"Error processing hazard {getattr(hazard, 'hazard_id', None)}: {e}")
