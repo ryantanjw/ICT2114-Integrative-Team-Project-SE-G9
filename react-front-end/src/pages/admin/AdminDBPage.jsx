@@ -8,7 +8,7 @@ import TextField from "./components/TextField.jsx";
 import TableInfo from "./components/TableInfo.jsx";
 import CTAButton from "../../components/CTAButton.jsx";
 import { MdDelete } from "react-icons/md";
-import { FaSave } from "react-icons/fa";
+import { FaSave, FaInfoCircle } from "react-icons/fa";
 import axios from "axios";
 
 
@@ -264,6 +264,8 @@ export default function AdminDB() {
   const [hcIdx, setHCIdx] = useState(0);
   const [hIdx, setHIdx] = useState(0);
   const [iIdx, setIIdx] = useState(0);
+  // Track which hazard has its "similar to" bubble open (null = none)
+  const [openSimilarHazardId, setOpenSimilarHazardId] = useState(null);
 
   const [existingControls, setExistingControls] = useState("");
   const [additionalControls, setAdditionalControls] = useState("");
@@ -390,7 +392,26 @@ export default function AdminDB() {
   // console.log("Current status:", status);
 
   // --- Helpers & derived lists for API mode ---
-  const parsePair = (val) => (Array.isArray(val) ? { text: val[0], state: val[1] } : { text: String(val ?? ""), state: "" });
+  const parsePair = (val) =>
+    Array.isArray(val)
+      ? { text: val[0], state: val[1] }
+      : { text: String(val ?? ""), state: "" };
+
+  // Specifically for hazards, backend may now send [currentHazard, state, similarToHazardName]
+  const parseHazardTriple = (val) => {
+    if (Array.isArray(val)) {
+      return {
+        text: val[0] ?? "",
+        state: val[1] ?? "",
+        similarTo: val[2] ?? "",
+      };
+    }
+    return {
+      text: String(val ?? ""),
+      state: "",
+      similarTo: "",
+    };
+  };
 
   // Pending tab shows ALL unapproved hazards (both "Distinctive" and "Similar")
   const apiPendingAll = hazards;
@@ -407,7 +428,8 @@ export default function AdminDB() {
       const actPairLocal = parsePair(it.work_activity);
       const act = actPairLocal.text || "Unspecified Activity";
       const cat = it.hazard_type || (it.hazard_type_id != null ? String(it.hazard_type_id) : "Other");
-      const hazPair = parsePair(it.hazard);
+      // hazard: [currentHazard, "new"/"old", similarToHazardName]
+      const hazTriple = parseHazardTriple(it.hazard);
       // Build a list of existing risk controls; support alternating [text, state] arrays and '&&' delimiters
       let existingRCList = [];
       let rcHasNew = false;
@@ -429,7 +451,7 @@ export default function AdminDB() {
           .map((s) => s.trim())
           .filter(Boolean);
       }
-      const hz = hazPair.text || "(Unnamed Hazard)";
+      const hz = hazTriple.text || "(Unnamed Hazard)";
       // Build a list of injury strings; split on '&&' to create multiple entries
       let injuryList = [];
       if (Array.isArray(it.injury)) {
@@ -470,15 +492,25 @@ export default function AdminDB() {
 
       let h = hc.hazards.find((x) => x.name === hz);
       if (!h) {
-        h = { id: `h_${proc}_${act}_${cat}_${idx}`, name: hz, injuries: [], isNew: hazPair.state === "new" };
+        h = {
+          id: `h_${proc}_${act}_${cat}_${idx}`,
+          name: hz,
+          injuries: [],
+          isNew: hazTriple.state === "new",
+          similarTo: hazTriple.similarTo || "",
+        };
         // propagate hazard_id from backend
         h.hazard_id = it.hazard_id;
         hc.hazards.push(h);
       } else {
         // if hazard already exists, preserve any previous flag or set to true if any item marks it as new
-        h.isNew = Boolean(h.isNew || (hazPair.state === "new"));
+        h.isNew = Boolean(h.isNew || (hazTriple.state === "new"));
         // update hazard_id if not already set
         if (h.hazard_id == null && it.hazard_id != null) h.hazard_id = it.hazard_id;
+        // if we receive a non-empty similarTo string, store it
+        if (!h.similarTo && hazTriple.similarTo) {
+          h.similarTo = hazTriple.similarTo;
+        }
       }
 
       injuryList.forEach((injName, injIdx) => {
@@ -685,16 +717,60 @@ export default function AdminDB() {
           items={hazardsList.map((h) => (
             DATA_SOURCE === "API" && status === "Pending"
               ? (
-                <div className="flex items-center justify-between">
-                  <span className={
-                    "mr-2 px-2 py-0.5 text font-medium rounded-full border " +
-                    (h.isNew
-                      ? "bg-yellow-100 text-yellow-800 border-yellow-300"
-                      : "bg-gray-100 text-gray-700 border-gray-300")
-                  }>
-                    {h.isNew ? "Distinctive" : "Similar"}
-                  </span>
-                  <span className="truncate">{h.name}</span>
+                <div className="w-full">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={
+                        "mr-2 px-2 py-0.5 text font-medium rounded-full border " +
+                        (h.isNew
+                          ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                          : "bg-gray-100 text-gray-700 border-gray-300")
+                      }
+                    >
+                      {h.isNew ? "Distinctive" : "Similar"}
+                    </span>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="truncate">{h.name}</span>
+                      {!h.isNew && h.similarTo && (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenSimilarHazardId((prev) =>
+                              prev === h.id ? null : h.id
+                            );
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setOpenSimilarHazardId((prev) =>
+                                prev === h.id ? null : h.id
+                              );
+                            }
+                          }}
+                          className="shrink-0 inline-flex items-center gap-1 text-xs text-blue-600 border border-blue-200 rounded-full px-2 py-0.5 hover:bg-blue-50 cursor-pointer"
+                          title={h.similarTo ? `Similar to: ${h.similarTo}` : ""}
+                        >
+                          <FaInfoCircle className="text-[10px]" />
+                          <span>View match</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {!h.isNew && h.similarTo && openSimilarHazardId === h.id && (
+                    <div className="mt-2 inline-block w-full text-xs text-gray-700 bg-white border border-gray-200 rounded-lg shadow-sm">
+                      <div className="px-3 py-2 border-b border-gray-200 rounded-t-lg bg-gray-50">
+                        <h3 className="font-semibold text text-gray-900">Similar Entries</h3>
+                      </div>
+                      <div className="px-3 py-2">
+                        <p className="whitespace-pre-line break-words">
+                          {h.similarTo}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
               : h.name
@@ -705,6 +781,7 @@ export default function AdminDB() {
           onSelect={(idx) => {
             setHIdx(idx);
             setIIdx(0);
+            setOpenSimilarHazardId(null);
           }}
           position={3}
           emptyText="No hazards for this category"

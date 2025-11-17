@@ -48,7 +48,7 @@ export default function TableInfo({
         >
           {items.length > 0 ? (
             items.map((label, idx) => {
-              const base = "w-full text-left px-4 border-t first:border-t-0 border-gray-200 transition-colors h-14 flex items-center";
+              const base = "w-full text-left px-4 border-t first:border-t-0 border-gray-200 transition-colors flex flex-col items-start justify-center gap-2 py-3 min-h-[56px]";
               const tone = isSelected(idx)
                 ? "text-gray-900"
                 : useActiveTone && isActive(idx)
@@ -67,7 +67,7 @@ export default function TableInfo({
               );
             })
           ) : (
-            <div className="w-full text-left px-4 border-t first:border-t-0 border-gray-200 h-14 flex items-center text-gray-400 select-none">
+            <div className="w-full text-left px-4 border-t first:border-t-0 border-gray-200 py-3 min-h-[56px] flex items-center text-gray-400 select-none">
               {emptyText}
             </div>
           )}
@@ -75,7 +75,7 @@ export default function TableInfo({
             <div
               key={`ph-${i}`}
               className={
-                "w-full text-left px-4 border-t first:border-t-0 border-gray-200 h-14 flex items-center text-transparent select-none"
+                "w-full text-left px-4 border-t first:border-t-0 border-gray-200 py-3 min-h-[56px] flex items-center text-transparent select-none"
               }
             >
               {"\u00A0"}
