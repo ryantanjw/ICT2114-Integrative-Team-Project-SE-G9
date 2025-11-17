@@ -772,22 +772,24 @@ const Form3 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
       </div>
 
 
-      {/* Approval row */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <InputGroup
-          label="Approved by"
-          id="approved-by"
-          value={approvedBy}
-          onChange={(e) => setApprovedBy(e.target.value)}
-          disabled
-        />
-        <InputGroup
-          label="Designation"
-          id="designation"
-          value={designation}
-          onChange={(e) => setDesignation(e.target.value)}
-          disabled
-        />
+      {/* Approval row - Hidden */}
+      <div className="hidden">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <InputGroup
+            label="Approved by"
+            id="approved-by"
+            value={approvedBy}
+            onChange={(e) => setApprovedBy(e.target.value)}
+            disabled
+          />
+          <InputGroup
+            label="Designation"
+            id="designation"
+            value={designation}
+            onChange={(e) => setDesignation(e.target.value)}
+            disabled
+          />
+        </div>
       </div>
 
       <WarningDialog
