@@ -121,6 +121,7 @@ class Activity(db.Model):
     work_activity = db.Column(db.String(255), nullable=False)
     activity_number = db.Column(db.Integer, nullable=False)
     activity_remarks = db.Column(db.String(255), nullable=True)
+    activity_tag = db.Column(db.String(45), nullable=True)
     
 class RA_team(db.Model):
     __tablename__ = 'RA_team'

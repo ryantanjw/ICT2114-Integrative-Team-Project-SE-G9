@@ -2,11 +2,9 @@ import React, { useState, useEffect } from "react";
 import HeaderAdmin from "../../components/HeaderAdmin.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import { IoMdRefresh } from "react-icons/io";
-import CTAButton from "../../components/CTAButton.jsx";
 import SearchBar from "../../components/SearchBar.jsx";
 import axios from "axios";
-import FormCardA2Admin from "../../components/FormCardA2Admin.jsx";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaEye, FaDownload, FaTrash } from "react-icons/fa";
 import PdfPreviewModal from "./components/PdfPreviewModal.jsx";
 import DownloadDialogue from "../../components/DownloadDialogue.jsx";
 
@@ -21,6 +19,8 @@ export default function AdminForm() {
   const [selectedFormForPdf, setSelectedFormForPdf] = useState(null);
   const [isDownloadDialogueOpen, setIsDownloadDialogueOpen] = useState(false);
   const [selectedFormForDownload, setSelectedFormForDownload] = useState(null);
+  const [viewFilter, setViewFilter] = useState("all"); // "all" or "own"
+  const [raLeaders, setRaLeaders] = useState({}); // Store RA leader names
 
 
 
@@ -40,7 +40,6 @@ export default function AdminForm() {
 
   // Filter and search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [divisionFilter, setDivisionFilter] = useState("");
   const [availableFilters, setAvailableFilters] = useState({
     divisions: [],
@@ -55,18 +54,26 @@ export default function AdminForm() {
     return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
   };
 
-  const fetchUserForms = async (page = 1, search = "", status = "", division = "") => {
+  const fetchUserForms = async (page = 1, search = "", division = "") => {
     try {
       setIsLoadingForms(true);
-      console.log(`Fetching forms - Page: ${page}, Search: "${search}", Status: "${status}", Division: "${division}"`);
+      console.log(`Fetching forms - Page: ${page}, Search: "${search}", Division: "${division}", View Filter: "${viewFilter}"`);
 
       const params = new URLSearchParams({
         page: page.toString(),
         per_page: "21",
         ...(search && { search }),
-        ...(status && { status }),
         ...(division && { division })
       });
+
+      // Only fetch completed forms when viewing "All Users"
+      // Show all forms when viewing "My Forms Only"
+      if (viewFilter === "all") {
+        params.append("status", "Completed");
+      } else if (viewFilter === "own" && adminData) {
+        // Filter by current user's ID
+        params.append("user_id", adminData.user_id.toString());
+      }
 
       const response = await axios.get(`/api/admin/retrieveForms?${params}`, {
         withCredentials: true,
@@ -80,6 +87,9 @@ export default function AdminForm() {
       if (response.data.forms) {
         setForms(response.data.forms);
         setPagination(response.data.pagination);
+        
+        // Fetch RA leader names for all forms
+        await fetchRaLeaders(response.data.forms);
       } else {
         setForms(response.data);
       }
@@ -93,6 +103,32 @@ export default function AdminForm() {
       setPagination(prev => ({ ...prev, total_forms: 0, total_pages: 0 }));
     } finally {
       setIsLoadingForms(false);
+    }
+  };
+
+  // Fetch RA leader names
+  const fetchRaLeaders = async (formsList) => {
+    try {
+      const uniqueRaTeamIds = [...new Set(formsList.map(form => form.form_RA_team_id).filter(Boolean))];
+      const leadersMap = {};
+      
+      for (const teamId of uniqueRaTeamIds) {
+        try {
+          const response = await axios.get(`/api/admin/getRaLeader/${teamId}`, {
+            withCredentials: true
+          });
+          if (response.data.ra_leader_name) {
+            leadersMap[teamId] = response.data.ra_leader_name;
+          }
+        } catch (error) {
+          console.error(`Error fetching RA leader for team ${teamId}:`, error);
+          leadersMap[teamId] = "Unknown";
+        }
+      }
+      
+      setRaLeaders(leadersMap);
+    } catch (error) {
+      console.error("Error fetching RA leaders:", error);
     }
   };
 
@@ -117,30 +153,30 @@ export default function AdminForm() {
   // Handle search
   const handleSearch = (query) => {
     setSearchQuery(query);
-    fetchUserForms(1, query, statusFilter, divisionFilter); // Reset to page 1 when searching
+    fetchUserForms(1, query, divisionFilter); // Reset to page 1 when searching
   };
 
   // Handle filter changes
-  const handleStatusFilter = (status) => {
-    setStatusFilter(status);
-    fetchUserForms(1, searchQuery, status, divisionFilter);
-  };
-
   const handleDivisionFilter = (division) => {
     setDivisionFilter(division);
-    fetchUserForms(1, searchQuery, statusFilter, division);
+    fetchUserForms(1, searchQuery, division);
+  };
+
+  // Handle view filter change (all users vs own forms)
+  const handleViewFilterChange = (filter) => {
+    setViewFilter(filter);
   };
 
   // Handle pagination
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.total_pages) {
-      fetchUserForms(newPage, searchQuery, statusFilter, divisionFilter);
+      fetchUserForms(newPage, searchQuery, divisionFilter);
     }
   };
 
   // Handle refresh
   const handleRefresh = () => {
-    fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
+    fetchUserForms(pagination.current_page, searchQuery, divisionFilter);
   };
 
   // Handle previewing PDF
@@ -159,42 +195,39 @@ export default function AdminForm() {
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery("");
-    setStatusFilter("");
     setDivisionFilter("");
-    fetchUserForms(1, "", "", "");
+    setViewFilter("all");
+    fetchUserForms(1, "", "");
   };
 
   // Handle sharing a form
   const handleShare = (formId) => {
     console.log(`Sharing form with ID: ${formId}`);
     // Add your share logic here
-    // For example, copy link to clipboard or open share modal
   };
 
   // Handle downloading a form
   const handleDownload = (formId, formTitle) => {
     console.log(`Downloading form: ${formTitle} (ID: ${formId})`);
-    // Add your download logic here
-    // For example, generate PDF or export data
     try {
-      // Example: Navigate to download endpoint
       window.open(`/api/admin/downloadForm/${formId}`, '_blank');
     } catch (error) {
       console.error('Error downloading form:', error);
     }
   };
 
-
-  // Handle viewing a form --> allows user to edit form --> redirect to form 1
+  // Handle viewing a form
   const handleView = async (formId) => {
-    console.log(`Redirecting user to form with ID: ${formId}`);
-    try {
-      // Example: Navigate to view form1 endpoint
-      // window.open(`/api/admin/downloadForm/${formId}`, '_blank');
-    } catch (error) {
-      console.error('Error downloading form:', error);
+    console.log(`Viewing form with ID: ${formId}`);
+    
+    // If viewing "My Forms", navigate to the form editor
+    if (viewFilter === "own") {
+      navigate(`/user/new/${formId}`);
+    } else {
+      // For "All Users", show PDF preview
+      handlePreviewPdf(formId, forms.find(f => f.id === formId)?.title || "Form");
     }
-  }
+  };
 
   // Handle deleting a form
   const handleDelete = async (formId) => {
@@ -213,8 +246,7 @@ export default function AdminForm() {
       if (response.data.success) {
         console.log('Form deleted successfully');
         // Refresh the forms list
-        // fetchUserForms(pagination.current_page, searchQuery, statusFilter, divisionFilter);
-        fetchUserForms(pagination.current_page);
+        fetchUserForms(pagination.current_page, searchQuery, divisionFilter);
       } else {
         console.error('Failed to delete form:', response.data.error);
         alert('Failed to delete form: ' + response.data.error);
@@ -224,6 +256,13 @@ export default function AdminForm() {
       alert('Error deleting form. Please try again.');
     }
   };
+
+  // Re-fetch forms when view filter changes
+  useEffect(() => {
+    if (adminData && !isLoading) {
+      fetchUserForms(1, searchQuery, divisionFilter);
+    }
+  }, [viewFilter]);
 
   // Check session when component mounts
   useEffect(() => {
@@ -254,6 +293,8 @@ export default function AdminForm() {
 
         // Store admin data for display
         setAdminData(response.data);
+        
+        console.log("Admin session data stored:", response.data);
 
         // Fetch initial data
         await Promise.all([
@@ -290,7 +331,7 @@ export default function AdminForm() {
       <div className="flex flex-col justify-start mb-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
           <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold mb-2 sm:mb-0">
-            All Forms
+            {viewFilter === "all" ? "All Completed Forms" : "My Forms"}
           </h3>
           <div className="flex items-center space-x-2">
             <button
@@ -302,7 +343,7 @@ export default function AdminForm() {
               <IoMdRefresh className={`mr-2 ${isLoadingForms ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            {(searchQuery || statusFilter || divisionFilter) && (
+            {(searchQuery || divisionFilter || viewFilter !== "all") && (
               <button
                 type="button"
                 onClick={clearFilters}
@@ -323,16 +364,14 @@ export default function AdminForm() {
           />
 
           <div className="flex flex-wrap gap-4">
-            {/* Status Filter */}
+            {/* View Filter - All Users vs Own Forms */}
             <select
-              value={statusFilter}
-              onChange={(e) => handleStatusFilter(e.target.value)}
+              value={viewFilter}
+              onChange={(e) => handleViewFilterChange(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All Status</option>
-              <option value="Incomplete">Incomplete</option>
-              <option value="Completed">Completed</option>
-              <option value="review due">Review Due</option>
+              <option value="all">All Users</option>
+              <option value="own">My Forms Only</option>
             </select>
 
             {/* Division Filter */}
@@ -355,7 +394,7 @@ export default function AdminForm() {
         {pagination.total_forms > 0 && (
           <div className="mb-4 text-sm text-gray-600">
             Showing {pagination.start_index}-{pagination.end_index} of {pagination.total_forms} forms
-            {(searchQuery || statusFilter || divisionFilter) && (
+            {(searchQuery || divisionFilter || viewFilter !== "all") && (
               <span className="ml-2 font-medium">
                 (filtered results)
               </span>
@@ -363,7 +402,7 @@ export default function AdminForm() {
           </div>
         )}
 
-        {/* Forms Grid */}
+        {/* Forms Table */}
         <div className="mt-6">
           {isLoadingForms ? (
             <div className="flex items-center justify-center py-12">
@@ -373,38 +412,112 @@ export default function AdminForm() {
           ) : forms.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-sm text-center">
               <p className="text-gray-600">
-                {searchQuery || statusFilter || divisionFilter
-                  ? "No forms match your search criteria."
-                  : "No forms found. Create a new form to get started."
+                {searchQuery || divisionFilter || viewFilter !== "all"
+                  ? viewFilter === "own"
+                    ? "No forms match your search criteria."
+                    : "No completed forms match your search criteria."
+                  : viewFilter === "own"
+                    ? "No forms found."
+                    : "No completed forms found."
                 }
               </p>
-              {!(searchQuery || statusFilter || divisionFilter) && (
-                <button
-                  type="button"
-                  onClick={() => navigate("/user/new")}
-                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                >
-                  Create New Form
-                </button>
-              )}
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
-                {forms.map((form) => (
-                  <FormCardA2Admin
-                    key={form.id}
-                    date={formatDate(form.created_at || form.last_access_date)}
-                    expiryDate={formatDate(form.next_review_date)}
-                    title={form.title || "Untitled Form"}
-                    owner={form.owner || "Unknown User"}
-                    tags={form.tags || [form.status] || ["Unknown"]}
-                    status={form.status}
-                    onPreviewPdf={() => handlePreviewPdf(form.id, form.title)}
-                    onDownload={() => handleOpenDownloadDialogue(form.id, form.title)} // Update this line
-                    onDelete={() => handleDelete(form.id)}
-                  />
-                ))}
+              {/* Table Container */}
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          S/N
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Title
+                        </th>
+                        {viewFilter === "own" && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                        )}
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Division
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          RA Leader
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Next Review Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {forms.map((form, index) => (
+                        <tr key={form.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {pagination.start_index + index}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            <div className="max-w-xs truncate" title={form.title || "Untitled Form"}>
+                              {form.title || "Untitled Form"}
+                            </div>
+                          </td>
+                          {viewFilter === "own" && (
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                form.status === "Completed" 
+                                  ? "bg-green-100 text-green-800" 
+                                  : form.status === "review due"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}>
+                                {form.status}
+                              </span>
+                            </td>
+                          )}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {form.division || "N/A"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {raLeaders[form.form_RA_team_id] || "Loading..."}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatDate(form.next_review_date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleView(form.id)}
+                                className="text-blue-600 hover:text-blue-800 p-2 rounded-md hover:bg-blue-50"
+                                title={viewFilter === "own" ? "Edit Form" : "View Form"}
+                              >
+                                <FaEye size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleOpenDownloadDialogue(form.id, form.title)}
+                                className="text-green-600 hover:text-green-800 p-2 rounded-md hover:bg-green-50"
+                                title="Download Form"
+                              >
+                                <FaDownload size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(form.id)}
+                                className="text-red-600 hover:text-red-800 p-2 rounded-md hover:bg-red-50"
+                                title="Delete Form"
+                              >
+                                <FaTrash size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Pagination Controls */}

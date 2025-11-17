@@ -1,7 +1,7 @@
 # Fix the import statements
 from flask import Blueprint, jsonify, request, session, make_response
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity, Process, Hazard, Risk, HazardType, Division
+from models import User, Form, Activity, Process, Hazard, Risk, HazardType, Division, RA_team
 from models import db
 import random
 import string
@@ -763,6 +763,7 @@ def retrieve_forms():
         search = request.args.get('search', '', type=str)
         status_filter = request.args.get('status', '', type=str)
         division_filter = request.args.get('division', '', type=str)
+        user_filter = request.args.get('user_id', '', type=str)  # Filter by user_id
 
         query = db.session.query(Form, User).join(
             User, Form.form_user_id == User.user_id
@@ -783,6 +784,10 @@ def retrieve_forms():
 
         if division_filter:
             query = query.filter(Form.division == division_filter)
+        
+        # Filter by user_id if provided
+        if user_filter:
+            query = query.filter(Form.form_user_id == int(user_filter))
 
         all_forms_with_users = query.all()
 
@@ -829,13 +834,20 @@ def retrieve_forms():
             if form.approved_by:
                 approved_by_user = User.query.filter_by(user_id=form.approved_by).first()
                 approved_by_username = approved_by_user.user_name if approved_by_user else f"User ID: {form.approved_by}"
+            
+            # Get division name if available
+            division_name = None
+            if form.division:
+                division_obj = Division.query.filter_by(division_id=form.division).first()
+                division_name = division_obj.division_name if division_obj else f"Division ID: {form.division}"
 
             forms_list.append({
                 'id': form.form_id,
                 'title': form.title or "Untitled Form",
                 'form_reference_number': form.form_reference_number,
                 'location': form.location,
-                'division': form.division,
+                'division': division_name,
+                'division_id': form.division,
                 'process': form.process,
                 'status': status,
                 'approval': form.approval,
@@ -945,3 +957,41 @@ def delete_form(form_id):
         db.session.rollback()
         print(f"Error deleting form {form_id}: {str(e)}")
         return jsonify({'error': 'Failed to delete process'}), 500
+
+
+@admin.route('/getRaLeader/<int:ra_team_id>', methods=['GET'])
+def get_ra_leader(ra_team_id):
+    """Get the RA leader name for a given RA team ID"""
+    try:
+        print(f"Fetching RA leader for team ID: {ra_team_id}")
+        
+        # Get the RA team
+        ra_team = RA_team.query.filter_by(RA_team_id=ra_team_id).first()
+        
+        if not ra_team:
+            return jsonify({
+                'success': False,
+                'error': 'RA team not found'
+            }), 404
+        
+        # Get the leader user
+        leader = User.query.filter_by(user_id=ra_team.RA_leader).first()
+        
+        if not leader:
+            return jsonify({
+                'success': False,
+                'error': 'RA leader not found'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'ra_leader_name': leader.user_name,
+            'ra_leader_id': leader.user_id
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching RA leader for team {ra_team_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
