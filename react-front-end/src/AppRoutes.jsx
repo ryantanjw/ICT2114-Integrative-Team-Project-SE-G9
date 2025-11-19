@@ -23,6 +23,7 @@ import AdminDB from "./pages/admin/AdminDBPage.jsx";
 import AdminForm from "./pages/admin/AdminFormPage.jsx";
 import AdminSetting from "./pages/admin/AdminSettingsPage.jsx";
 import AdminForgotPassword from "./pages/admin/AdminForgotPasswordPage.jsx"
+import AdminAudit from "./pages/admin/AdminAuditPage.jsx";
 
 // Dev pages
 import DevAdminDBPage from "./pages/dev/DevAdminDBPage.jsx";
@@ -64,6 +65,7 @@ function AppRoutes() {
         <Route path="/admin/setting" element={<AdminSetting />} />
         <Route path="/admin/db" element={<AdminDB />} />
         <Route path="/admin/forgot-password"  element={<AdminForgotPassword />} />
+        <Route path="/admin/audit" element={<AdminAudit />} />
 
         {/* Dev-specific routes */}        
         <Route path="/dev/home" element={<DevHome />} />  

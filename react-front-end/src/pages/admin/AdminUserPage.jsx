@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import HeaderAdmin from "../../components/HeaderAdmin.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import CTAButton from "../../components/CTAButton.jsx";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import SearchBar from "../../components/SearchBar.jsx";
 import UserTable from "./components/AdminUserTable.jsx";
 import RegisterForm from "./components/RegisterForm.jsx";
@@ -27,6 +27,10 @@ export default function AdminUser() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
 
 
@@ -191,6 +195,7 @@ export default function AdminUser() {
 
     console.log(`Found ${filtered.length} matches out of ${users.length} total users`);
     setFilteredUsers(filtered);
+    setCurrentPage(1); // Reset to first page when search changes
   }, [searchTerm, users]);
   // Handle user editing
   const handleEditUser = (user) => {
@@ -226,6 +231,36 @@ export default function AdminUser() {
     setResetPasswordModalOpen(true);
   };
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentUsers = filteredUsers.slice(startIndex, endIndex);
+  const hasNext = currentPage < totalPages;
+  const hasPrev = currentPage > 1;
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   // Show loading indicator
   if (isLoading) {
     return (
@@ -239,7 +274,7 @@ export default function AdminUser() {
   }
 
   return (
-    <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5">
+    <div className="bg-[#F7FAFC] min-h-screen max-w-screen overflow-x-hidden 2xl:px-40 px-5 pb-10">
       <HeaderAdmin activePage={location.pathname} />
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-2">
@@ -260,6 +295,18 @@ export default function AdminUser() {
         placeholder="Search users by name, email, or cluster..."
       />
       
+      {/* Results Summary */}
+      {filteredUsers.length > 0 && (
+        <div className="mb-4 text-sm text-gray-600">
+          Showing {startIndex + 1}-{Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} users
+          {searchTerm && (
+            <span className="ml-2 font-medium">
+              (filtered results)
+            </span>
+          )}
+        </div>
+      )}
+      
       {/* Add a debug indicator showing current search */}
       {searchTerm && (
         <div className="mb-2 text-sm text-gray-600">
@@ -279,12 +326,99 @@ export default function AdminUser() {
           <p className="text-gray-600">No users found. {searchTerm ? "Try a different search term." : "Add users to get started."}</p>
         </div>
       ) : (
-        <UserTable
-          users={filteredUsers}
-          onRemove={handleRemoveUser}
-          onReset={handleResetUser}
-          onEdit={handleEditUser}
-        />
+        <>
+          <UserTable
+            users={currentUsers}
+            onRemove={handleRemoveUser}
+            onReset={handleResetUser}
+            onEdit={handleEditUser}
+          />
+
+          {/* Pagination Controls - Same style as AdminFormPage */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {/* Previous Button */}
+                <button
+                  type="button"
+                  onClick={goToPreviousPage}
+                  disabled={!hasPrev}
+                  className="flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FaChevronLeft className="mr-1" size={12} />
+                  Previous
+                </button>
+
+                {/* Page Numbers */}
+                <div className="flex items-center space-x-1">
+                  {/* Show first page */}
+                  {currentPage > 3 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => goToPage(1)}
+                        className="px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                      >
+                        1
+                      </button>
+                      {currentPage > 4 && <span className="px-2">...</span>}
+                    </>
+                  )}
+
+                  {/* Show pages around current page */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pageNum = Math.max(1, currentPage - 2) + i;
+                    if (pageNum > totalPages) return null;
+
+                    return (
+                      <button
+                        type="button"
+                        key={pageNum}
+                        onClick={() => goToPage(pageNum)}
+                        className={`px-3 py-2 border rounded-md ${
+                          pageNum === currentPage
+                            ? 'bg-blue-500 text-white border-blue-500'
+                            : 'bg-white border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  {/* Show last page */}
+                  {currentPage < totalPages - 2 && (
+                    <>
+                      {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+                      <button
+                        type="button"
+                        onClick={() => goToPage(totalPages)}
+                        className="px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Next Button */}
+                <button
+                  type="button"
+                  onClick={goToNextPage}
+                  disabled={!hasNext}
+                  className="flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                  <FaChevronRight className="ml-1" size={12} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Registration modal */}

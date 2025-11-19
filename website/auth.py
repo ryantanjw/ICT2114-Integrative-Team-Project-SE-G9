@@ -1,7 +1,11 @@
 from flask import Blueprint, app,render_template,request,redirect,url_for,jsonify, session
-from models import db, User
+from models import db, User, Audit
 from flask_cors import CORS
 from werkzeug.security import check_password_hash
+from datetime import datetime, timezone, timedelta
+
+# Define Singapore timezone (GMT+8)
+SINGAPORE_TZ = timezone(timedelta(hours=8))
 
 
 
@@ -13,6 +17,70 @@ CORS(auth, supports_credentials=True)  # Enable credentials support for cookies
 # Each route has a function which is for this is each view's function
 
 review_sentiment_per=0.0
+
+def create_audit_log(audit_user_id, action, target_user_id):
+    """
+    Create an audit log entry
+    
+    Args:
+        audit_user_id: ID of the user performing the action
+        action: Description of the action (e.g., 'POST - login', 'PUT - edit user details')
+        target_user_id: ID of the user being affected by the action
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    print(f"\n=== CREATE AUDIT LOG CALLED ===")
+    print(f"Input - User ID: {audit_user_id}, Action: '{action}', Target: {target_user_id}")
+    
+    try:
+        # Extract action type from action string (e.g., "POST" from "POST - login")
+        action_type = action.split(" - ")[0] if " - " in action else ""
+        action = action.split(" - ")[1] if " - " in action else action
+        
+        # Get target user's name
+        target_user = User.query.get(target_user_id)
+        target_user_name = target_user.user_name if target_user else f"User ID: {target_user_id}"
+        
+        # Get current Singapore time (GMT+8)
+        singapore_time = datetime.now(SINGAPORE_TZ)
+        
+        print(f"Creating audit log with:")
+        print(f"  - audit_user: {audit_user_id}")
+        print(f"  - audit_action: {action}")
+        print(f"  - audit_actiontype: {action_type}")
+        print(f"  - audit_targetuser: {target_user_name}")
+        print(f"  - audit_time: {singapore_time}")
+        
+        audit_log = Audit(
+            audit_user=audit_user_id,
+            audit_action=action,
+            audit_actiontype=action_type,
+            audit_targetuser=target_user_name,
+            audit_time=singapore_time
+        )
+        
+        print(f"Audit object created: {audit_log}")
+        print(f"Audit object attributes: audit_id={audit_log.audit_id}, audit_user={audit_log.audit_user}")
+        
+        db.session.add(audit_log)
+        print("Audit log added to session")
+        
+        db.session.flush()
+        print(f"Session flushed, audit_id should be: {audit_log.audit_id}")
+        
+        db.session.commit()
+        print(f"✅ Audit log committed successfully with ID: {audit_log.audit_id}")
+        print(f"✅ Audit log created: User {audit_user_id} - Action: '{action}' - Type: '{action_type}' - Target: {target_user_name}")
+        return True
+    except Exception as e:
+        print(f"❌ Error creating audit log: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        print("Database session rolled back")
+        return False
 
 @auth.route('/login', methods=['GET', 'POST'])  # Make sure to allow both GET and POST methods
 def login():
@@ -72,6 +140,9 @@ def login_test():
         print(f"Session created: {session}")
         print(f"Session keys: {list(session.keys())}")
         
+        # Log the login action to audit table
+        create_audit_log(user.user_id, "POST - login", user.user_id)
+        
         # Create response - don't set cookies manually, let Flask handle it
         response = jsonify({
             "success": True, 
@@ -125,6 +196,12 @@ def check_session():
 def logout():
     print("=== LOGOUT CALLED ===")
     print(f"Before logout - Session: {session}")
+    
+    # Log the logout action before clearing session
+    if 'user_id' in session:
+        user_id = session['user_id']
+        create_audit_log(user_id, "POST - logout", user_id)
+    
     session.clear()
     print(f"After logout - Session: {session}")
     return jsonify({"success": True})

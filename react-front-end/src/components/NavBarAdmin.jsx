@@ -1,5 +1,5 @@
 import React from "react";
-import { FaUsers, FaBook, FaCog, FaSignOutAlt } from "react-icons/fa";
+import { FaUsers, FaBook, FaCog, FaSignOutAlt, FaFile } from "react-icons/fa";
 import { TbLayoutSidebarLeftCollapseFilled } from "react-icons/tb";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { MdHomeFilled } from "react-icons/md";
@@ -16,7 +16,8 @@ export default function NavBarAdmin({ collapsed, setCollapsed }) {
     { label: "Users", icon: <FaUsers />, to: "/admin/user" },
     { label: "Forms", icon: <FaBook />, to: "/admin/form" },
     { label: "Settings", icon: <FaCog />, to: "/admin/setting" },
-    { label: "Database", icon: <FaDatabase />, to: "/admin/db" }
+    { label: "Database", icon: <FaDatabase />, to: "/admin/db" },
+    { label: "Audit Logs", icon: <FaFile />, to: "/admin/audit" },
   ];
 
   const handleLogout = async () => {

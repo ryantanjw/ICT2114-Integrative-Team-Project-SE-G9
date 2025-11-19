@@ -1,18 +1,86 @@
 # Fix the import statements
 from flask import Blueprint, jsonify, request, session, make_response
 from werkzeug.security import generate_password_hash
-from models import User, Form, Activity, Process, Hazard, Risk, HazardType, Division, RA_team
+from models import User, Form, Activity, Process, Hazard, Risk, HazardType, Division, RA_team, Audit
 from models import db
 import random
 import string
 from flask_cors import CORS, cross_origin
 from math import ceil
+from datetime import datetime, timezone, timedelta
 from .rag import *
+
+# Define Singapore timezone (GMT+8)
+SINGAPORE_TZ = timezone(timedelta(hours=8))
 
 
 # Create a new blueprint for admin routes
 admin = Blueprint('admin', __name__)
 CORS(admin, supports_credentials=True)  # Enable credentials support for cookies
+
+def create_audit_log(audit_user_id, action, target_user_id):
+    """
+    Create an audit log entry
+    
+    Args:
+        audit_user_id: ID of the user performing the action
+        action: Description of the action (e.g., 'POST - login', 'UPDATE - edit user details')
+        target_user_id: ID of the user being affected by the action
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    print(f"\n=== CREATE AUDIT LOG CALLED ===")
+    print(f"Input - User ID: {audit_user_id}, Action: '{action}', Target: {target_user_id}")
+    
+    try:
+        # Extract action type from action string (e.g., "POST" from "POST - login")
+        action_type = action.split(" - ")[0] if " - " in action else ""
+        action = action.split(" - ")[1] if " - " in action else action
+        
+        # Get target user's name
+        target_user = User.query.get(target_user_id)
+        target_user_name = target_user.user_name if target_user else f"User ID: {target_user_id}"
+        
+        # Get current Singapore time (GMT+8)
+        singapore_time = datetime.now(SINGAPORE_TZ)
+        
+        print(f"Creating audit log with:")
+        print(f"  - audit_user: {audit_user_id}")
+        print(f"  - audit_action: {action}")
+        print(f"  - audit_actiontype: {action_type}")
+        print(f"  - audit_targetuser: {target_user_name}")
+        print(f"  - audit_time: {singapore_time}")
+        
+        audit_log = Audit(
+            audit_user=audit_user_id,
+            audit_action=action,
+            audit_actiontype=action_type,
+            audit_targetuser=target_user_name,
+            audit_time=singapore_time
+        )
+        
+        print(f"Audit object created: {audit_log}")
+        print(f"Audit object attributes: audit_id={audit_log.audit_id}, audit_user={audit_log.audit_user}")
+        
+        db.session.add(audit_log)
+        print("Audit log added to session")
+        
+        db.session.flush()
+        print(f"Session flushed, audit_id should be: {audit_log.audit_id}")
+        
+        db.session.commit()
+        print(f"Audit log committed successfully with ID: {audit_log.audit_id}")
+        print(f"Audit log created: User {audit_user_id} - Action: '{action}' - Type: '{action_type}' - Target: {target_user_name}")
+        return True
+    except Exception as e:
+        print(f"Error creating audit log: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        print("Database session rolled back")
+        return False
 
 @admin.route('/notification', methods=['GET'])
 def notification():
@@ -512,11 +580,18 @@ def remove_user():
         
         print(f"Removing user: {user.user_name} (ID: {user.user_id})")
         
+        # Store user_id before deletion for audit log
+        deleted_user_id = user.user_id
+        
+        # Log the user removal action to audit table BEFORE deleting the user
+        # This ensures the target user still exists when creating the audit log
+        create_audit_log(session['user_id'], "DELETE - remove user", deleted_user_id)
+        
         # Remove the user
         db.session.delete(user)
         db.session.commit()
         
-        print(f"User {user.user_name} (ID: {user.user_id}) removed successfully")
+        print(f"User {user.user_name} (ID: {deleted_user_id}) removed successfully")
         return jsonify({"success": True})
         
     except Exception as e:
@@ -558,6 +633,9 @@ def reset_password():
         
         # Save changes
         db.session.commit()
+        
+        # Log the password reset action to audit table
+        create_audit_log(session['user_id'], "UPDATE - reset password", user.user_id)
         
         print(f"Password reset successful for user: {user.user_name} (ID: {user.user_id})")
         return jsonify({
@@ -635,6 +713,9 @@ def add_user():
         
         db.session.add(new_user)
         db.session.commit()
+        
+        # Log the user creation action to audit table
+        create_audit_log(session['user_id'], "POST - add user", new_user.user_id)
         
         print(f"New user created: {new_user.user_name} (ID: {new_user.user_id})")
         # Fetch division name for the new user
@@ -727,6 +808,9 @@ def update_user():
             print("No cluster update requested (user_cluster not in data)")        
         # Save changes
         db.session.commit()
+        
+        # Log the user update action to audit table
+        create_audit_log(session['user_id'], "UPDATE - edit user details", user.user_id)
         
         print(f"User {user.user_name} (ID: {user.user_id}) updated successfully")
         return jsonify({
@@ -995,3 +1079,49 @@ def get_ra_leader(ra_team_id):
             'success': False,
             'error': str(e)
         }), 500
+
+@admin.route('/get_audit_logs', methods=['GET'])
+def get_audit_logs():
+    """Get all audit logs with user information"""
+    print("\n=== GET AUDIT LOGS CALLED ===")
+    
+    try:
+        # Query all audit logs with joins to get user names
+        audits = db.session.query(Audit, User).join(
+            User, Audit.audit_user == User.user_id
+        ).order_by(Audit.audit_time.desc()).all()
+        
+        audit_list = []
+        
+        for audit, user in audits:
+            # audit_targetuser now stores the user name directly
+            target_user_name = audit.audit_targetuser
+            
+            # Format the time
+            audit_time = audit.audit_time.isoformat() if audit.audit_time else None
+            
+            audit_list.append({
+                'audit_id': audit.audit_id,
+                'audit_user_id': audit.audit_user,
+                'audit_user_name': user.user_name,
+                'audit_action': audit.audit_action,
+                'audit_actiontype': audit.audit_actiontype,
+                'audit_targetuser_name': target_user_name,
+                'audit_time': audit_time
+            })
+        
+        print(f"Retrieved {len(audit_list)} audit logs")
+        return jsonify({
+            'success': True,
+            'audits': audit_list
+        })
+        
+    except Exception as e:
+        print(f"Error retrieving audit logs: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': 'Failed to retrieve audit logs'
+        }), 500
+        

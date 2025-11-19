@@ -150,3 +150,13 @@ class Division(db.Model):
 
     division_id = db.Column(db.Integer, primary_key=True, nullable=False)
     division_name = db.Column(db.String(100), nullable=True)
+    
+class Audit(db.Model):
+    __tablename__ = 'audit'
+
+    audit_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    audit_user = db.Column(db.String(255), nullable=False)
+    audit_action = db.Column(db.String(255), nullable=True)
+    audit_actiontype = db.Column(db.String(45), nullable=True)
+    audit_targetuser = db.Column(db.String(255), nullable=True)  # Changed to String to store user name
+    audit_time = db.Column(db.DateTime, nullable=False)  # Removed default, will be set explicitly with Singapore time (GMT+8)
