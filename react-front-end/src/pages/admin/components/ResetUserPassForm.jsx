@@ -178,7 +178,7 @@ export default function ResetUserPasswordForm({ isOpen, user, onClose, onPasswor
                             <InputGroup
                                 label=""
                                 id="password"
-                                type="text"
+                                type="password"
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
                                 placeholder="Enter new password"

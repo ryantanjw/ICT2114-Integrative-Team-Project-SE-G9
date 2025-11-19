@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import InputGroup from "../../../components/InputGroup.jsx";
 import StatusCard from "../../../components/StatusCard";
-import { FaCheckCircle, FaHourglassHalf } from "react-icons/fa";
+import { FaCheckCircle, FaHourglassHalf, FaRandom } from "react-icons/fa";
 import axios from "axios";
 
 export default function RegisterForm({ isOpen, onClose, onUserAdded }) {
@@ -85,10 +85,88 @@ export default function RegisterForm({ isOpen, onClose, onUserAdded }) {
     setErrors({});
   };
 
+  // Email validation
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Password validation - same as reset password requirements
+  const validatePassword = (password) => {
+    const errors = [];
+    if (password.length < 10)
+      errors.push("at least 10 characters");
+    if ((password.match(/[^A-Za-z0-9]/g) || []).length < 1)
+      errors.push("1 symbol");
+    if ((password.match(/[A-Z]/g) || []).length < 2)
+      errors.push("2 uppercase letters");
+    if ((password.match(/[a-z]/g) || []).length < 3)
+      errors.push("3 lowercase letters");
+    if ((password.match(/[0-9]/g) || []).length < 4)
+      errors.push("4 numbers");
+    return errors.length > 0
+      ? `Password must have ${errors.join(", ")}`
+      : "";
+  };
+
+  // Generate random password with same requirements as reset password
+  const generateRandomPassword = () => {
+    const symbols = "!@#$%^&*()_-+=";
+    const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lowercase = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    
+    let newPassword = "";
+    
+    // Add 1 symbol
+    newPassword += symbols[Math.floor(Math.random() * symbols.length)];
+    
+    // Add 2 uppercase letters
+    for (let i = 0; i < 2; i++) {
+      newPassword += uppercase[Math.floor(Math.random() * uppercase.length)];
+    }
+    
+    // Add 3 lowercase letters
+    for (let i = 0; i < 3; i++) {
+      newPassword += lowercase[Math.floor(Math.random() * lowercase.length)];
+    }
+    
+    // Add 4 numbers
+    for (let i = 0; i < 4; i++) {
+      newPassword += numbers[Math.floor(Math.random() * numbers.length)];
+    }
+    
+    // Add 2 more random characters to reach at least 12 characters total
+    const allChars = symbols + uppercase + lowercase + numbers;
+    for (let i = 0; i < 2; i++) {
+      newPassword += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+    
+    // Shuffle the password to make it more random
+    newPassword = newPassword.split('').sort(() => Math.random() - 0.5).join('');
+    
+    setPassword(newPassword);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setErrors({});
+
+    // Validate email
+    if (!validateEmail(email)) {
+      setErrors({ email: "Please enter a valid email address" });
+      setSubmitting(false);
+      return;
+    }
+
+    // Validate password
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setErrors({ password: passwordError });
+      setSubmitting(false);
+      return;
+    }
 
     const formData = {
       email,
@@ -161,15 +239,32 @@ export default function RegisterForm({ isOpen, onClose, onUserAdded }) {
             error={errors.email}
           />
 
-          <InputGroup
-            label="Password"
-            id="password"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            error={errors.password}
-          />
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password*
+              </label>
+              <button
+                type="button"
+                onClick={generateRandomPassword}
+                className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <FaRandom className="mr-1" /> Generate
+              </button>
+            </div>
+            <InputGroup
+              label=""
+              id="password"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              error={errors.password}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Must have at least 10 characters, 1 symbol, 2 uppercase, 3 lowercase, and 4 numbers
+            </p>
+          </div>
 
           <InputGroup
             label="Full Name"
