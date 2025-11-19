@@ -2470,7 +2470,8 @@ def generate_from_db_only():
             "existingControls": row.control,
             "severity": row.severity,
             "likelihood": row.likelihood,
-            "rpn": row.rpn
+            "rpn": row.rpn,
+            "from": "Database"  # Explicitly mark data as coming from database
             }
             for row in activities if row.activity_name == user_input
         ]

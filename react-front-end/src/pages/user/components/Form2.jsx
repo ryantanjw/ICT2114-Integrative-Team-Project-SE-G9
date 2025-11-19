@@ -1080,9 +1080,12 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
         const hazardsArr = (a.hazards || [])
           .filter(h => h && typeof h.description === 'string' && h.description.trim().length > 0)
           .map(h => {
-            const src = (typeof h.ai === 'string' && h.ai.toLowerCase().includes('db'))
+            // Check the ai field to determine the source
+            const src = h.ai === 'Database' || (typeof h.ai === 'string' && h.ai.toLowerCase().includes('db'))
               ? 'DB matched'
-              : (h.ai ? 'AI generated' : '');
+              : h.ai === 'AI' || (typeof h.ai === 'string' && h.ai.toLowerCase().includes('ai'))
+              ? 'AI generated'
+              : '';
             return { text: h.description.trim(), source: src };
           });
 
@@ -2312,7 +2315,7 @@ useEffect(() => {
                 severity: h.severity,
                 likelihood: h.likelihood,
                 rpn: h.rpn,
-                ai: "AI" // Data comes from AI generation
+                ai: h.from || "AI" // Use the 'from' field from backend (Database/AI)
               })
             );
 
@@ -2454,7 +2457,7 @@ useEffect(() => {
                       severity: h.severity,
                       likelihood: h.likelihood,
                       rpn: h.rpn,
-                      ai: "Database" // Data comes from database
+                      ai: h.from || "Database" // Use the 'from' field from backend (should be "Database")
                     })
                   );
 
