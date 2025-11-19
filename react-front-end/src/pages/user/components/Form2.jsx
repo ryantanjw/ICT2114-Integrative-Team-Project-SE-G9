@@ -1416,6 +1416,8 @@ useEffect(() => {
                         injuries: [...h.injuries, h.newInjury],
                         newInjury: "",
                         showInjuryInput: false,
+                        // Mark as User-edited if originally AI or Database
+                        ai: (h.ai === 'AI' || h.ai === 'Database') ? 'User' : h.ai
                       }
                       : h
                   ),
@@ -1472,7 +1474,12 @@ useEffect(() => {
                         // If severity is updated, sync newSeverity too
                         ...(key === 'severity' ? { newSeverity: value } : {}),
                         // If newSeverity is updated, sync severity too
-                        ...(key === 'newSeverity' ? { severity: value } : {})
+                        ...(key === 'newSeverity' ? { severity: value } : {}),
+                        // Mark as User-edited if the hazard was originally AI or Database
+                        // and a significant field is being modified
+                        ...((h.ai === 'AI' || h.ai === 'Database') && 
+                           !['showInjuryInput', 'newInjury', 'expanded'].includes(key)
+                          ? { ai: 'User' } : {})
                       }
                       : h
                   ),
@@ -1503,7 +1510,9 @@ useEffect(() => {
                       ? {
                         ...h,
                         // Set type to either [type] or [] if already selected
-                        type: h.type.includes(type) ? [] : [type]
+                        type: h.type.includes(type) ? [] : [type],
+                        // Mark as User-edited if originally AI or Database
+                        ai: (h.ai === 'AI' || h.ai === 'Database') ? 'User' : h.ai
                       }
                       : h
                   ),
@@ -1665,6 +1674,8 @@ useEffect(() => {
                       ? {
                         ...h,
                         injuries: h.injuries.filter(i => i !== injury),
+                        // Mark as User-edited if originally AI or Database
+                        ai: (h.ai === 'AI' || h.ai === 'Database') ? 'User' : h.ai
                       }
                       : h
                   ),

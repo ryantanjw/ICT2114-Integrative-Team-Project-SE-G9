@@ -1078,6 +1078,8 @@ def form2_temp_save():
                         hazard.ai = 'AI'
                     elif ai_source == 'Database':
                         hazard.ai = 'Database'
+                    elif ai_source == 'User':
+                        hazard.ai = 'User'
                     else:
                         hazard.ai = None  # For manually created or unspecified hazards
                     
@@ -1570,6 +1572,8 @@ def form2_save():
                         hazard.ai = 'AI'
                     elif ai_source == 'Database':
                         hazard.ai = 'Database'
+                    elif ai_source == 'User':
+                        hazard.ai = 'User'
                     else:
                         hazard.ai = None  # For manually created or unspecified hazards
                     
