@@ -257,7 +257,7 @@ const Form2 = forwardRef(({ sample, sessionData, updateFormData, formData }, ref
           riskControlType: "",
           expanded: true
         }],
-        ai: null, // Default for manually created hazards
+        ai: 'User', // Default for manually created hazards
       }];
     }
 
@@ -1372,7 +1372,7 @@ useEffect(() => {
                         controlType: "",
                         expanded: true
                       }],
-                      ai: null // Manually created hazard
+                      ai: 'User' // Manually created hazard - tagged as User
                     },
                   ],
                 }
@@ -1477,8 +1477,9 @@ useEffect(() => {
                         ...(key === 'newSeverity' ? { severity: value } : {}),
                         // Mark as User-edited if the hazard was originally AI or Database
                         // and a significant field is being modified
+                        // UI-only fields that don't trigger User tag: showInjuryInput, newInjury, expanded, showTypeInput, newType
                         ...((h.ai === 'AI' || h.ai === 'Database') && 
-                           !['showInjuryInput', 'newInjury', 'expanded'].includes(key)
+                           !['showInjuryInput', 'newInjury', 'expanded', 'showTypeInput', 'newType'].includes(key)
                           ? { ai: 'User' } : {})
                       }
                       : h
@@ -1613,7 +1614,9 @@ useEffect(() => {
                               ? currentText.replace(typeRegex, `[${typeDisplay}] `)
                               : `[${typeDisplay}] ${currentText}`;
                           }
-                        })()
+                        })(),
+                        // Mark as User-edited if originally AI or Database
+                        ai: (h.ai === 'AI' || h.ai === 'Database') ? 'User' : h.ai
                       }
                       : h
                   )
@@ -2139,7 +2142,7 @@ useEffect(() => {
     newRpn = 0,
     implementationPerson = "",
     additionalControlType = "",
-    ai = null // Default to null for manually created hazards
+    ai = 'User' // Default to 'User' for manually created hazards
   } = {}) => {
     // // Extract any existing risk control type from existingControls
     // const typeRegex = /^\[(.*?)\]\s*/;
@@ -2936,7 +2939,9 @@ useEffect(() => {
                                                                   ...riskCtrl,
                                                                   riskControlType: riskCtrl.riskControlType === typeObj.value ? "" : typeObj.value
                                                                 } : riskCtrl
-                                                              )
+                                                              ),
+                                                              // Mark as User-edited if originally AI or Database
+                                                              ai: (hz.ai === 'AI' || hz.ai === 'Database') ? 'User' : hz.ai
                                                             } : hz
                                                           )
                                                         } : a
@@ -2978,7 +2983,9 @@ useEffect(() => {
                                                               ...riskCtrl,
                                                               existingControls: e.target.value
                                                             } : riskCtrl
-                                                          )
+                                                          ),
+                                                          // Mark as User-edited if originally AI or Database
+                                                          ai: (hz.ai === 'AI' || hz.ai === 'Database') ? 'User' : hz.ai
                                                         } : hz
                                                       )
                                                     } : a
@@ -3267,7 +3274,9 @@ useEffect(() => {
                                                                     controlType: "",
                                                                     expanded: true
                                                                   }
-                                                                ]
+                                                                ],
+                                                                // Mark as User-edited if originally AI or Database
+                                                                ai: (hz.ai === 'AI' || hz.ai === 'Database') ? 'User' : hz.ai
                                                               } : hz
                                                             )
                                                           } : a
@@ -3327,7 +3336,9 @@ useEffect(() => {
                                                                   // For backward compatibility with the first control
                                                                   additionalControlType: acIndex === 0 ?
                                                                     (additionalControl.controlType === typeObj.value ? "" : typeObj.value)
-                                                                    : hz.additionalControlType
+                                                                    : hz.additionalControlType,
+                                                                  // Mark as User-edited if originally AI or Database
+                                                                  ai: (hz.ai === 'AI' || hz.ai === 'Database') ? 'User' : hz.ai
                                                                 } : hz
                                                               )
                                                             } : a
@@ -3382,7 +3393,9 @@ useEffect(() => {
                                                                 } : ctrl
                                                               ),
                                                               // For backward compatibility with the first control
-                                                              additionalControls: acIndex === 0 ? e.target.value : hz.additionalControls
+                                                              additionalControls: acIndex === 0 ? e.target.value : hz.additionalControls,
+                                                              // Mark as User-edited if originally AI or Database
+                                                              ai: (hz.ai === 'AI' || hz.ai === 'Database') ? 'User' : hz.ai
                                                             } : hz
                                                           )
                                                         } : a
