@@ -1202,9 +1202,9 @@ const Form1 = forwardRef(({ sample, sessionData, updateFormData, formData, onNav
                 
                     <div className="flex items-center gap-2">
                       <h5 className="font-medium">Work Activity</h5>
-                      <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                      {/* <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
                         AI | DB | User
-                      </span>
+                      </span> */}
                     </div>
                     <div className="space-x-2 flex">
                       <button

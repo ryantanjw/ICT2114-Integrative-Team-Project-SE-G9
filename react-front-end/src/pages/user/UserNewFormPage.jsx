@@ -853,15 +853,16 @@ export default function UserNewForm() {
         buttonsRight={
           currentTab !== 3 ? [
             {
-              text: "Temp Save",
-              onClick: handleTempSaveClick,
-              icon: MdSaveAs
-            },
-            {
               text: "Save",
-              onClick: handleSaveClick,
+              onClick: handleTempSaveClick,
               icon: MdSave
-            }
+            },
+            // {
+            // removed due to confusion
+            //   text: "Save",
+            //   onClick: handleSaveClick,
+            //   icon: MdSave
+            // }
           ] : []
         }
         position="bottom"

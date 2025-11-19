@@ -2626,9 +2626,9 @@ useEffect(() => {
                   >
                     {act.expanded ? <FiChevronUp /> : <FiChevronDown />}
                     <div className="flex items-center gap-2">
-                      <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                      {/* <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
                         AI | DB | User
-                      </span>
+                      </span> */}
 
                       <span className="font-semibold text-xl">
                         Work Activity {idx + 1} {act.description && `- ${act.description}`}
@@ -2694,9 +2694,11 @@ useEffect(() => {
                            <span className="font-semibold text-xl">
                             Hazard {hi + 1}
                           </span>
-                          <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
-                           AI | DB | User
-                          </span>
+                          {h.ai && (
+                            <span className="text font-medium px-2 py-0.5 rounded-full bg-blue-200 text-gray-800">
+                              {h.ai === 'AI' ? 'AI' : h.ai === 'Database' ? 'DB' : 'User'}
+                            </span>
+                          )}
                          </div>
                           <div className="space-x-2 flex">
                             <button

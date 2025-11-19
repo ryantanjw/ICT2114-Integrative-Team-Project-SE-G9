@@ -976,14 +976,15 @@ def form2_temp_save():
         for proc_data in data.get('processes', []):
             proc_id = proc_data.get('id')
             
-            if isinstance(proc_id, int):
+            # Check if process already exists in database by ID
+            process = None
+            if proc_id and isinstance(proc_id, int):
                 process = Process.query.get(proc_id)
                 if process and process.process_form_id == form.form_id:
-                    updated_process_ids.append(process.process_id)
+                    # Found existing process - will update it
+                    pass
                 else:
                     process = None
-            else:
-                process = None
                 
             if not process:
                 process = Process()
@@ -995,6 +996,7 @@ def form2_temp_save():
             process.process_location = proc_data.get('location', '')
             
             db.session.flush()
+            updated_process_ids.append(process.process_id)
             
             existing_activities = Activity.query.filter_by(
                 activity_process_id=process.process_id
@@ -1005,14 +1007,15 @@ def form2_temp_save():
             for act_data in proc_data.get('activities', []):
                 act_id = act_data.get('id')
                 
-                if isinstance(act_id, int):
+                # Check if activity already exists in database by ID
+                activity = None
+                if act_id and isinstance(act_id, int):
                     activity = Activity.query.get(act_id)
                     if activity and activity.activity_process_id == process.process_id:
-                        updated_activity_ids.append(activity.activity_id)
+                        # Found existing activity - will update it
+                        pass
                     else:
                         activity = None
-                else:
-                    activity = None
                     
                 if not activity:
                     activity = Activity()
@@ -1023,6 +1026,7 @@ def form2_temp_save():
                 activity.activity_number = act_data.get('activityNumber', 1)
                 
                 db.session.flush()
+                updated_activity_ids.append(activity.activity_id)
                 
                 existing_hazards = Hazard.query.filter_by(
                     hazard_activity_id=activity.activity_id
@@ -1033,14 +1037,15 @@ def form2_temp_save():
                 for haz_data in act_data.get('hazards', []):
                     haz_id = haz_data.get('id')
                     
-                    if isinstance(haz_id, int):
+                    # Check if hazard already exists in database by ID
+                    hazard = None
+                    if haz_id and isinstance(haz_id, int):
                         hazard = Hazard.query.get(haz_id)
                         if hazard and hazard.hazard_activity_id == activity.activity_id:
-                            updated_hazard_ids.append(hazard.hazard_id)
+                            # Found existing hazard - will update it
+                            pass
                         else:
                             hazard = None
-                    else:
-                        hazard = None
                         
                     if not hazard:
                         hazard = Hazard()
