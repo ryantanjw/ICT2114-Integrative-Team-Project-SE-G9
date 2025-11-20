@@ -4,6 +4,9 @@ import json
 import numpy as np
 from models import KnownData
 from dotenv import load_dotenv
+from rank_bm25 import BM25Okapi
+from sentence_transformers import CrossEncoder
+reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
 load_dotenv()
 openai.api_key = os.getenv("OPEN_AI_API_KEY")
@@ -52,16 +55,79 @@ def get_embeddings_batched(texts, model="text-embedding-3-small", batch_size=100
         embeddings.extend(batch_embeddings)
     return embeddings
 
+def normalize_scores(scores):
+    # 1. Convert to NumPy array and flatten FIRST
+    scores = np.array(scores).flatten()
+    
+    # 2. Check if empty using .size (Safe for NumPy arrays)
+    if scores.size == 0:
+        return scores
+    
+    min_score = np.min(scores)
+    max_score = np.max(scores)
+    
+    # Avoid division by zero
+    if max_score == min_score:
+        return np.zeros_like(scores) if max_score == 0 else np.ones_like(scores)
+        
+    return (scores - min_score) / (max_score - min_score)
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def rerank_results(user_input, candidates):
+    """
+    candidates: list of (text, score) tuples from retrieve_most_relevant
+    """
+    if not candidates:
+        return []
+        
+    # Prepare pairs for the model: [[query, doc1], [query, doc2]...]
+    doc_texts = [c[0] for c in candidates]
+    pairs = [[user_input, doc] for doc in doc_texts]
+    
+    # Predict scores (Output is raw logits, e.g., -4.2, 1.5, 8.9)
+    raw_scores = reranker.predict(pairs)
+    
+    # Convert to 0-1 range using Sigmoid
+    normalized_scores = sigmoid(raw_scores)
+    
+    # Sort by new scores
+    ranked_results = sorted(
+        zip(doc_texts, normalized_scores), 
+        key=lambda x: x[1], 
+        reverse=True
+    )
+    return ranked_results
 # Compute cosine similarity between two vectors
 def cosine_similarity(vec1, vec2):
     return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
 
-# Retrieve top-k most relevant strings 
-def retrieve_most_relevant(user_input, knowledge_base, kb_embeddings, top_k=1):
+def retrieve_most_relevant(user_input, knowledge_base, kb_embeddings, top_k=5, alpha=0.5):
+    # 1. VECTOR SEARCH
     user_embedding = get_embedding(user_input)
-    similarities = [cosine_similarity(user_embedding, emb) for emb in kb_embeddings]
-    top_indices = np.argsort(similarities)[::-1][:top_k]
-    return [(knowledge_base[i], similarities[i]) for i in top_indices]
+    # Calculate cosine similarity (results in a list of floats)
+    vector_raw_scores = [cosine_similarity(user_embedding, emb) for emb in kb_embeddings]
+    
+    # 2. KEYWORD SEARCH (BM25)
+    tokenized_corpus = [doc.lower().split() for doc in knowledge_base]
+    bm25 = BM25Okapi(tokenized_corpus)
+    tokenized_query = user_input.lower().split()
+    bm25_raw_scores = bm25.get_scores(tokenized_query)
+    
+    # 3. NORMALIZE (Flattened)
+    norm_vector = normalize_scores(vector_raw_scores)
+    norm_bm25 = normalize_scores(bm25_raw_scores)
+    
+    # 4. COMBINE
+    # Since both are now flat 1D arrays, this math will work correctly
+    hybrid_scores = (1 - alpha) * norm_bm25 + (alpha) * norm_vector
+    
+    # 5. RETRIEVE
+    top_indices = np.argsort(hybrid_scores)[::-1][:top_k]
+    
+    # Return the text and the single scalar score
+    return [(knowledge_base[i], hybrid_scores[i]) for i in top_indices]
 
 # Generate answer using GPT with Prompt engineering and RAG
 def generate_answer(user_input, context):
@@ -157,10 +223,21 @@ def ai_function(activity):
         kb_embeddings = get_embeddings_batched(knowledge_base)
         save_embeddings(embedding_cache_path, kb_embeddings)
 
-    # Retrieve most relevant
-    top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
-    context_text, similarity = top_matches[0]
-    print(f"Context text: {context_text}, Similarity: {similarity}")
+    # # Retrieve most relevant
+    # top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
+    # context_text, similarity = top_matches[0]
+    # print(f"Context text: {context_text}, Similarity: {similarity}")
+    # 1. RETRIEVE (Get Top 10 Candidates using Hybrid Search)
+    # We ask for top_k=10 to give the re-ranker enough options
+    candidate_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=10)
+    
+    # 2. RE-RANK (Find the single best match from those 10)
+    ranked_matches = rerank_results(activity, candidate_matches)
+    
+    # 3. SELECT TOP 1
+    context_text, similarity = ranked_matches[0]
+    
+    print(f"Context text: {context_text}, Re-ranker Score: {similarity}")
     if similarity >= 0.35:
         # Query all matching rows by activity_name
         hazard_rows = KnownData.query.filter_by(activity_name=context_text).all()
@@ -316,15 +393,15 @@ def load_injury_kb_and_embeddings():
 # db page gold mine
 def get_hazard_match(activity, knowledge_base, kb_embeddings):
     top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
-    context_text, similarity = top_matches[0]
-    print (f"activity: {activity}, similarity: {similarity}")
+    # context_text, similarity = top_matches[0]
+    # print (f"activity: {activity}, similarity: {similarity}")
     # return similarity <= 0.35
+    # 2. RE-RANK (Find the single best match from those 10)
+    ranked_matches = rerank_results(activity, top_matches)
+    
+    # 3. SELECT TOP 1
+    context_text, similarity = ranked_matches[0]
     return similarity <= 0.85
-
-def get_hazard_match_reference(activity, knowledge_base, kb_embeddings):
-    top_matches = retrieve_most_relevant(activity, knowledge_base, kb_embeddings, top_k=1)
-    context_text, similarity = top_matches[0]
-    return context_text
 
 def generate_ai_work_activities(title, processName, db_result):
     user_prompt = (
@@ -371,8 +448,19 @@ def get_matched_activities(title, processName):
 
     # Retrieve most relevant
     titleprocessName = f"{title} {processName}"
-    top_matches = retrieve_most_relevant(titleprocessName, knowledge_base, kb_embeddings, top_k=1)
-    context_text, similarity = top_matches[0]
+    # top_matches = retrieve_most_relevant(titleprocessName, knowledge_base, kb_embeddings, top_k=1)
+    # context_text, similarity = top_matches[0]
+     # 1. RETRIEVE (Get Top 10 Candidates using Hybrid Search)
+    # We ask for top_k=10 to give the re-ranker enough options
+    top_matches = retrieve_most_relevant(titleprocessName, knowledge_base, kb_embeddings, top_k=10)
+    
+    # 2. RE-RANK (Find the single best match from those 10)
+    ranked_matches = rerank_results(titleprocessName, top_matches)
+    
+    # 3. SELECT TOP 1
+    context_text, similarity = ranked_matches[0]
+    
+    print(f"Context text: {context_text}, Re-ranker Score: {similarity}")
     title, process_Name = context_text.split("%%", 1)
     query_result = KnownData.query.filter(
             KnownData.title.ilike(title),
@@ -404,8 +492,19 @@ def get_matched_activities_only_db(title, processName):
 
     # Retrieve most relevant
     titleprocessName = f"{title} {processName}"
-    top_matches = retrieve_most_relevant(titleprocessName, knowledge_base, kb_embeddings, top_k=1)
-    context_text, similarity = top_matches[0]
+    # top_matches = retrieve_most_relevant(titleprocessName, knowledge_base, kb_embeddings, top_k=1)
+    # context_text, similarity = top_matches[0]
+     # 1. RETRIEVE (Get Top 10 Candidates using Hybrid Search)
+    # We ask for top_k=10 to give the re-ranker enough options
+    top_matches = retrieve_most_relevant(titleprocessName, knowledge_base, kb_embeddings, top_k=10)
+    
+    # 2. RE-RANK (Find the single best match from those 10)
+    ranked_matches = rerank_results(titleprocessName, top_matches)
+    
+    # 3. SELECT TOP 1
+    context_text, similarity = ranked_matches[0]
+    
+    print(f"Context text: {context_text}, Re-ranker Score: {similarity}")
     title, process_Name = context_text.split("%%", 1)
     query_result = KnownData.query.filter(
             KnownData.title.ilike(title),
