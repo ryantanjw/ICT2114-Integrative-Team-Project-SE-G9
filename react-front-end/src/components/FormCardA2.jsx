@@ -32,7 +32,7 @@ export default function FormCardA2({
           {/* Colored status circle */}
           <div
             className={`w-10 h-10 rounded-full flex-none ${
-              tagColorMap[status].split(" ")[0]
+              (tagColorMap[status] || "bg-gray-400").split(" ")[0]
             }`}
           ></div>
           <div className="flex flex-col">

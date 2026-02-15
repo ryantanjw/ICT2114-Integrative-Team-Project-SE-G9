@@ -28,6 +28,8 @@ import AdminAudit from "./pages/admin/AdminAuditPage.jsx";
 // Dev pages
 import DevAdminDBPage from "./pages/dev/DevAdminDBPage.jsx";
 import DevHome from "./pages/dev/DevHomePage.jsx";
+import DevUserPage from "./pages/dev/DevUserPage.jsx";
+import DevStartPage from "./pages/dev/DevStartPage.jsx";
 // import Logout from "./pages/auth/LogoutPage.jsx";
 
 function AppRoutes() {
@@ -70,6 +72,8 @@ function AppRoutes() {
         {/* Dev-specific routes */}        
         <Route path="/dev/home" element={<DevHome />} />  
         <Route path="/dev/db" element={<DevAdminDBPage />} />  
+        <Route path="/dev/user" element={<DevUserPage />} />
+        <Route path="/dev/start" element={<DevStartPage />} />
       </Routes>
   );
 }
